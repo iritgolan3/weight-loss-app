@@ -79,6 +79,63 @@
   .play:hover { opacity: .84; }
   .spinner { margin: 24px 0 0; font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .24em; text-transform: uppercase; color: #8a8a8a; animation: ctBlink 1.1s ease-in-out infinite; }
 
+  /* ---- editor ---- */
+  .pencil {
+    position: absolute; z-index: 5;
+    top: calc(18px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    width: 46px; height: 46px; border-radius: 999px; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.24); color: #fff; font-size: 19px; line-height: 1;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    transition: background .16s ease, color .16s ease;
+  }
+  .pencil:hover { background: rgba(255,255,255,.4); }
+  .pencil[aria-expanded="true"] { background: #0D0D0D; color: #f4f1e9; }
+
+  .editor { position: absolute; z-index: 6; top: 0; right: 0; height: 100%; width: min(370px, 100%); padding: 16px; display: flex; }
+  .editor[hidden] { display: none; }
+  .editor-in {
+    width: 100%; display: flex; flex-direction: column; overflow: hidden;
+    background: #f4f1e9; border-radius: 24px; box-shadow: 0 24px 60px rgba(6,20,30,.34);
+    animation: ctIn .26s cubic-bezier(.22,1,.36,1);
+  }
+  .ed-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 20px 14px; }
+  .ed-title { font: 900 24px/1 Archivo, sans-serif; letter-spacing: -.03em; color: #0D0D0D; }
+  .ed-sub { font: 500 9px/1.5 'JetBrains Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: #8a8a8a; margin-top: 7px; }
+  .ed-x { border: 0; background: #e7e3d9; color: #0D0D0D; width: 30px; height: 30px; border-radius: 999px; cursor: pointer; font: 600 14px/1 Archivo, sans-serif; flex: none; }
+  .ed-x:hover { background: #dbd6c9; }
+
+  .ed-list { flex: 1; overflow-y: auto; padding: 2px 16px 4px; display: flex; flex-direction: column; gap: 10px; }
+  .ed-empty { font: 400 13px/1.5 Archivo, sans-serif; color: #8a8a8a; text-align: center; padding: 22px 10px; }
+
+  .lane { background: #fff; border-radius: 18px; padding: 12px 14px 14px; }
+  .lane.off { opacity: .5; }
+  .lane-top { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+  .lane-kind {
+    flex: 1; min-width: 0; border: 0; background: #f4f1e9; border-radius: 9px; cursor: pointer;
+    padding: 7px 9px; font: 600 12px/1 Archivo, sans-serif; color: #0D0D0D;
+  }
+  .icon-btn { border: 0; background: #f4f1e9; border-radius: 9px; cursor: pointer; padding: 7px 9px; font: 500 9px/1 'JetBrains Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: #4A4A4A; }
+  .icon-btn:hover { background: #e7e3d9; }
+  .icon-btn.on { background: #0D0D0D; color: #f4f1e9; }
+
+  .ctrl { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; margin-top: 11px; }
+  .ctrl-name { font: 500 9px/1 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: #8a8a8a; }
+  .ctrl-val { font: 700 12px/1 Archivo, sans-serif; color: #0D0D0D; font-variant-numeric: tabular-nums; }
+  .ctrl input { grid-column: 1 / -1; width: 100%; accent-color: #0D0D0D; margin: 5px 0 0; }
+
+  .ed-foot { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+  .ed-btn { flex: 1; border: 0; cursor: pointer; border-radius: 999px; padding: 14px 12px; font: 600 10px/1 'JetBrains Mono', monospace; letter-spacing: .18em; text-transform: uppercase; }
+  .ed-btn.primary { background: #0D0D0D; color: #f4f1e9; }
+  .ed-btn.ghost { background: #e7e3d9; color: #0D0D0D; }
+  .ed-btn:hover { opacity: .84; }
+
+  @media (max-width: 760px) {
+    .editor { top: auto; bottom: 0; height: auto; max-height: 64vh; width: 100%; padding: 10px; }
+    .hint { display: none; }
+  }
+
   @keyframes ctIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
   @keyframes ctBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 </style>
@@ -99,6 +156,25 @@
 
   <a class="back" href="index.html" aria-label="Back to the app">&#8592;</a>
   <div class="hint" id="hint"></div>
+
+  <button class="pencil" id="pencil" aria-expanded="false" aria-controls="editor" title="Edit the traffic (E)">&#9998;</button>
+
+  <div class="editor" id="editor" hidden>
+    <div class="editor-in">
+      <div class="ed-head">
+        <div>
+          <div class="ed-title">Traffic</div>
+          <div class="ed-sub">Speed &middot; level &middot; how often</div>
+        </div>
+        <button class="ed-x" id="edClose" title="Close">&#10005;</button>
+      </div>
+      <div class="ed-list" id="edList"></div>
+      <div class="ed-foot">
+        <button class="ed-btn ghost" id="edReset">Reset</button>
+        <button class="ed-btn primary" id="edAdd">Add lane</button>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="overlay">
     <div class="card" id="card">
@@ -131,6 +207,28 @@ const VIEW_H = 9.4;          // world units that always fit down the screen
 const AHEAD_MIN = 16;        // rows kept built in front of the player
 const BEHIND_MIN = 9;        // rows kept built behind the player
 const FALL_MS = 520;         // how long the knocked-over tumble takes
+
+// Everything that can occupy a lane. `gap` is the clear space left between two
+// of them, `lane` picks the surface the lane is paved with.
+const KINDS = {
+  m3:     { label: 'Model 3',    gap: 5.4, lane: 'road', swatch: '#2d5f8b' },
+  my:     { label: 'Model Y',    gap: 5.4, lane: 'road', swatch: '#2f7d52' },
+  cyber:  { label: 'Cybertruck', gap: 6.2, lane: 'road', swatch: '#b9bfc6' },
+  truck:  { label: 'Semi truck', gap: 9.0, lane: 'road', swatch: '#c0392b' },
+  person: { label: 'Pedestrian', gap: 2.0, lane: 'walk', swatch: '#f0c9a8' }
+};
+const KIND_IDS = Object.keys(KINDS);
+
+// speed is world units per second, level is the score the lane first shows up at,
+// often is its weight when a lane is rolled.
+const DEFAULT_TRAFFIC = [
+  { kind: 'm3',     speed: 3.0, level: 0,  often: 1.2, on: true },
+  { kind: 'my',     speed: 2.7, level: 0,  often: 1.2, on: true },
+  { kind: 'cyber',  speed: 4.2, level: 4,  often: 0.9, on: true },
+  { kind: 'truck',  speed: 2.2, level: 10, often: 0.7, on: true },
+  { kind: 'person', speed: 1.1, level: 6,  often: 0.6, on: true }
+];
+const TRAFFIC_KEY = 'crossyTeslaTraffic';
 const SPLATS = 64;           // red squares thrown out on impact
 const GRAVITY = 15;
 
@@ -163,6 +261,23 @@ function frustum(w, h) {
   return { dx: dx, dy: dy, behind: Math.max(BEHIND_MIN, reach), ahead: Math.max(AHEAD_MIN, reach + 4), lim: lim };
 }
 
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+function fmt(key, v) {
+  if (key === 'speed') return v.toFixed(1);
+  if (key === 'level') return v === 0 ? 'Start' : 'Lv ' + v;
+  return Math.round(v * 50) + '%';
+}
+
+function ctrlRow(key, name, val, min, max, step, shown) {
+  return '<div class="ctrl">' +
+      '<span class="ctrl-name">' + name + '</span>' +
+      '<span class="ctrl-val" data-val="' + key + '">' + shown + '</span>' +
+      '<input type="range" data-act="set" data-key="' + key + '" min="' + min + '" max="' + max +
+        '" step="' + step + '" value="' + val + '" aria-label="' + name + '">' +
+    '</div>';
+}
+
 function lerpAngle(a, b, k) {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;
@@ -177,13 +292,25 @@ class Game {
     try { this.best = Number(localStorage.getItem('crossyTeslaBest') || 0) || 0; } catch (e) { this.best = 0; }
     this.state.best = this.best;
 
+    this.traffic = this.loadTraffic();
+    this.editing = false;
+    this.pan = { x: 0, y: 0 };
+
     window.addEventListener('keydown', (e) => this.key(e));
     window.addEventListener('resize', () => this.resize());
     $('cardButton').addEventListener('click', () => {
       if (this.state.phase === 'error') { location.reload(); return; }
       this.play();
     });
+    $('pencil').addEventListener('click', () => this.setEditor(!this.editing));
+    $('edClose').addEventListener('click', () => this.setEditor(false));
+    $('edAdd').addEventListener('click', () => this.addLane());
+    $('edReset').addEventListener('click', () => this.resetTraffic());
+    $('edList').addEventListener('input', (e) => this.onLaneInput(e));
+    $('edList').addEventListener('change', (e) => this.onLaneInput(e));
+    $('edList').addEventListener('click', (e) => this.onLaneClick(e));
 
+    this.renderEditor();
     this.render();
     this.boot();
   }
@@ -203,10 +330,10 @@ class Game {
     $('statScore').textContent = s.score;
     $('statBest').textContent = s.best;
     $('hint').textContent = phase === 'play'
-      ? 'Arrows / WASD to hop · swipe or tap on mobile'
-      : 'Space to start · Arrows / WASD to hop';
+      ? 'Arrows / WASD to hop · pencil to edit the traffic'
+      : 'Space to start · pencil to edit the traffic';
 
-    $('overlay').hidden = phase === 'play';
+    $('overlay').hidden = phase === 'play' || this.editing;
     $('cardKicker').textContent = card.kicker;
     $('cardTitle').textContent = card.title;
     $('cardBody').textContent = card.body;
@@ -404,7 +531,14 @@ class Game {
       else type = Math.random() < roadChance ? 'road' : 'grass';
     }
 
-    const row = { type: type, group: g, cars: [], blockers: new Set(), run: 0 };
+    // A road row needs a lane that has reached its level; if none has, it stays grass.
+    let entry = null;
+    if (type === 'road') {
+      entry = this.pickLane();
+      if (!entry) type = 'grass';
+    }
+
+    const row = { type: type, group: g, cars: [], blockers: new Set(), run: 0, kind: null };
 
     if (type === 'grass') {
       const shade = (index % 2 === 0) ? 0x7cc35a : 0x74ba52;
@@ -427,27 +561,31 @@ class Game {
     } else {
       const prev = this.rows.get(index - 1);
       row.run = prev && prev.type === 'road' ? prev.run + 1 : 1;
-      const ground = this.mesh(76, 0.6, 1, 0x4b4b55, 0, -0.3, 0);
+      const spec = KINDS[entry.kind];
+      const walk = spec.lane === 'walk';
+      row.kind = entry.kind;
+      const ground = this.mesh(76, 0.6, 1, walk ? 0x9fa6a6 : 0x4b4b55, 0, -0.3, 0);
       ground.receiveShadow = true;
       g.add(ground);
-      for (let x = -EDGE - 2; x <= EDGE + 2; x += 2) {
-        g.add(this.mesh(0.9, 0.02, 0.07, 0xf2efe4, x, 0.005, 0.5));
+      if (walk) {
+        for (let x = -EDGE - 4; x <= EDGE + 4; x += 1.1) {
+          g.add(this.mesh(0.86, 0.02, 0.86, 0xacb3b2, x, 0.005, 0));
+        }
+      } else {
+        for (let x = -EDGE - 2; x <= EDGE + 2; x += 2) {
+          g.add(this.mesh(0.9, 0.02, 0.07, 0xf2efe4, x, 0.005, 0.5));
+        }
       }
       row.dir = Math.random() < 0.5 ? 1 : -1;
-      const fast = Math.random() < 0.22;
-      row.speed = (fast ? 4.4 : 2.5) + Math.random() * 1.1 + this.score * 0.028;
-      row.speed = Math.min(row.speed, fast ? 10 : 7.4);
-      const kinds = fast ? ['m3', 'm3', 'my'] : ['m3', 'my', 'my', 'cyber'];
+      row.speed = Math.max(0.2, entry.speed) * (0.92 + Math.random() * 0.16);
       let x = -this.lim - Math.random() * 6;
-      const gapBase = fast ? 7.5 : 5.4;
       while (x < this.lim + 4) {
-        const kind = kinds[Math.floor(Math.random() * kinds.length)];
-        const car = this.buildCar(kind);
-        car.position.set(x, 0, 0);
-        car.rotation.y = row.dir > 0 ? 0 : Math.PI;
-        g.add(car);
-        row.cars.push(car);
-        x += car.userData.len + gapBase + Math.random() * 4.5;
+        const actor = this.buildActor(entry.kind);
+        actor.position.set(x, 0, walk ? (Math.random() - 0.5) * 0.4 : 0);
+        actor.rotation.y = row.dir > 0 ? 0 : Math.PI;
+        g.add(actor);
+        row.cars.push(actor);
+        x += actor.userData.len + spec.gap + Math.random() * (walk ? 1.6 : 4.5);
       }
     }
 
@@ -469,6 +607,73 @@ class Game {
     g.add(cap);
     g.position.set(col, 0.08, (Math.random() - 0.5) * 0.14);
     g.scale.setScalar(0.9 + Math.random() * 0.25);
+    return g;
+  }
+
+  buildActor(kind) {
+    if (kind === 'person') return this.buildPerson();
+    if (kind === 'truck') return this.buildTruck();
+    return this.buildCar(kind);
+  }
+
+  buildTruck() {
+    const T = this.T;
+    const g = new T.Group();
+    const cabPaints = [0xf4f4f4, 0xc0392b, 0x2d5f8b, 0x1b1b20];
+    const paint = cabPaints[Math.floor(Math.random() * cabPaints.length)];
+    const glass = 0x27333d;
+    const len = 4.3, wid = 1.06;
+
+    // cab
+    const cab = this.mesh(1.25, 0.95, wid, paint, len / 2 - 0.62, 0.2 + 0.475, 0);
+    cab.castShadow = true;
+    g.add(cab);
+    g.add(this.mesh(0.1, 0.44, wid * 0.9, glass, len / 2 - 0.03, 0.86, 0));
+    g.add(this.mesh(0.9, 0.3, wid * 0.82, glass, len / 2 - 0.66, 1.2, 0));
+    // trailer, sitting a touch higher than the cab deck
+    const trailer = this.mesh(2.75, 1.15, wid, 0xe9e9ea, -len / 2 + 1.45, 0.28 + 0.575, 0);
+    trailer.castShadow = true;
+    g.add(trailer);
+    g.add(this.mesh(0.12, 0.9, wid * 0.94, 0xd4d4d6, -len / 2 + 0.06, 0.86, 0));
+    g.add(this.mesh(2.4, 0.1, wid * 0.5, 0xd0d0d2, -len / 2 + 1.45, 1.44, 0));
+    // lights
+    g.add(this.mesh(0.08, 0.09, 0.22, 0xfff3c4, len / 2 - 0.01, 0.34, wid / 2 - 0.18));
+    g.add(this.mesh(0.08, 0.09, 0.22, 0xfff3c4, len / 2 - 0.01, 0.34, -wid / 2 + 0.18));
+    g.add(this.mesh(0.08, 0.09, 0.24, 0xd63b2f, -len / 2 + 0.02, 0.4, wid / 2 - 0.2));
+    g.add(this.mesh(0.08, 0.09, 0.24, 0xd63b2f, -len / 2 + 0.02, 0.4, -wid / 2 + 0.2));
+
+    const wz = wid / 2 + 0.02;
+    for (const sx of [len / 2 - 0.55, -len / 2 + 0.7, -len / 2 + 1.5]) {
+      for (const sz of [-wz, wz]) g.add(this.mesh(0.42, 0.4, 0.14, 0x141418, sx, 0.2, sz));
+    }
+    g.userData.len = len;
+    return g;
+  }
+
+  buildPerson() {
+    const g = new this.T.Group();
+    const tops = [0xd63b2f, 0x2d5f8b, 0xe0a63c, 0x2f7d52, 0x7a4fb5, 0xf4f4f4];
+    const legs = [0x23252b, 0x1b3a5c, 0x4a4a52];
+    const skins = [0xf0c9a8, 0xd7a97f, 0x8d5a3b, 0xf6d9bd];
+    const hairs = [0x3a2a1c, 0x141418, 0x8a5a2b, 0xb8942f];
+    const top = tops[Math.floor(Math.random() * tops.length)];
+    const leg = legs[Math.floor(Math.random() * legs.length)];
+    const skin = skins[Math.floor(Math.random() * skins.length)];
+    const hair = hairs[Math.floor(Math.random() * hairs.length)];
+
+    const hip = new this.T.Group();
+    hip.add(this.mesh(0.16, 0.34, 0.15, leg, 0, 0.17, -0.09));
+    hip.add(this.mesh(0.16, 0.34, 0.15, leg, 0, 0.17, 0.09));
+    g.add(hip);
+    g.add(this.mesh(0.34, 0.4, 0.28, top, 0, 0.54, 0));
+    g.add(this.mesh(0.09, 0.3, 0.09, top, 0, 0.55, -0.21));
+    g.add(this.mesh(0.09, 0.3, 0.09, top, 0, 0.55, 0.21));
+    g.add(this.mesh(0.26, 0.26, 0.24, skin, 0, 0.87, 0));
+    g.add(this.mesh(0.28, 0.09, 0.26, hair, 0, 1.02, 0));
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    g.scale.setScalar(0.9 + Math.random() * 0.2);
+    g.userData.len = 0.5;
+    g.userData.walk = Math.random() * 6.28;
     return g;
   }
 
@@ -529,10 +734,175 @@ class Game {
     return g;
   }
 
+  // ---------- traffic ----------
+
+  loadTraffic() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(TRAFFIC_KEY) || 'null'); } catch (e) {}
+    const list = Array.isArray(raw) ? raw : DEFAULT_TRAFFIC;
+    const clean = [];
+    for (const e of list) {
+      if (!e || !KINDS[e.kind]) continue;
+      clean.push({
+        uid: 'l' + (this.uid = (this.uid || 0) + 1),
+        kind: e.kind,
+        speed: clamp(Number(e.speed) || 3, 0.4, 10),
+        level: Math.round(clamp(Number(e.level) || 0, 0, 40)),
+        often: clamp(Number(e.often) || 1, 0.1, 2),
+        on: e.on !== false
+      });
+    }
+    return clean.length ? clean : this.defaults();
+  }
+
+  defaults() {
+    return DEFAULT_TRAFFIC.map((e) => Object.assign({ uid: 'l' + (this.uid = (this.uid || 0) + 1) }, e));
+  }
+
+  saveTraffic() {
+    try {
+      localStorage.setItem(TRAFFIC_KEY, JSON.stringify(this.traffic.map((e) => ({
+        kind: e.kind, speed: e.speed, level: e.level, often: e.often, on: e.on
+      }))));
+    } catch (e) {}
+  }
+
+  // Weighted pick among the lanes that have reached their level.
+  pickLane() {
+    const at = Math.max(0, this.score || 0);
+    const pool = this.traffic.filter((e) => e.on && e.level <= at);
+    if (!pool.length) return null;
+    let total = 0;
+    for (const e of pool) total += Math.max(0.1, e.often);
+    let r = Math.random() * total;
+    for (const e of pool) { r -= Math.max(0.1, e.often); if (r <= 0) return e; }
+    return pool[pool.length - 1];
+  }
+
+  // Rebuild the rows the player has not reached yet, so edits show up at once.
+  applyTraffic() {
+    this.saveTraffic();
+    if (!this.scene || !this.rows) return;
+    for (const [i, row] of this.rows) {
+      if (i > this.prow + 1) { this.scene.remove(row.group); this.rows.delete(i); }
+    }
+  }
+
+  // ---------- editor ----------
+
+  setEditor(open) {
+    this.editing = !!open;
+    $('editor').hidden = !this.editing;
+    $('pencil').setAttribute('aria-expanded', this.editing ? 'true' : 'false');
+    if (this.editing) this.renderEditor();
+    this.render();
+  }
+
+  renderEditor() {
+    const list = $('edList');
+    list.textContent = '';
+    if (!this.traffic.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ed-empty';
+      empty.textContent = 'No lanes. The road is empty — add one below.';
+      list.appendChild(empty);
+      return;
+    }
+    for (const e of this.traffic) list.appendChild(this.laneCard(e));
+  }
+
+  laneCard(e) {
+    const el = document.createElement('div');
+    el.className = 'lane' + (e.on ? '' : ' off');
+    el.dataset.uid = e.uid;
+    const options = KIND_IDS.map((k) =>
+      '<option value="' + k + '"' + (k === e.kind ? ' selected' : '') + '>' + KINDS[k].label + '</option>').join('');
+    el.innerHTML =
+      '<div class="lane-top">' +
+        '<span class="swatch" style="background:' + KINDS[e.kind].swatch + '"></span>' +
+        '<select class="lane-kind" data-act="kind" aria-label="Lane type">' + options + '</select>' +
+        '<button class="icon-btn' + (e.on ? ' on' : '') + '" data-act="toggle">' + (e.on ? 'On' : 'Off') + '</button>' +
+        '<button class="icon-btn" data-act="del" title="Remove lane">&#10005;</button>' +
+      '</div>' +
+      ctrlRow('speed', 'Speed', e.speed, 0.4, 10, 0.1, fmt('speed', e.speed)) +
+      ctrlRow('level', 'From level', e.level, 0, 40, 1, fmt('level', e.level)) +
+      ctrlRow('often', 'How often', e.often, 0.1, 2, 0.1, fmt('often', e.often));
+    return el;
+  }
+
+  laneOf(node) {
+    const card = node.closest ? node.closest('.lane') : null;
+    if (!card) return null;
+    return this.traffic.find((e) => e.uid === card.dataset.uid) || null;
+  }
+
+  onLaneInput(ev) {
+    const t = ev.target;
+    const entry = this.laneOf(t);
+    if (!entry) return;
+    if (t.dataset.act === 'kind') {
+      entry.kind = KINDS[t.value] ? t.value : entry.kind;
+      this.renderEditor();
+      this.applyTraffic();
+      return;
+    }
+    const key = t.dataset.key;
+    if (!key) return;
+    entry[key] = key === 'level' ? Math.round(Number(t.value)) : Number(t.value);
+    const out = t.closest('.lane').querySelector('[data-val="' + key + '"]');
+    if (out) out.textContent = fmt(key, entry[key]);
+    clearTimeout(this.applyT);
+    this.applyT = setTimeout(() => this.applyTraffic(), 140);
+  }
+
+  onLaneClick(ev) {
+    const btn = ev.target.closest ? ev.target.closest('[data-act]') : null;
+    if (!btn || btn.dataset.act === 'kind') return;
+    const entry = this.laneOf(btn);
+    if (!entry) return;
+    if (btn.dataset.act === 'toggle') entry.on = !entry.on;
+    else if (btn.dataset.act === 'del') this.traffic = this.traffic.filter((e) => e !== entry);
+    this.renderEditor();
+    this.applyTraffic();
+  }
+
+  addLane() {
+    this.traffic.push({ uid: 'l' + (this.uid = (this.uid || 0) + 1), kind: 'm3', speed: 3, level: 0, often: 1, on: true });
+    this.renderEditor();
+    $('edList').lastElementChild.scrollIntoView({ block: 'nearest' });
+    this.applyTraffic();
+  }
+
+  resetTraffic() {
+    this.traffic = this.defaults();
+    this.renderEditor();
+    this.applyTraffic();
+  }
+
+  // How far to slide the world so the character stays clear of the panel.
+  panTarget() {
+    if (!this.editing || !this.camera) return { x: 0, y: 0 };
+    const r = $('editor').getBoundingClientRect();
+    const w = this.host.clientWidth || 1;
+    const h = this.host.clientHeight || 1;
+    if (r.width >= w * 0.9) return { x: 0, y: -(r.height / h) * this.camera.top * 0.85 };
+    return { x: (r.width / w) * this.camera.right * 0.85, y: 0 };
+  }
+
   // ---------- input ----------
 
   key(e) {
     const k = e.key;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+      if (k === 'Escape') { e.target.blur(); this.setEditor(false); }
+      return;
+    }
+    if (k === 'e' || k === 'E') { e.preventDefault(); this.setEditor(!this.editing); return; }
+    if (this.editing) {
+      if (k === 'Escape') { e.preventDefault(); this.setEditor(false); }
+      return;
+    }
     const phase = this.state.phase;
     if (phase === 'ready' || phase === 'over') {
       if (k === ' ' || k === 'Enter' || k === 'r' || k === 'R' || k === 'ArrowUp' || k === 'w' || k === 'W') {
@@ -555,8 +925,9 @@ class Game {
   bindTouch() {
     const el = this.renderer.domElement;
     let sx = 0, sy = 0, t0 = 0;
-    el.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; t0 = Date.now(); });
+    el.addEventListener('pointerdown', (e) => { if (this.editing) return; sx = e.clientX; sy = e.clientY; t0 = Date.now(); });
     el.addEventListener('pointerup', (e) => {
+      if (this.editing) return;
       if (this.state.phase !== 'play') { this.play(); return; }
       const dx = e.clientX - sx, dy = e.clientY - sy;
       if (Date.now() - t0 < 500 && Math.abs(dx) < 24 && Math.abs(dy) < 24) { this.hop(0, 1); return; }
@@ -600,7 +971,7 @@ class Game {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    const playing = this.state.phase === 'play';
+    const playing = this.state.phase === 'play' && !this.editing;
 
     // Stream rows in every frame, not just while playing: a resize or an orientation
     // change widens the view and would otherwise leave bare sky at the edges.
@@ -609,11 +980,14 @@ class Game {
       if (i < this.prow - this.behind - 2) { this.scene.remove(row.group); this.rows.delete(i); }
     }
 
+    this.clock = (this.clock || 0) + dt;
     for (const row of this.rows.values()) {
       if (row.type !== 'road') continue;
       const speed = playing ? row.speed : row.speed * 0.35;
+      const walking = row.kind === 'person';
       for (const car of row.cars) {
         car.position.x += row.dir * speed * dt;
+        if (walking) car.position.y = Math.abs(Math.sin(this.clock * 5 + car.userData.walk)) * 0.07;
         const lim = this.lim + 2;
         if (row.dir > 0 && car.position.x > lim) car.position.x = -lim - Math.random() * 3;
         else if (row.dir < 0 && car.position.x < -lim) car.position.x = lim + Math.random() * 3;
@@ -770,6 +1144,19 @@ class Game {
     this.camAim.z += (p.z - 1.8 - this.camAim.z) * k;
     this.camera.position.set(this.camAim.x + this.camOff.x, this.camOff.y, this.camAim.z + this.camOff.z);
     this.camera.lookAt(this.camAim.x, 0, this.camAim.z);
+
+    // Keep the character out from behind the editor panel.
+    const want = this.panTarget();
+    this.pan.x += (want.x - this.pan.x) * 0.14;
+    this.pan.y += (want.y - this.pan.y) * 0.14;
+    if (Math.abs(this.pan.x) > 0.001 || Math.abs(this.pan.y) > 0.001) {
+      this.camera.updateMatrix();
+      this._right = this._right || new this.T.Vector3();
+      this._up = this._up || new this.T.Vector3();
+      this._right.setFromMatrixColumn(this.camera.matrix, 0);
+      this._up.setFromMatrixColumn(this.camera.matrix, 1);
+      this.camera.position.addScaledVector(this._right, this.pan.x).addScaledVector(this._up, this.pan.y);
+    }
     if (this.sun) {
       this.sun.position.set(this.camAim.x + 9, 18, this.camAim.z + 8);
       this.sun.target.position.set(this.camAim.x, 0, this.camAim.z);
