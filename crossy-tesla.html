@@ -130,10 +130,16 @@ const VIEW_W = 8.6;          // world units that always fit across the screen
 const VIEW_H = 9.4;          // world units that always fit down the screen
 const AHEAD_MIN = 16;        // rows kept built in front of the player
 const BEHIND_MIN = 9;        // rows kept built behind the player
+const FALL_MS = 520;         // how long the knocked-over tumble takes
+const SPLATS = 64;           // red squares thrown out on impact
+const GRAVITY = 15;
 
-// Drop a .glb next to this file (e.g. './assets/elon.glb') and put its path
-// here to swap the voxel character for a real model. Empty = voxel character.
-const DRIVER_MODEL = '';
+// The main character. When this .glb is present it is used; if it is missing or
+// fails to load the game falls back to the voxel stand-in, so the page never
+// breaks. DRIVER_YAW corrects models that are not authored facing -z.
+const DRIVER_MODEL = './assets/elon.glb';
+const DRIVER_YAW = 0;
+const DRIVER_HEIGHT = 1.38;  // world units from feet to head
 
 const $ = (id) => document.getElementById(id);
 
@@ -328,19 +334,21 @@ class Game {
       const model = gltf.scene;
       const raw = new T.Box3().setFromObject(model);
       const size = raw.getSize(new T.Vector3());
-      model.scale.setScalar(1.38 / Math.max(size.y, 0.001));
+      model.scale.setScalar(DRIVER_HEIGHT / Math.max(size.y, 0.001));
       const b2 = new T.Box3().setFromObject(model);
       const c2 = b2.getCenter(new T.Vector3());
       model.position.x -= c2.x;
       model.position.z -= c2.z;
       model.position.y -= b2.min.y;
       model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+      model.rotation.y += DRIVER_YAW;
       rig.add(model);
       if (gltf.animations && gltf.animations.length) {
         this.mixer = new T.AnimationMixer(model);
         this.mixer.clipAction(gltf.animations[0]).play();
       }
     } catch (e) {
+      if (DRIVER_MODEL) console.warn('[game] character model unavailable, using the voxel stand-in', e);
       rig.add(this.voxelGuy());
     }
   }
@@ -368,6 +376,8 @@ class Game {
     this.score = 0;
     this.hopT = null;
     this.face = 0;
+    this.clearSplatter();
+    this.deathT = null;
     this.player.position.set(0, 0.08, 0);
     this.player.rotation.y = 0;
     this.rig.rotation.set(0, this.camFace, 0);
@@ -627,6 +637,9 @@ class Game {
       this.rig.rotation.y = lerpAngle(this.rig.rotation.y, this.camFace + this.face, 0.35);
     }
 
+    this.stepDeath(dt);
+    this.stepSplatter(dt);
+
     if (playing) this.checkHit();
     this.syncCamera(playing ? 0.12 : 0.06);
     if (this.mixer) this.mixer.update(dt);
@@ -639,21 +652,116 @@ class Game {
     const px = this.player.position.x;
     for (const car of row.cars) {
       const half = car.userData.len / 2 + 0.32;
-      if (Math.abs(car.position.x - px) < half) { this.crash(); return; }
+      if (Math.abs(car.position.x - px) < half) { this.crash(car, row.dir); return; }
     }
   }
 
-  crash() {
+  crash(car, dir) {
     this.beep(150, 0.32, 'sawtooth', 0.09);
     setTimeout(() => this.beep(90, 0.4, 'sawtooth', 0.07), 90);
     this.hopT = null;
-    this.rig.scale.set(1.5, 0.16, 1.5);
-    this.player.position.y = 0.05;
+    // Knocked the way the car was going, then flattened on the tarmac.
+    this.deathT = 0;
+    this.deathDir = dir || 1;
+    this.deathFrom = { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z };
+    this.deathTilt = this.rig.rotation.z;
+    this.spawnSplatter(this.player.position, this.deathDir);
     if (this.score > this.best) {
       this.best = this.score;
       try { localStorage.setItem('crossyTeslaBest', String(this.best)); } catch (e) {}
     }
     this.setState({ phase: 'over', best: this.best });
+  }
+
+  // ---------- wreckage ----------
+
+  spawnSplatter(at, dir) {
+    const T = this.T;
+    const reds = [0xd63b2f, 0xb42b22, 0xe8574a, 0x8f1f19];
+    const sizes = [0.09, 0.13, 0.18];
+    this.splatter = this.splatter || [];
+    for (let i = 0; i < SPLATS; i++) {
+      const sz = sizes[Math.floor(Math.random() * sizes.length)];
+      const m = this.mesh(sz, sz, sz, reds[Math.floor(Math.random() * reds.length)], 0, 0, 0);
+      m.castShadow = true;
+      m.position.set(
+        at.x + (Math.random() - 0.5) * 0.3,
+        0.35 + Math.random() * 0.7,
+        at.z + (Math.random() - 0.5) * 0.3
+      );
+      m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      this.scene.add(m);
+      this.splatter.push({
+        mesh: m,
+        vel: new T.Vector3(
+          dir * (1.3 + Math.random() * 3.4) + (Math.random() - 0.5) * 2.2,
+          2.6 + Math.random() * 3.6,
+          (Math.random() - 0.5) * 3.0
+        ),
+        spin: new T.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14),
+        rest: 0.008 + Math.random() * 0.014,
+        down: false
+      });
+    }
+    // A pool that is there from the first frame, so the hit always leaves a mark.
+    for (let i = 0; i < 14; i++) {
+      const sz = 0.12 + Math.random() * 0.26;
+      const m = this.mesh(0.18, 0.18, 0.18, reds[Math.floor(Math.random() * reds.length)], 0, 0, 0);
+      m.position.set(at.x + (Math.random() - 0.5) * 1.5, this.groundY(at.z) + 0.006 + i * 0.001, at.z + (Math.random() - 0.5) * 1.1);
+      m.rotation.set(0, Math.random() * Math.PI, 0);
+      m.scale.set(sz / 0.18, 0.1, sz / 0.18);
+      this.scene.add(m);
+      this.splatter.push({ mesh: m, vel: new T.Vector3(), spin: new T.Vector3(), rest: 0, down: true });
+    }
+  }
+
+  // Top of the ground slab for a world z: grass rows sit higher than roads.
+  groundY(z) {
+    const row = this.rows.get(Math.round(-z));
+    return row && row.type === 'grass' ? 0.08 : 0;
+  }
+
+  stepSplatter(dt) {
+    if (!this.splatter || !this.splatter.length) return;
+    for (const p of this.splatter) {
+      if (p.down) continue;
+      p.vel.y -= GRAVITY * dt;
+      p.mesh.position.addScaledVector(p.vel, dt);
+      p.mesh.rotation.x += p.spin.x * dt;
+      p.mesh.rotation.y += p.spin.y * dt;
+      p.mesh.rotation.z += p.spin.z * dt;
+      const rest = this.groundY(p.mesh.position.z) + p.rest;
+      if (p.mesh.position.y <= rest) {
+        // Land as a flat smear on the ground instead of a floating cube.
+        p.mesh.position.y = rest;
+        p.mesh.rotation.set(0, Math.random() * Math.PI, 0);
+        p.mesh.scale.set(1 + Math.random() * 0.9, 0.16, 1 + Math.random() * 0.9);
+        p.mesh.castShadow = false;
+        p.down = true;
+      }
+    }
+  }
+
+  clearSplatter() {
+    if (!this.splatter) { this.splatter = []; return; }
+    for (const p of this.splatter) this.scene.remove(p.mesh);
+    this.splatter.length = 0;
+  }
+
+  stepDeath(dt) {
+    if (this.deathT === null || this.deathT === undefined) return;
+    this.deathT = Math.min(1, this.deathT + (dt * 1000) / FALL_MS);
+    const t = this.deathT;
+    const e = t * t * (3 - 2 * t);
+    const d = this.deathFrom;
+    // shoved along the road, a short pop into the air, then down
+    this.player.position.set(
+      d.x + this.deathDir * 1.35 * e,
+      Math.max(0.02, d.y + Math.sin(t * Math.PI) * 0.45 - e * d.y),
+      d.z + (Math.random() - 0.5) * 0.004 * (1 - t)
+    );
+    this.rig.rotation.z = this.deathTilt + (-this.deathDir * Math.PI / 2 - this.deathTilt) * e;
+    this.rig.scale.set(1 + 0.34 * e, 1 - 0.62 * e, 1 + 0.34 * e);
   }
 
   syncCamera(k) {
