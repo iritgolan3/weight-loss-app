@@ -3,6 +3,12 @@
 `elon.glb` — the main character model, loaded by `crossy-tesla.html`
 (`DRIVER_MODEL` at the top of its script).
 
+There is a second, easier route: the pencil in the game opens a panel whose
+Models section takes a `.glb` for the character, the pedestrians and each
+vehicle. Those are read straight from disk and kept in the browser's
+IndexedDB, so they never touch this repo. Use this folder only for a model
+that should ship with the game for everyone.
+
 The game works without it: if the file is missing or fails to load, it falls
 back to the built-in voxel character.
 

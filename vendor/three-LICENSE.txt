@@ -19,3 +19,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+--
+Files under vendor/ are taken unmodified from three.js r160 (npm package
+"three@0.160.0") and meshoptimizer 0.20.0, and are covered by the MIT license
+above. Layout mirrors three's own, so the addons resolve each other.

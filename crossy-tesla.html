@@ -105,7 +105,20 @@
   .ed-x { border: 0; background: #e7e3d9; color: #0D0D0D; width: 30px; height: 30px; border-radius: 999px; cursor: pointer; font: 600 14px/1 Archivo, sans-serif; flex: none; }
   .ed-x:hover { background: #dbd6c9; }
 
-  .ed-list { flex: 1; overflow-y: auto; padding: 2px 16px 4px; display: flex; flex-direction: column; gap: 10px; }
+  .ed-body { flex: 1; overflow-y: auto; padding: 0 16px 4px; }
+  .ed-sec { font: 500 9px/1 'JetBrains Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: #8a8a8a; margin: 6px 2px 9px; }
+  .ed-sec + .ed-sec, .ed-list + .ed-sec { margin-top: 18px; }
+  .ed-models { display: flex; flex-direction: column; gap: 8px; }
+  .ed-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .slot { background: #fff; border-radius: 16px; padding: 11px 13px 13px; }
+  .slot.busy { opacity: .55; }
+  .slot-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .slot-name { font: 600 12px/1 Archivo, sans-serif; color: #0D0D0D; flex: none; }
+  .slot-state { font: 400 10px/1.4 'JetBrains Mono', monospace; color: #8a8a8a; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slot.bad .slot-state { color: #c0392b; }
+  .slot-btns { display: flex; gap: 6px; margin-top: 10px; }
+  .slot-btns .icon-btn { flex: 1; padding: 8px 6px; }
   .ed-empty { font: 400 13px/1.5 Archivo, sans-serif; color: #8a8a8a; text-align: center; padding: 22px 10px; }
 
   .lane { background: #fff; border-radius: 18px; padding: 12px 14px 14px; }
@@ -168,7 +181,13 @@
         </div>
         <button class="ed-x" id="edClose" title="Close">&#10005;</button>
       </div>
-      <div class="ed-list" id="edList"></div>
+      <div class="ed-body">
+        <div class="ed-sec">Models</div>
+        <div class="ed-models" id="edModels"></div>
+        <div class="ed-sec">Lanes</div>
+        <div class="ed-list" id="edList"></div>
+      </div>
+      <input type="file" id="edFile" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" hidden>
       <div class="ed-foot">
         <button class="ed-btn ghost" id="edReset">Reset</button>
         <button class="ed-btn primary" id="edAdd">Add lane</button>
@@ -211,13 +230,28 @@ const FALL_MS = 520;         // how long the knocked-over tumble takes
 // Everything that can occupy a lane. `gap` is the clear space left between two
 // of them, `lane` picks the surface the lane is paved with.
 const KINDS = {
-  m3:     { label: 'Model 3',    gap: 5.4, lane: 'road', swatch: '#2d5f8b' },
-  my:     { label: 'Model Y',    gap: 5.4, lane: 'road', swatch: '#2f7d52' },
-  cyber:  { label: 'Cybertruck', gap: 6.2, lane: 'road', swatch: '#b9bfc6' },
-  truck:  { label: 'Semi truck', gap: 9.0, lane: 'road', swatch: '#c0392b' },
-  person: { label: 'Pedestrian', gap: 2.0, lane: 'walk', swatch: '#f0c9a8' }
+  m3:     { label: 'Model 3',    len: 1.8,  gap: 5.4, lane: 'road', swatch: '#2d5f8b' },
+  my:     { label: 'Model Y',    len: 1.95, gap: 5.4, lane: 'road', swatch: '#2f7d52' },
+  cyber:  { label: 'Cybertruck', len: 2.6,  gap: 6.2, lane: 'road', swatch: '#b9bfc6' },
+  truck:  { label: 'Semi truck', len: 4.3,  gap: 9.0, lane: 'road', swatch: '#c0392b' },
+  person: { label: 'Pedestrian', len: 0.5,  gap: 2.0, lane: 'walk', swatch: '#f0c9a8' }
 };
 const KIND_IDS = Object.keys(KINDS);
+
+// Slots a .glb can be dropped into. `fit` says which measurement is matched to
+// `base`: people and the character are sized by height, vehicles by length.
+const SLOTS = [
+  { id: 'player', label: 'Character',  fit: 'height', base: 1.38 },
+  { id: 'person', label: 'Pedestrian', fit: 'height', base: 1.2 },
+  { id: 'm3',     label: 'Model 3',    fit: 'length', base: KINDS.m3.len },
+  { id: 'my',     label: 'Model Y',    fit: 'length', base: KINDS.my.len },
+  { id: 'cyber',  label: 'Cybertruck', fit: 'length', base: KINDS.cyber.len },
+  { id: 'truck',  label: 'Semi truck', fit: 'length', base: KINDS.truck.len }
+];
+const SLOT_BY_ID = {};
+for (const sl of SLOTS) SLOT_BY_ID[sl.id] = sl;
+const LOOK_KEY = 'crossyTeslaLook';
+const MODEL_DB = 'crossyTeslaModels';
 
 // speed is world units per second, level is the score the lane first shows up at,
 // often is its weight when a lane is rolled.
@@ -263,17 +297,52 @@ function frustum(w, h) {
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+// Uploaded models live in IndexedDB — they are far too big for localStorage.
+function idb() {
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open(MODEL_DB, 1);
+    rq.onupgradeneeded = () => { if (!rq.result.objectStoreNames.contains('models')) rq.result.createObjectStore('models'); };
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+
+function idbRun(mode, fn) {
+  return idb().then((db) => new Promise((res, rej) => {
+    const tx = db.transaction('models', mode);
+    const rq = fn(tx.objectStore('models'));
+    tx.oncomplete = () => res(rq && rq.result);
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
+  }));
+}
+
+const store = {
+  get: (k) => idbRun('readonly', (s) => s.get(k)).catch(() => null),
+  keys: () => idbRun('readonly', (s) => s.getAllKeys()).catch(() => []),
+  put: (k, v) => idbRun('readwrite', (s) => s.put(v, k)).catch(() => null),
+  del: (k) => idbRun('readwrite', (s) => s.delete(k)).catch(() => null)
+};
+
+function niceSize(n) {
+  if (!n) return '';
+  if (n > 1048576) return (n / 1048576).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(n / 1024)) + ' KB';
+}
+
 function fmt(key, v) {
   if (key === 'speed') return v.toFixed(1);
   if (key === 'level') return v === 0 ? 'Start' : 'Lv ' + v;
+  if (key === 'size') return '\u00d7' + v.toFixed(2);
+  if (key === 'yaw') return Math.round(v) + '\u00b0';
   return Math.round(v * 50) + '%';
 }
 
-function ctrlRow(key, name, val, min, max, step, shown) {
+function ctrlRow(key, name, val, min, max, step, shown, attr) {
   return '<div class="ctrl">' +
       '<span class="ctrl-name">' + name + '</span>' +
       '<span class="ctrl-val" data-val="' + key + '">' + shown + '</span>' +
-      '<input type="range" data-act="set" data-key="' + key + '" min="' + min + '" max="' + max +
+      '<input type="range" data-' + (attr || 'key') + '="' + key + '" min="' + min + '" max="' + max +
         '" step="' + step + '" value="' + val + '" aria-label="' + name + '">' +
     '</div>';
 }
@@ -293,6 +362,10 @@ class Game {
     this.state.best = this.best;
 
     this.traffic = this.loadTraffic();
+    this.models = {};
+    this.look = this.loadLook();
+    this.slotState = {};
+    this.pickSlot = null;
     this.editing = false;
     this.pan = { x: 0, y: 0 };
 
@@ -309,7 +382,11 @@ class Game {
     $('edList').addEventListener('input', (e) => this.onLaneInput(e));
     $('edList').addEventListener('change', (e) => this.onLaneInput(e));
     $('edList').addEventListener('click', (e) => this.onLaneClick(e));
+    $('edModels').addEventListener('click', (e) => this.onModelClick(e));
+    $('edModels').addEventListener('input', (e) => this.onModelInput(e));
+    $('edFile').addEventListener('change', (e) => this.onModelFile(e.target.files && e.target.files[0]));
 
+    this.renderModels();
     this.renderEditor();
     this.render();
     this.boot();
@@ -406,7 +483,10 @@ class Game {
     this.player = new T.Group();
     scene.add(this.player);
 
+    await this.restoreModels();
+    if (Object.keys(this.models).some((k) => k !== 'player')) await this.cloner();
     await this.loadDriver();
+    this.renderModels();
     this.bindTouch();
 
     this.reset();
@@ -438,46 +518,157 @@ class Game {
 
   // Uses the DRIVER_MODEL .glb when one is configured, otherwise a voxel stand-in.
   async loadDriver() {
-    const T = this.T;
-    const rig = new T.Group();
+    const rig = new this.T.Group();
     this.player.add(rig);
     this.rig = rig;
-    try {
-      if (!DRIVER_MODEL) throw new Error('no model configured');
-      this.setState({ progress: 'Loading the driver 0%' });
-      const { GLTFLoader } = await import('./vendor/GLTFLoader.js');
-      const loader = new GLTFLoader();
-      const gltf = await new Promise((res, rej) => loader.load(
-        DRIVER_MODEL,
-        res,
-        (ev) => {
-          if (ev && ev.total) {
-            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
-            this.setState({ progress: 'Loading the driver ' + pct + '%' });
-          }
-        },
-        rej
-      ));
-      const model = gltf.scene;
-      const raw = new T.Box3().setFromObject(model);
-      const size = raw.getSize(new T.Vector3());
-      model.scale.setScalar(DRIVER_HEIGHT / Math.max(size.y, 0.001));
-      const b2 = new T.Box3().setFromObject(model);
-      const c2 = b2.getCenter(new T.Vector3());
-      model.position.x -= c2.x;
-      model.position.z -= c2.z;
-      model.position.y -= b2.min.y;
-      model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
-      model.rotation.y += DRIVER_YAW;
-      rig.add(model);
-      if (gltf.animations && gltf.animations.length) {
-        this.mixer = new T.AnimationMixer(model);
-        this.mixer.clipAction(gltf.animations[0]).play();
+    // A model uploaded through the panel wins; otherwise try the bundled file.
+    if (!this.models.player && DRIVER_MODEL) {
+      try {
+        this.setState({ progress: 'Loading the driver' });
+        const gltf = await this.fetchGLB(DRIVER_MODEL);
+        this.models.player = this.prepModel(gltf.scene, 'player', gltf.animations, { name: 'elon.glb', bytes: 0, bundled: true });
+      } catch (e) { /* falls back to the voxel character */ }
+    }
+    this.applyDriver();
+  }
+
+  applyDriver() {
+    const rig = this.rig;
+    if (!rig) return;
+    while (rig.children.length) rig.remove(rig.children[0]);
+    this.mixer = null;
+    const m = this.models.player;
+    if (m) {
+      rig.add(m.root);
+      if (m.clips && m.clips.length) {
+        this.mixer = new this.T.AnimationMixer(m.root);
+        this.mixer.clipAction(m.clips[0]).play();
       }
-    } catch (e) {
-      if (DRIVER_MODEL) console.warn('[game] character model unavailable, using the voxel stand-in', e);
+    } else {
       rig.add(this.voxelGuy());
     }
+  }
+
+  // ---------- .glb handling ----------
+
+  async gltfLoader() {
+    if (this._loader) return this._loader;
+    const { GLTFLoader } = await import('./vendor/addons/loaders/GLTFLoader.js');
+    const loader = new GLTFLoader();
+    // Optional decoders: a model that does not use them loads fine without these.
+    try {
+      const { DRACOLoader } = await import('./vendor/addons/loaders/DRACOLoader.js');
+      const draco = new DRACOLoader();
+      draco.setDecoderPath('./vendor/draco/');
+      loader.setDRACOLoader(draco);
+    } catch (e) {}
+    try {
+      const { MeshoptDecoder } = await import('./vendor/meshopt_decoder.module.js');
+      loader.setMeshoptDecoder(MeshoptDecoder);
+    } catch (e) {}
+    this._loader = loader;
+    return loader;
+  }
+
+  async cloner() {
+    if (!this._clone) {
+      const mod = await import('./vendor/addons/utils/SkeletonUtils.js');
+      this._clone = mod.clone;
+    }
+    return this._clone;
+  }
+
+  fetchGLB(url) {
+    return this.gltfLoader().then((loader) => new Promise((res, rej) => loader.load(url, res, undefined, rej)));
+  }
+
+  parseGLB(buf) {
+    return this.gltfLoader().then((loader) => new Promise((res, rej) => loader.parse(buf, '', res, rej)));
+  }
+
+  // Centre the model on its lane, stand it on the ground and match it to the
+  // size the game expects, with the slot's own size and turn applied.
+  prepModel(raw, slotId, clips, meta) {
+    const T = this.T;
+    const slot = SLOT_BY_ID[slotId];
+    const look = this.look[slotId] || { size: 1, yaw: 0 };
+    const wrap = new T.Group();
+    raw.position.set(0, 0, 0);
+    raw.scale.set(1, 1, 1);
+    raw.rotation.set(0, (look.yaw || 0) * Math.PI / 180, 0);
+    wrap.add(raw);
+
+    const box = new T.Box3().setFromObject(wrap);
+    const size = box.getSize(new T.Vector3());
+    const target = slot.base * (look.size || 1);
+    const from = slot.fit === 'height' ? size.y : Math.max(size.x, size.z);
+    wrap.scale.setScalar(target / Math.max(from, 0.0001));
+
+    const b2 = new T.Box3().setFromObject(wrap);
+    const c2 = b2.getCenter(new T.Vector3());
+    wrap.position.set(-c2.x, -b2.min.y, -c2.z);
+    wrap.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+
+    return {
+      root: wrap,
+      raw: raw,
+      clips: clips || [],
+      len: Math.max(0.35, b2.max.x - b2.min.x),
+      name: (meta && meta.name) || 'model.glb',
+      bytes: (meta && meta.bytes) || 0,
+      bundled: !!(meta && meta.bundled)
+    };
+  }
+
+  // Read every model the player has stored, before the first frame is drawn.
+  async restoreModels() {
+    let keys = [];
+    try { keys = await store.keys(); } catch (e) { return; }
+    for (const key of keys) {
+      if (!SLOT_BY_ID[key]) continue;
+      try {
+        const rec = await store.get(key);
+        if (!rec || !rec.buf) continue;
+        this.setState({ progress: 'Loading ' + SLOT_BY_ID[key].label.toLowerCase() });
+        const gltf = await this.parseGLB(rec.buf.slice(0));
+        this.models[key] = this.prepModel(gltf.scene, key, gltf.animations, { name: rec.name, bytes: rec.size });
+      } catch (e) {
+        console.warn('[game] could not restore the model for ' + key, e);
+      }
+    }
+  }
+
+  async installModel(slotId, buf, name, bytes) {
+    const gltf = await this.parseGLB(buf.slice(0));
+    const old = this.models[slotId];
+    if (old && old.root.parent) old.root.parent.remove(old.root);
+    this.models[slotId] = this.prepModel(gltf.scene, slotId, gltf.animations, { name: name, bytes: bytes });
+    if (slotId !== 'player') await this.cloner();
+    this.afterModelChange(slotId);            // show it before the write finishes
+    await store.put(slotId, { name: name, size: bytes, buf: buf });
+  }
+
+  async clearModel(slotId) {
+    const m = this.models[slotId];
+    if (m && m.root.parent) m.root.parent.remove(m.root);
+    delete this.models[slotId];
+    await store.del(slotId);
+    this.afterModelChange(slotId);
+  }
+
+  // Re-fit an already loaded model after its size or turn changed.
+  reprepModel(slotId) {
+    const m = this.models[slotId];
+    if (!m) return;
+    if (m.root.parent) m.root.parent.remove(m.root);
+    this.models[slotId] = this.prepModel(m.raw, slotId, m.clips, { name: m.name, bytes: m.bytes, bundled: m.bundled });
+    this.afterModelChange(slotId, true);
+  }
+
+  afterModelChange(slotId, keepPanel) {
+    if (slotId === 'player') this.applyDriver();
+    else this.applyTraffic();
+    if (!keepPanel) this.renderModels();
   }
 
   voxelGuy() {
@@ -611,6 +802,13 @@ class Game {
   }
 
   buildActor(kind) {
+    const m = this.models[kind];
+    if (m && this._clone) {
+      const g = this._clone(m.root);
+      g.userData.len = m.len;
+      g.userData.walk = Math.random() * 6.28;
+      return g;
+    }
     if (kind === 'person') return this.buildPerson();
     if (kind === 'truck') return this.buildTruck();
     return this.buildCar(kind);
@@ -788,13 +986,112 @@ class Game {
     }
   }
 
+  // ---------- model slots in the panel ----------
+
+  loadLook() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(LOOK_KEY) || 'null'); } catch (e) {}
+    const out = {};
+    for (const sl of SLOTS) {
+      const v = (raw && raw[sl.id]) || {};
+      out[sl.id] = { size: clamp(Number(v.size) || 1, 0.3, 3), yaw: clamp(Number(v.yaw) || 0, 0, 350) };
+    }
+    return out;
+  }
+
+  saveLook() {
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify(this.look)); } catch (e) {}
+  }
+
+  renderModels() {
+    const box = $('edModels');
+    if (!box) return;
+    box.textContent = '';
+    for (const slot of SLOTS) box.appendChild(this.slotCard(slot));
+  }
+
+  slotCard(slot) {
+    const m = this.models[slot.id];
+    const look = this.look[slot.id];
+    const st = this.slotState[slot.id];
+    const el = document.createElement('div');
+    el.dataset.slot = slot.id;
+
+    let state;
+    let cls = 'slot';
+    if (st && st.busy) { state = 'Reading\u2026'; cls += ' busy'; }
+    else if (st && st.err) { state = st.err; cls += ' bad'; }
+    else if (m) state = m.name + (m.bytes ? ' \u00b7 ' + niceSize(m.bytes) : '');
+    else state = 'Built-in';
+    el.className = cls;
+
+    let html =
+      '<div class="slot-top"><span class="slot-name">' + slot.label + '</span>' +
+      '<span class="slot-state">' + state + '</span></div>' +
+      '<div class="slot-btns">' +
+        '<button class="icon-btn" data-mact="pick">' + (m ? 'Replace' : 'Upload .glb') + '</button>' +
+        (m ? '<button class="icon-btn" data-mact="clear">Remove</button>' : '') +
+      '</div>';
+    if (m) {
+      html += ctrlRow('size', 'Size', look.size, 0.3, 3, 0.05, fmt('size', look.size), 'mkey') +
+              ctrlRow('yaw', 'Turn', look.yaw, 0, 350, 10, fmt('yaw', look.yaw), 'mkey');
+    }
+    el.innerHTML = html;
+    return el;
+  }
+
+  onModelClick(ev) {
+    const btn = ev.target.closest ? ev.target.closest('[data-mact]') : null;
+    if (!btn) return;
+    const id = btn.closest('.slot').dataset.slot;
+    if (btn.dataset.mact === 'pick') {
+      this.pickSlot = id;
+      const input = $('edFile');
+      input.value = '';
+      input.click();
+    } else if (btn.dataset.mact === 'clear') {
+      this.slotState[id] = null;
+      this.clearModel(id);
+    }
+  }
+
+  onModelInput(ev) {
+    const t = ev.target;
+    const key = t.dataset.mkey;
+    if (!key) return;
+    const card = t.closest('.slot');
+    const id = card.dataset.slot;
+    this.look[id][key] = Number(t.value);
+    const out = card.querySelector('[data-val="' + key + '"]');
+    if (out) out.textContent = fmt(key, this.look[id][key]);
+    this.saveLook();
+    clearTimeout(this.lookT);
+    this.lookT = setTimeout(() => this.reprepModel(id), 110);
+  }
+
+  async onModelFile(file) {
+    const id = this.pickSlot;
+    if (!id || !file) return;
+    this.slotState[id] = { busy: true };
+    this.renderModels();
+    try {
+      const buf = await file.arrayBuffer();
+      await this.installModel(id, buf, file.name, file.size);
+      this.slotState[id] = null;
+    } catch (e) {
+      console.warn('[game] could not read that model', e);
+      this.slotState[id] = { err: 'Could not read that file' };
+    }
+    this.renderModels();
+  }
+
   // ---------- editor ----------
 
   setEditor(open) {
     this.editing = !!open;
     $('editor').hidden = !this.editing;
     $('pencil').setAttribute('aria-expanded', this.editing ? 'true' : 'false');
-    if (this.editing) this.renderEditor();
+    if (this.editing) { this.renderModels(); this.renderEditor(); }
     this.render();
   }
 
