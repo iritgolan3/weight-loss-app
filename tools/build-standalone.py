@@ -69,6 +69,24 @@ page = page.replace(
  * crossy-tesla.html; edit that file, not this one.
  * Draco-compressed .glb models are not supported in this build.""")
 
+# Anything assets/models.json ships has to travel inside the file too.
+manifest_path = ROOT / 'assets' / 'models.json'
+if manifest_path.exists():
+    import json
+    listed = json.loads(manifest_path.read_text() or '{}')
+    inline = {}
+    for entry in listed.values():
+        name = entry if isinstance(entry, str) else (entry or {}).get('file')
+        model = ROOT / 'assets' / name if name else None
+        if model and model.exists():
+            inline[name] = 'data:model/gltf-binary;base64,' + base64.b64encode(model.read_bytes()).decode()
+    if inline:
+        inline['models.json'] = 'data:application/json;base64,' + base64.b64encode(manifest_path.read_bytes()).decode()
+        blob = ',\n'.join('"%s":"%s"' % (k, v) for k, v in inline.items())
+        page = page.replace('<script type="module">',
+                            '<script>window.__crossyAssets={\n%s\n};</script>\n<script type="module">' % blob, 1)
+        print('inlined %d shipped model(s)' % (len(inline) - 1))
+
 # no app to go back to next to a downloaded file
 page = page.replace('<a class="back" href="index.html" aria-label="Back to the app">&#8592;</a>\n  ', '')
 

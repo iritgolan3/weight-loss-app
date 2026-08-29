@@ -234,6 +234,7 @@ const KINDS = {
   my:     { label: 'Model Y',    len: 1.95, gap: 5.4, lane: 'road', swatch: '#2f7d52' },
   cyber:  { label: 'Cybertruck', len: 2.6,  gap: 6.2, lane: 'road', swatch: '#b9bfc6' },
   truck:  { label: 'Semi truck', len: 4.3,  gap: 9.0, lane: 'road', swatch: '#c0392b' },
+  train:  { label: 'Train',      len: 8.5,  gap: 34,  lane: 'rail', swatch: '#6b7d8a' },
   person: { label: 'Pedestrian', len: 0.5,  gap: 2.0, lane: 'walk', swatch: '#f0c9a8' }
 };
 const KIND_IDS = Object.keys(KINDS);
@@ -246,7 +247,8 @@ const SLOTS = [
   { id: 'm3',     label: 'Model 3',    fit: 'length', base: KINDS.m3.len },
   { id: 'my',     label: 'Model Y',    fit: 'length', base: KINDS.my.len },
   { id: 'cyber',  label: 'Cybertruck', fit: 'length', base: KINDS.cyber.len },
-  { id: 'truck',  label: 'Semi truck', fit: 'length', base: KINDS.truck.len }
+  { id: 'truck',  label: 'Semi truck', fit: 'length', base: KINDS.truck.len },
+  { id: 'train',  label: 'Train',      fit: 'length', base: KINDS.train.len }
 ];
 const SLOT_BY_ID = {};
 for (const sl of SLOTS) SLOT_BY_ID[sl.id] = sl;
@@ -256,22 +258,29 @@ const MODEL_DB = 'crossyTeslaModels';
 // speed is world units per second, level is the score the lane first shows up at,
 // often is its weight when a lane is rolled.
 const DEFAULT_TRAFFIC = [
-  { kind: 'm3',     speed: 3.0, level: 0,  often: 1.2, on: true },
-  { kind: 'my',     speed: 2.7, level: 0,  often: 1.2, on: true },
-  { kind: 'cyber',  speed: 4.2, level: 4,  often: 0.9, on: true },
-  { kind: 'truck',  speed: 2.2, level: 10, often: 0.7, on: true },
-  { kind: 'person', speed: 1.1, level: 6,  often: 0.6, on: true }
+  { kind: 'm3',     speed: 3.0, level: 0,  often: 1.3, on: true },
+  { kind: 'cyber',  speed: 4.2, level: 3,  often: 1.0, on: true },
+  { kind: 'person', speed: 1.1, level: 6,  often: 0.6, on: true },
+  { kind: 'truck',  speed: 2.4, level: 9,  often: 0.8, on: true },
+  { kind: 'train',  speed: 9.5, level: 14, often: 0.5, on: true }
 ];
 const TRAFFIC_KEY = 'crossyTeslaTraffic';
 const SPLATS = 64;           // red squares thrown out on impact
 const GRAVITY = 15;
 
-// The main character. When this .glb is present it is used; if it is missing or
-// fails to load the game falls back to the voxel stand-in, so the page never
-// breaks. DRIVER_YAW corrects models that are not authored facing -z.
-const DRIVER_MODEL = './assets/elon.glb';
-const DRIVER_YAW = 0;
-const DRIVER_HEIGHT = 1.38;  // world units from feet to head
+// Models shipped with the game, listed in ./assets/models.json as either
+//   "truck": "tesla-semi.glb"
+// or, when the model needs turning or resizing to sit right,
+//   "truck": { "file": "tesla-semi.glb", "yaw": 90, "size": 1.1 }
+// Each one becomes that slot's default for everybody; a model the player
+// uploads in the panel takes precedence, and a missing file just leaves the
+// built-in shape in place.
+const ASSETS = './assets/';
+const MANIFEST = ASSETS + 'models.json';
+// The single-file build has no ./assets to fetch from, so it drops the same
+// files in here as data: URLs. Keys are file names, plus 'models.json'.
+const INLINE = (typeof window !== 'undefined' && window.__crossyAssets) || null;
+const assetUrl = (file) => (INLINE && INLINE[file]) || (ASSETS + file);
 
 const $ = (id) => document.getElementById(id);
 
@@ -363,6 +372,7 @@ class Game {
 
     this.traffic = this.loadTraffic();
     this.models = {};
+    this.bundles = {};
     this.look = this.loadLook();
     this.slotState = {};
     this.pickSlot = null;
@@ -483,6 +493,7 @@ class Game {
     this.player = new T.Group();
     scene.add(this.player);
 
+    await this.loadBundled();
     await this.restoreModels();
     if (Object.keys(this.models).some((k) => k !== 'player')) await this.cloner();
     await this.loadDriver();
@@ -517,18 +528,10 @@ class Game {
   // ---------- player ----------
 
   // Uses the DRIVER_MODEL .glb when one is configured, otherwise a voxel stand-in.
-  async loadDriver() {
+  loadDriver() {
     const rig = new this.T.Group();
     this.player.add(rig);
     this.rig = rig;
-    // A model uploaded through the panel wins; otherwise try the bundled file.
-    if (!this.models.player && DRIVER_MODEL) {
-      try {
-        this.setState({ progress: 'Loading the driver' });
-        const gltf = await this.fetchGLB(DRIVER_MODEL);
-        this.models.player = this.prepModel(gltf.scene, 'player', gltf.animations, { name: 'elon.glb', bytes: 0, bundled: true });
-      } catch (e) { /* falls back to the voxel character */ }
-    }
     this.applyDriver();
   }
 
@@ -620,6 +623,46 @@ class Game {
     };
   }
 
+  // Models that ship with the game. Anything the player uploaded is loaded
+  // afterwards and replaces these.
+  async loadBundled() {
+    let manifest = null;
+    try {
+      const res = await fetch(INLINE && INLINE['models.json'] ? INLINE['models.json'] : MANIFEST, { cache: 'no-cache' });
+      if (!res.ok) return;
+      manifest = await res.json();
+    } catch (e) { return; }
+    if (!manifest || typeof manifest !== 'object') return;
+
+    for (const slot of SLOTS) {
+      const entry = manifest[slot.id];
+      const file = typeof entry === 'string' ? entry : (entry && entry.file);
+      if (!file) continue;
+      try {
+        this.setState({ progress: 'Loading ' + slot.label.toLowerCase() });
+        // A listed-but-absent file is a normal state: the entry can be added
+        // before the model is, so skip it without shouting.
+        const res = await fetch(assetUrl(file));
+        if (!res.ok) continue;
+        const buf = await res.arrayBuffer();
+        const gltf = await this.parseGLB(buf);
+        // The manifest's size and turn are the shipped defaults; they give way
+        // to whatever the player has set for that slot in the panel.
+        if (entry && typeof entry === 'object' && !this.lookStored[slot.id]) {
+          this.look[slot.id] = {
+            size: clamp(Number(entry.size) || 1, 0.3, 3),
+            yaw: clamp(Number(entry.yaw) || 0, 0, 350)
+          };
+        }
+        this.bundles[slot.id] = { raw: gltf.scene, clips: gltf.animations || [], name: file, bytes: buf.byteLength };
+        this.models[slot.id] = this.prepModel(gltf.scene, slot.id, gltf.animations, { name: file, bytes: buf.byteLength, bundled: true });
+      } catch (e) {
+        console.warn('[game] bundled model ' + file + ' did not load', e);
+      }
+    }
+    if (Object.keys(this.bundles).some((k) => k !== 'player')) await this.cloner();
+  }
+
   // Read every model the player has stored, before the first frame is drawn.
   async restoreModels() {
     let keys = [];
@@ -653,6 +696,10 @@ class Game {
     if (m && m.root.parent) m.root.parent.remove(m.root);
     delete this.models[slotId];
     await store.del(slotId);
+    const shipped = this.bundles[slotId];
+    if (shipped) {
+      this.models[slotId] = this.prepModel(shipped.raw, slotId, shipped.clips, { name: shipped.name, bytes: shipped.bytes, bundled: true });
+    }
     this.afterModelChange(slotId);
   }
 
@@ -698,7 +745,7 @@ class Game {
     this.deathT = null;
     this.player.position.set(0, 0.08, 0);
     this.player.rotation.y = 0;
-    this.rig.rotation.set(0, this.camFace, 0);
+    this.rig.rotation.set(0, Math.PI, 0);
     this.rig.scale.set(1, 1, 1);
     for (let i = -this.behind; i <= this.ahead; i++) this.buildRow(i, i <= 2 ? 'grass' : null);
     this.setState({ score: 0 });
@@ -755,10 +802,18 @@ class Game {
       const spec = KINDS[entry.kind];
       const walk = spec.lane === 'walk';
       row.kind = entry.kind;
-      const ground = this.mesh(76, 0.6, 1, walk ? 0x9fa6a6 : 0x4b4b55, 0, -0.3, 0);
+      const rail = spec.lane === 'rail';
+      const ground = this.mesh(76, 0.6, 1, rail ? 0x6a6357 : (walk ? 0x9fa6a6 : 0x4b4b55), 0, -0.3, 0);
       ground.receiveShadow = true;
       g.add(ground);
-      if (walk) {
+      if (rail) {
+        for (let x = -EDGE - 6; x <= EDGE + 6; x += 0.62) {
+          g.add(this.mesh(0.42, 0.06, 0.86, 0x574a3a, x, 0.02, 0));   // sleepers
+        }
+        for (const dz of [-0.28, 0.28]) {
+          g.add(this.mesh(76, 0.09, 0.09, 0x9aa0a6, 0, 0.08, dz));    // rails
+        }
+      } else if (walk) {
         for (let x = -EDGE - 4; x <= EDGE + 4; x += 1.1) {
           g.add(this.mesh(0.86, 0.02, 0.86, 0xacb3b2, x, 0.005, 0));
         }
@@ -772,7 +827,7 @@ class Game {
       let x = -this.lim - Math.random() * 6;
       while (x < this.lim + 4) {
         const actor = this.buildActor(entry.kind);
-        actor.position.set(x, 0, walk ? (Math.random() - 0.5) * 0.4 : 0);
+        actor.position.set(x, rail ? 0.11 : 0, walk ? (Math.random() - 0.5) * 0.4 : 0);
         actor.rotation.y = row.dir > 0 ? 0 : Math.PI;
         g.add(actor);
         row.cars.push(actor);
@@ -810,8 +865,34 @@ class Game {
       return g;
     }
     if (kind === 'person') return this.buildPerson();
+    if (kind === 'train') return this.buildTrain();
     if (kind === 'truck') return this.buildTruck();
     return this.buildCar(kind);
+  }
+
+  buildTrain() {
+    const T = this.T;
+    const g = new T.Group();
+    const len = KINDS.train.len;
+    const body = 0xd8dce0, glass = 0x27333d, skirt = 0x3a4046;
+    const cars = 3;
+    const carLen = (len - 0.3 * (cars - 1)) / cars;
+    for (let i = 0; i < cars; i++) {
+      const cx = len / 2 - carLen / 2 - i * (carLen + 0.3);
+      const shell = this.mesh(carLen, 0.86, 1.0, body, cx, 0.78, 0);
+      shell.castShadow = true;
+      g.add(shell);
+      g.add(this.mesh(carLen * 0.9, 0.3, 1.02, glass, cx, 1.02, 0));
+      g.add(this.mesh(carLen * 0.96, 0.22, 1.0, skirt, cx, 0.3, 0));
+      for (const sz of [-0.5, 0.5]) {
+        g.add(this.mesh(0.3, 0.24, 0.1, 0x141418, cx - carLen * 0.3, 0.2, sz));
+        g.add(this.mesh(0.3, 0.24, 0.1, 0x141418, cx + carLen * 0.3, 0.2, sz));
+      }
+    }
+    g.add(this.mesh(0.12, 0.4, 0.7, glass, len / 2 - 0.02, 0.86, 0));
+    g.add(this.mesh(0.08, 0.1, 0.24, 0xfff3c4, len / 2 + 0.01, 0.42, 0));
+    g.userData.len = len;
+    return g;
   }
 
   buildTruck() {
@@ -991,6 +1072,7 @@ class Game {
   loadLook() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(LOOK_KEY) || 'null'); } catch (e) {}
+    this.lookStored = (raw && typeof raw === 'object') ? raw : {};
     const out = {};
     for (const sl of SLOTS) {
       const v = (raw && raw[sl.id]) || {};
@@ -1021,6 +1103,7 @@ class Game {
     let cls = 'slot';
     if (st && st.busy) { state = 'Reading\u2026'; cls += ' busy'; }
     else if (st && st.err) { state = st.err; cls += ' bad'; }
+    else if (m && m.bundled) state = m.name + ' \u00b7 shipped' + (m.bytes ? ' \u00b7 ' + niceSize(m.bytes) : '');
     else if (m) state = m.name + (m.bytes ? ' \u00b7 ' + niceSize(m.bytes) : '');
     else state = 'Built-in';
     el.className = cls;
@@ -1030,7 +1113,7 @@ class Game {
       '<span class="slot-state">' + state + '</span></div>' +
       '<div class="slot-btns">' +
         '<button class="icon-btn" data-mact="pick">' + (m ? 'Replace' : 'Upload .glb') + '</button>' +
-        (m ? '<button class="icon-btn" data-mact="clear">Remove</button>' : '') +
+        (m && !m.bundled ? '<button class="icon-btn" data-mact="clear">Remove</button>' : '') +
       '</div>';
     if (m) {
       html += ctrlRow('size', 'Size', look.size, 0.3, 3, 0.05, fmt('size', look.size), 'mkey') +
@@ -1062,6 +1145,7 @@ class Game {
     const card = t.closest('.slot');
     const id = card.dataset.slot;
     this.look[id][key] = Number(t.value);
+    this.lookStored[id] = this.look[id];
     const out = card.querySelector('[data-val="' + key + '"]');
     if (out) out.textContent = fmt(key, this.look[id][key]);
     this.saveLook();
@@ -1305,7 +1389,9 @@ class Game {
     }
 
     if (this.rig && this.state.phase !== 'over') {
-      this.rig.rotation.y = lerpAngle(this.rig.rotation.y, this.camFace + this.face, 0.35);
+      // A model is authored facing +z, so hopping "up the screen" (towards -z)
+      // means turning it a half turn: Math.PI - face maps every hop correctly.
+      this.rig.rotation.y = lerpAngle(this.rig.rotation.y, Math.PI - this.face, 0.3);
     }
 
     this.stepDeath(dt);

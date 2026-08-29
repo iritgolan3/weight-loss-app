@@ -1,0 +1,7 @@
+{
+  "player": { "file": "character.glb", "yaw": 0 },
+  "m3":     { "file": "model3.glb",    "yaw": 90 },
+  "cyber":  { "file": "cybertruck.glb", "yaw": 90 },
+  "truck":  { "file": "semi.glb",      "yaw": 90 },
+  "train":  { "file": "train.glb",     "yaw": 90 }
+}
