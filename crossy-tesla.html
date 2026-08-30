@@ -246,7 +246,7 @@
  * three.js r160 is vendored in ./vendor so the game runs offline, with no CDN.
  * See vendor/three-LICENSE.txt (MIT) for three.js and GLTFLoader.
  */
-const COLS = 4;              // playable columns each side of centre
+const COLS = 7;              // playable columns each side of centre
 const EDGE = COLS + 2;       // world half-width (cars spawn/despawn beyond)
 const HOP_MS = 152;          // a touch longer, now that the hop has a wind-up
 const ANTIC = 0.2;           // share of the hop spent crouching before take-off
@@ -1141,14 +1141,6 @@ class Game {
         row.blockers.add(col);
         g.add(this.tree(col));
       }
-      // A sparser treeline outside the playfield, with the odd bush for texture.
-      for (const side of [-1, 1]) {
-        for (let k = COLS + 1; k <= EDGE + 3; k++) {
-          const r = Math.random();
-          if (r < 0.17) g.add(this.tree(side * k, true));
-          else if (r < 0.26) g.add(this.bush(side * k + (Math.random() - 0.5) * 0.4));
-        }
-      }
       if (!trees && Math.random() < 0.22) {
         const col = Math.round((Math.random() * 2 - 1) * COLS);
         if (!(index >= -1 && index <= 2 && Math.abs(col) < 2)) g.add(this.bush(col));
@@ -1170,11 +1162,13 @@ class Game {
         for (const dz of [-0.28, 0.28]) {
           g.add(this.mesh(76, 0.09, 0.09, 0x9aa0a6, 0, 0.08, dz));    // rails
         }
-        row.lamps = [];
-        for (const side of [-1, 1]) {
-          const post = this.crossingSignal(side);
-          g.add(post);
-          row.lamps.push(post.userData.lampA, post.userData.lampB);
+        // One crossing per block of rail lanes, at the edge the player reaches
+        // first, rather than a forest of posts on every lane.
+        const before = this.rows.get(index - 1);
+        if (!before || before.kind !== 'train') {
+          const strip = this.crossingSignal();
+          g.add(strip);
+          row.lamps = strip.userData.lamps;
         }
       } else if (walk) {
         for (let x = -EDGE - 4; x <= EDGE + 4; x += 1.1) {
@@ -1197,6 +1191,11 @@ class Game {
         actor.traverse((o) => { if (o.userData && o.userData.isWheel) row.spin.push(o); });
         x += actor.userData.len + spec.gap + Math.random() * (walk ? 1.6 : 4.5);
       }
+    }
+
+    // The line to beat, painted across the row your record ended on.
+    if (this.best > 0 && index === this.best) {
+      g.add(this.bestMarker(type === 'grass' ? 0.08 : 0));
     }
 
     this.scene.add(g);
@@ -1243,6 +1242,53 @@ class Game {
     return g;
   }
 
+  bestMarker(topY) {
+    const T = this.T;
+    const g = new T.Group();
+    const w = COLS * 2 + 3;
+    for (const dz of [-0.34, 0.34]) {
+      const line = new T.Mesh(this.box(w, 0.02, 0.05), this.glow(0xffd45e));
+      line.position.set(0, topY + 0.015, dz);
+      g.add(line);
+    }
+    const label = new T.Mesh(
+      new T.PlaneGeometry(3.6, 0.9),
+      new T.MeshBasicMaterial({ map: this.bestLabel(this.best), transparent: true, depthWrite: false })
+    );
+    label.rotation.x = -Math.PI / 2;
+    label.position.set(0, topY + 0.02, 0);
+    g.add(label);
+    return g;
+  }
+
+  // "BEST 24" on a transparent canvas, dark-edged so it reads on grass and tarmac.
+  bestLabel(n) {
+    this.bestLabels = this.bestLabels || {};
+    if (this.bestLabels[n]) return this.bestLabels[n];
+    const T = this.T;
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 128;
+    const g = c.getContext('2d');
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    g.font = '600 34px "JetBrains Mono", monospace';
+    g.strokeStyle = 'rgba(20,14,0,.55)'; g.lineWidth = 8;
+    g.strokeText('BEST', 116, 66);
+    g.fillStyle = '#ffe9a8';
+    g.fillText('BEST', 116, 66);
+    g.font = '900 88px Archivo, Helvetica, sans-serif';
+    g.strokeStyle = 'rgba(20,14,0,.6)'; g.lineWidth = 11;
+    g.strokeText(String(n), 300, 64);
+    g.fillStyle = '#ffd45e';
+    g.fillText(String(n), 300, 64);
+    const tex = new T.CanvasTexture(c);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 4;
+    this.bestLabels[n] = tex;
+    return tex;
+  }
+
   bush(col) {
     const g = new this.T.Group();
     const greens = [0x4f9f45, 0x459038, 0x58aa4c];
@@ -1274,34 +1320,29 @@ class Game {
   }
 
   // A level-crossing post: two lamps that alternate while a train is coming.
-  crossingSignal(side) {
+  // One lit strip laid into the ballast at the near edge of the crossing,
+  // instead of posts on every lane: nothing to clip, nothing to hide behind,
+  // and it is visible wherever on the field you happen to be standing.
+  crossingSignal() {
     const T = this.T;
     const g = new T.Group();
-    const dark = 0x22282e;
-    const post = this.mesh(0.09, 1.3, 0.09, dark, 0, 0.65, 0);
-    post.castShadow = true;
-    g.add(post);
-    for (let i = 0; i < 4; i++) {                       // hazard stripes up the post
-      g.add(this.mesh(0.1, 0.13, 0.1, i % 2 ? 0xf2efe4 : 0xc0392b, 0, 0.12 + i * 0.15, 0));
+    const w = COLS * 2 + 3;
+    const plate = this.mesh(w, 0.07, 0.26, 0x23282e, 0, 0, 0);
+    plate.receiveShadow = true;
+    g.add(plate);
+    for (let x = -w / 2 + 0.35; x < w / 2; x += 1.05) {
+      g.add(this.mesh(0.5, 0.02, 0.27, 0xd8d4c8, x, 0.04, 0));      // hazard dashes
     }
-    const bar = this.mesh(0.56, 0.09, 0.1, dark, 0, 1.3, 0);
-    bar.castShadow = true;
-    g.add(bar);
-    g.add(this.mesh(0.46, 0.11, 0.05, 0xf2efe4, 0, 1.53, -0.03));    // crossbuck, behind
-    g.add(this.mesh(0.11, 0.46, 0.05, 0xf2efe4, 0, 1.53, -0.03));
-
-    // Lamps face +z, which is where the camera always is.
     const lamps = [];
-    for (const dx of [-0.19, 0.19]) {
-      g.add(this.mesh(0.26, 0.26, 0.08, dark, dx, 1.3, 0.02));
-      const lamp = new T.Mesh(this.box(0.18, 0.18, 0.05), this.glow(0x3a1614));
-      lamp.position.set(dx, 1.3, 0.08);
+    for (const dx of [-2, 2]) {
+      g.add(this.mesh(0.42, 0.03, 0.3, 0x15191d, dx, 0.045, 0));
+      const lamp = new T.Mesh(this.box(0.32, 0.03, 0.22), this.glow(0x3a1614));
+      lamp.position.set(dx, 0.06, 0);
       g.add(lamp);
       lamps.push(lamp);
     }
-    g.userData.lampA = lamps[0];
-    g.userData.lampB = lamps[1];
-    g.position.set(side * (COLS + 1.35), 0.08, 0.12);
+    g.userData.lamps = lamps;
+    g.position.set(0, 0.06, 0.46);          // near edge of the rails
     return g;
   }
 
@@ -1936,17 +1977,23 @@ class Game {
   // Red flashing while a train is inside the warning distance, dark otherwise.
   runSignal(row, index) {
     let coming = false;
-    for (const car of row.cars) {
-      const x = car.position.x;
-      const ahead = row.dir > 0 ? -x : x;          // how far before the crossing
-      if (ahead > -3.5 && ahead < WARN_DIST) { coming = true; break; }
+    // one crossing covers the whole run of rail lanes behind it
+    for (let i = index; ; i++) {
+      const lane = this.rows.get(i);
+      if (!lane || lane.kind !== 'train') break;
+      for (const car of lane.cars) {
+        const x = car.position.x;
+        const ahead = lane.dir > 0 ? -x : x;       // how far before the crossing
+        if (ahead > -3.5 && ahead < WARN_DIST) { coming = true; break; }
+      }
+      if (coming) break;
     }
     if (coming) {
       const on = Math.floor(this.clock * 2.6) % 2 === 0;
-      row.lamps[0].material = this.glow(on ? 0xff2e21 : 0x3a1614);
-      row.lamps[1].material = this.glow(on ? 0x3a1614 : 0xff2e21);
-      row.lamps[2].material = row.lamps[0].material;
-      row.lamps[3].material = row.lamps[1].material;
+      const lit = this.glow(0xff2e21), off = this.glow(0x3a1614);
+      for (let i = 0; i < row.lamps.length; i++) {
+        row.lamps[i].material = (i % 2 === 0) === on ? lit : off;
+      }
       if (!row.warned) {
         row.warned = true;
         if (Math.abs(index - this.prow) <= 5) {
