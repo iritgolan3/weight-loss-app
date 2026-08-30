@@ -40,10 +40,18 @@ tens of megabytes, which everyone has to download before the game starts. Run
 it through gltf-transform first, e.g.
 
     npx @gltf-transform/cli optimize source.glb assets/model.glb \
-      --texture-size 512 --texture-compress webp \
+      --texture-size 1024 --texture-compress webp \
       --simplify-error 0.0004 --compress meshopt
 
 That is what the models above went through: 43 MB of Draco-compressed originals
-became 2.9 MB. Keep `--simplify-error` low — voxel models lose their hard edges
-quickly — and prefer `--compress meshopt` over draco, since the meshopt decoder
-is the one embedded in the single-file build.
+became 3.9 MB. Two things are worth knowing before turning the quality up:
+
+- **Texture size is what you see.** At the size a car appears on screen, 1024px
+  textures are a clear win over 512; more triangles are not.
+- **Triangles are what you pay.** A lane holds several copies of a model, so a
+  600k-triangle car (`--simplify-error 0.00016`) means millions of triangles a
+  frame and a stuttering phone. The vehicles here sit at 36k-196k each, and the
+  character — which only ever exists once — keeps 149k.
+
+Prefer `--compress meshopt` over draco: the meshopt decoder is the one embedded
+in the single-file build, so draco models work in the served game but not there.

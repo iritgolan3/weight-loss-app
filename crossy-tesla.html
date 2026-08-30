@@ -53,9 +53,33 @@
     text-transform: uppercase; color: rgba(255,255,255,.78);
   }
 
+  .score.gold { color: #ffd45e; text-shadow: 0 4px 0 rgba(120,80,0,.28); }
+
+  .record {
+    position: absolute; z-index: 4; left: 50%; top: 96px; transform: translateX(-50%);
+    pointer-events: none; white-space: nowrap;
+    background: #ffd45e; color: #2a1d00; border-radius: 999px; padding: 11px 22px;
+    font: 700 11px/1 'JetBrains Mono', monospace; letter-spacing: .26em; text-transform: uppercase;
+    box-shadow: 0 12px 30px rgba(90,60,0,.35);
+    animation: ctPop .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  .record[hidden] { display: none; }
+
+  .ranks { margin: 18px 0 0; display: flex; flex-direction: column; gap: 5px; }
+  .ranks[hidden] { display: none; }
+  .rank { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 11px; padding: 9px 13px; }
+  .rank .n { font: 500 9px/1 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a5a5a5; width: 18px; }
+  .rank .v { font: 800 15px/1 Archivo, sans-serif; color: #0D0D0D; letter-spacing: -.02em; }
+  .rank .tag { margin-left: auto; font: 500 8px/1 'JetBrains Mono', monospace; letter-spacing: .18em; text-transform: uppercase; color: #a5a5a5; }
+  .rank.me { background: #0D0D0D; }
+  .rank.me .v { color: #ffd45e; }
+  .rank.me .n, .rank.me .tag { color: rgba(244,241,233,.65); }
+  .rank.miss { opacity: .55; }
+
   .overlay {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(9,26,38,.42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); padding: 24px;
+    background: rgba(9,26,38,.42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    padding: 78px 24px 24px; overflow-y: auto;   /* clears the pencil, scrolls on short screens */
   }
   .overlay[hidden] { display: none; }
   .card {
@@ -149,6 +173,7 @@
     .hint { display: none; }
   }
 
+  @keyframes ctPop { from { opacity: 0; transform: translateX(-50%) scale(.7); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
   @keyframes ctIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
   @keyframes ctBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 </style>
@@ -166,6 +191,8 @@
     <div class="best" id="best">0</div>
     <div class="label label-dim">Best</div>
   </div>
+
+  <div class="record" id="record" hidden>New best</div>
 
   <a class="back" href="index.html" aria-label="Back to the app">&#8592;</a>
   <div class="hint" id="hint"></div>
@@ -204,6 +231,7 @@
         <div class="stat"><div class="stat-num" id="statScore">0</div><div class="stat-label">Steps</div></div>
         <div class="stat"><div class="stat-num" id="statBest">0</div><div class="stat-label">Best</div></div>
       </div>
+      <div class="ranks" id="cardRanks" hidden></div>
       <button class="play" id="cardButton" hidden></button>
       <div class="spinner" id="cardSpinner" hidden></div>
     </div>
@@ -220,12 +248,15 @@
  */
 const COLS = 4;              // playable columns each side of centre
 const EDGE = COLS + 2;       // world half-width (cars spawn/despawn beyond)
-const HOP_MS = 130;
+const HOP_MS = 152;          // a touch longer, now that the hop has a wind-up
+const ANTIC = 0.2;           // share of the hop spent crouching before take-off
+const SETTLE_MS = 190;       // landing wobble
 const VIEW_W = 8.6;          // world units that always fit across the screen
 const VIEW_H = 9.4;          // world units that always fit down the screen
 const AHEAD_MIN = 16;        // rows kept built in front of the player
 const BEHIND_MIN = 9;        // rows kept built behind the player
 const FALL_MS = 520;         // how long the knocked-over tumble takes
+const WARN_DIST = 26;        // how far out a train sets the crossing flashing
 
 // Everything that can occupy a lane. `gap` is the clear space left between two
 // of them, `lane` picks the surface the lane is paved with.
@@ -265,6 +296,17 @@ const DEFAULT_TRAFFIC = [
   { kind: 'train',  speed: 9.5, level: 14, often: 0.5, on: true }
 ];
 const TRAFFIC_KEY = 'crossyTeslaTraffic';
+const SCORES_KEY = 'crossyTeslaScores';
+// Every pedestrian is a fan: each wears one of these prints.
+const SHIRTS = [
+  { cloth: 0xf4f4f4, art: 'logo', ink: '#c0392b' },
+  { cloth: 0x1b1b20, art: 'logo', ink: '#f4f4f4' },
+  { cloth: 0xc0392b, art: 'word', ink: '#ffffff' },
+  { cloth: 0x2d5f8b, art: 'face', ink: '' },
+  { cloth: 0xe8e6e1, art: 'face', ink: '' },
+  { cloth: 0x2f7d52, art: 'word', ink: '#ffffff' }
+];
+const TOP_N = 5;
 const SPLATS = 64;           // red squares thrown out on impact
 const GRAVITY = 15;
 
@@ -367,8 +409,11 @@ class Game {
   constructor() {
     this.state = { phase: 'loading', score: 0, best: 0, progress: 'Building the world' };
     this.host = $('host');
-    try { this.best = Number(localStorage.getItem('crossyTeslaBest') || 0) || 0; } catch (e) { this.best = 0; }
+    this.scores = this.loadScores();
+    this.best = this.scores[0] || 0;
     this.state.best = this.best;
+    this.state.scores = this.scores;
+    this.state.rank = -1;
 
     this.traffic = this.loadTraffic();
     this.models = {};
@@ -402,6 +447,22 @@ class Game {
     this.boot();
   }
 
+  // Top five runs, with a fallback to the single best the old build stored.
+  loadScores() {
+    let list = null;
+    try { list = JSON.parse(localStorage.getItem(SCORES_KEY) || 'null'); } catch (e) {}
+    if (!Array.isArray(list)) {
+      let old = 0;
+      try { old = Number(localStorage.getItem('crossyTeslaBest') || 0) || 0; } catch (e) {}
+      list = old ? [old] : [];
+    }
+    return list.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => b - a).slice(0, TOP_N);
+  }
+
+  saveScores() {
+    try { localStorage.setItem(SCORES_KEY, JSON.stringify(this.scores)); } catch (e) {}
+  }
+
   setState(patch) {
     Object.assign(this.state, patch);
     this.render();
@@ -420,6 +481,10 @@ class Game {
       ? 'Arrows / WASD to hop · pencil to edit the traffic'
       : 'Space to start · pencil to edit the traffic';
 
+    $('score').classList.toggle('gold', !!s.gold);
+    $('record').hidden = !s.banner || this.editing;
+    this.renderRanks();
+
     $('overlay').hidden = phase === 'play' || this.editing;
     $('cardKicker').textContent = card.kicker;
     $('cardTitle').textContent = card.title;
@@ -429,6 +494,30 @@ class Game {
     $('cardButton').textContent = card.button;
     $('cardSpinner').hidden = !card.spin;
     $('cardSpinner').textContent = s.progress;
+  }
+
+  renderRanks() {
+    const box = $('cardRanks');
+    if (!box) return;
+    const show = this.state.phase === 'over' && this.state.scores && this.state.scores.length;
+    box.hidden = !show;
+    if (!show) return;
+    box.textContent = '';
+    const rank = this.state.rank;
+    this.state.scores.forEach((v, i) => {
+      const row = document.createElement('div');
+      row.className = 'rank' + (i === rank ? ' me' : '');
+      row.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="v">' + v + '</span>' +
+        (i === rank ? '<span class="tag">This run</span>' : (i === 0 ? '<span class="tag">Best</span>' : ''));
+      box.appendChild(row);
+    });
+    if (rank < 0) {
+      const row = document.createElement('div');
+      row.className = 'rank miss';
+      row.innerHTML = '<span class="n">&mdash;</span><span class="v">' + this.state.score +
+        '</span><span class="tag">This run</span>';
+      box.appendChild(row);
+    }
   }
 
   // ---------- setup ----------
@@ -487,6 +576,8 @@ class Game {
     this.sun = sun;
     scene.add(new T.DirectionalLight(0xffffff, 0.25).translateOnAxis(new T.Vector3(-1, 0.4, -1).normalize(), 10));
 
+    this.makeEnvironment();
+
     this.mats = {};
     this.geos = {};
     this.rows = new Map();
@@ -506,6 +597,36 @@ class Game {
     this.loop();
   }
 
+  // A tiny sky/ground gradient, prefiltered into an environment map. It is put
+  // on loaded models only, so the flat voxel world keeps its poster look while
+  // car paint and glass pick up a sky.
+  makeEnvironment() {
+    const T = this.T;
+    try {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 64;
+      const g = c.getContext('2d');
+      const sky = g.createLinearGradient(0, 0, 0, 64);
+      sky.addColorStop(0, '#bcdcf2');
+      sky.addColorStop(0.46, '#eaf6ff');
+      sky.addColorStop(0.54, '#7fa966');
+      sky.addColorStop(1, '#4d7d3f');
+      g.fillStyle = sky;
+      g.fillRect(0, 0, 128, 64);
+      g.fillStyle = 'rgba(255,250,231,.95)';
+      g.beginPath(); g.ellipse(92, 14, 13, 9, 0, 0, 6.3); g.fill();
+      const tex = new T.CanvasTexture(c);
+      tex.mapping = T.EquirectangularReflectionMapping;
+      tex.colorSpace = T.SRGBColorSpace;
+      const pmrem = new T.PMREMGenerator(this.renderer);
+      this.envMap = pmrem.fromEquirectangular(tex).texture;
+      pmrem.dispose();
+      tex.dispose();
+    } catch (e) {
+      this.envMap = null;
+    }
+  }
+
   mat(color) {
     if (!this.mats[color]) {
       this.mats[color] = new this.T.MeshLambertMaterial({ color: color, flatShading: true });
@@ -513,10 +634,31 @@ class Game {
     return this.mats[color];
   }
 
+  // Lamps must read as lit even in shadow, so they use an unlit material.
+  glow(color) {
+    this.glows = this.glows || {};
+    if (!this.glows[color]) this.glows[color] = new this.T.MeshBasicMaterial({ color: color });
+    return this.glows[color];
+  }
+
   box(sx, sy, sz) {
     const key = [sx, sy, sz].join('_');
     if (!this.geos[key]) this.geos[key] = new this.T.BoxGeometry(sx, sy, sz);
     return this.geos[key];
+  }
+
+  // A wheel that can turn: the box sits inside a pivot at the axle, so the same
+  // rolling code drives built-in shapes and wheels cut out of loaded models.
+  wheelBox(sx, sy, sz, color, x, y, z) {
+    const pivot = new this.T.Group();
+    pivot.position.set(x, y, z);
+    const m = this.mesh(sx, sy, sz, color, 0, 0, 0);
+    m.castShadow = true;
+    pivot.add(m);
+    pivot.userData.isWheel = true;
+    pivot.userData.radius = sy / 2;
+    pivot.userData.axis = 'z';
+    return pivot;
   }
 
   mesh(sx, sy, sz, color, x, y, z) {
@@ -532,11 +674,15 @@ class Game {
     const rig = new this.T.Group();
     this.player.add(rig);
     this.rig = rig;
+    // rig turns to face the hop; tilt does the squash and lean in the model's
+    // own frame, so the two never fight each other.
+    this.tilt = new this.T.Group();
+    rig.add(this.tilt);
     this.applyDriver();
   }
 
   applyDriver() {
-    const rig = this.rig;
+    const rig = this.tilt;
     if (!rig) return;
     while (rig.children.length) rig.remove(rig.children[0]);
     this.mixer = null;
@@ -594,6 +740,10 @@ class Game {
   prepModel(raw, slotId, clips, meta) {
     const T = this.T;
     const slot = SLOT_BY_ID[slotId];
+    let wheels = 0;
+    if (slot.fit === 'length') {
+      try { wheels = this.extractWheels(raw); } catch (e) { console.warn('[game] wheel split skipped', e); }
+    }
     const look = this.look[slotId] || { size: 1, yaw: 0 };
     const wrap = new T.Group();
     raw.position.set(0, 0, 0);
@@ -610,12 +760,26 @@ class Game {
     const b2 = new T.Box3().setFromObject(wrap);
     const c2 = b2.getCenter(new T.Vector3());
     wrap.position.set(-c2.x, -b2.min.y, -c2.z);
-    wrap.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    wrap.traverse((o) => {
+      if (o.userData && o.userData.isWheel) o.userData.mscale = wrap.scale.x;
+      if (!o.isMesh) return;
+      o.castShadow = true;
+      o.receiveShadow = false;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const mm of mats) {
+        if (!mm || !this.envMap) continue;
+        mm.envMap = this.envMap;
+        if ('envMapIntensity' in mm) mm.envMapIntensity = 0.9;
+        mm.needsUpdate = true;
+      }
+    });
 
     return {
       root: wrap,
       raw: raw,
       clips: clips || [],
+      wheels: wheels,
+      scale: wrap.scale.x,
       len: Math.max(0.35, b2.max.x - b2.min.x),
       name: (meta && meta.name) || 'model.glb',
       bytes: (meta && meta.bytes) || 0,
@@ -661,6 +825,187 @@ class Game {
       }
     }
     if (Object.keys(this.bundles).some((k) => k !== 'player')) await this.cloner();
+  }
+
+  // Vehicles arrive as one baked mesh, so wheels have to be found rather than
+  // named: take the triangles low down and outboard, cluster them along the
+  // length into axles, keep the round ones, and hang each axle off its own
+  // pivot. Index buffers are split; the vertex data stays shared.
+  extractWheels(raw) {
+    const T = this.T;
+    if (raw.userData && raw.userData.wheelsDone) return raw.userData.wheelCount || 0;
+    const meshes = [];
+    raw.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    if (meshes.length !== 1) return this.markWheels(raw, 0);
+    const mesh = meshes[0];
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position;
+    if (!pos || !geo.index) return this.markWheels(raw, 0);
+    const index = geo.index.array;
+    const tris = index.length / 3;
+    if (tris < 400 || tris > 1400000) return this.markWheels(raw, 0);
+
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    const size = bb.getSize(new T.Vector3());
+    const alongZ = size.z >= size.x;
+    const len = alongZ ? size.z : size.x;
+    const wide = alongZ ? size.x : size.z;
+    const lo = (i) => (alongZ ? pos.getZ(i) : pos.getX(i));       // along the vehicle
+    const across = (i) => (alongZ ? pos.getX(i) : pos.getZ(i));   // along the axle
+    const midAcross = alongZ ? (bb.min.x + bb.max.x) / 2 : (bb.min.z + bb.max.z) / 2;
+
+    // Tyres are the only thing touching the ground, so the bottom sliver of the
+    // model is almost pure wheel: its spread along the length gives the axles.
+    const band = size.y * 0.07;
+    const thin = size.y * 0.025;
+    const groundY = bb.min.y + band;
+    const cy = [], cz = [], cx = [];
+    for (let t = 0; t < tris; t++) {
+      const a = index[t * 3], b = index[t * 3 + 1], c = index[t * 3 + 2];
+      const y = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3;
+      cy.push(y);
+      cz.push((lo(a) + lo(b) + lo(c)) / 3);
+      cx.push((across(a) + across(b) + across(c)) / 3 - midAcross);
+    }
+    const feet = [];
+    for (let t = 0; t < tris; t++) if (cy[t] <= groundY) feet.push(cz[t]);
+    if (feet.length < 80) return this.markWheels(raw, 0);
+
+    feet.sort((a, b) => a - b);
+    const gap = len * 0.035;
+    const runs = [];
+    let from = feet[0], prev = feet[0], count = 1;
+    for (let i = 1; i < feet.length; i++) {
+      if (feet[i] - prev > gap) { runs.push({ a: from, b: prev, n: count }); from = feet[i]; count = 0; }
+      prev = feet[i];
+      count++;
+    }
+    runs.push({ a: from, b: prev, n: count });
+
+    // Two slices through the tyre give the radius honestly: a contact patch is
+    // flattened, but the way the chord grows between two heights is not.
+    // Tandem axles come out as one long run and are split back into wheels.
+    const thinY = bb.min.y + thin;
+    const rMin = len * 0.006, rMax = len * 0.09;
+    let axles = [];
+    for (const run of runs) {
+      if (run.n < 40) continue;
+      const c2 = Math.max(run.b - run.a, len * 0.005);
+      let lo2 = Infinity, hi2 = -Infinity;
+      for (let t = 0; t < tris; t++) {
+        if (cy[t] > thinY) continue;
+        if (cz[t] < run.a - gap || cz[t] > run.b + gap) continue;
+        if (cz[t] < lo2) lo2 = cz[t];
+        if (cz[t] > hi2) hi2 = cz[t];
+      }
+      const c1 = hi2 > lo2 ? hi2 - lo2 : c2 * 0.8;
+      let r = ((c2 * c2 - c1 * c1) / 4 + (band * band - thin * thin)) / (2 * (band - thin));
+      if (!(r > 0) || r > rMax || r < rMin) r = (c2 * c2 / 4 + band * band) / (2 * band);
+      r = Math.min(rMax, Math.max(rMin, r));
+      const many = Math.max(1, Math.round(c2 / (2 * r)));
+      for (let k = 0; k < many; k++) {
+        const centre = run.a + (c2 / many) * (k + 0.5);
+        axles.push({ centre: centre, y: bb.min.y + r, r: r });
+      }
+    }
+    // Wheels on one vehicle are all about the same size. Anything much bigger
+    // than the smallest is underframe that happened to sit inside a circle.
+    if (axles.length > 1) {
+      let small = Infinity;
+      for (const a of axles) small = Math.min(small, a.r);
+      axles = axles.filter((a) => a.r <= small * 2);
+    }
+    if (axles.length < 2 || axles.length > 8) return this.markWheels(raw, 0);
+
+    const outer = wide * 0.16;
+    let picks = [];
+    let taken = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      picks = axles.map(() => []);
+      taken = 0;
+      for (let t = 0; t < tris; t++) {
+        if (Math.abs(cx[t]) < outer) continue;
+        for (let k = 0; k < axles.length; k++) {
+          const ax = axles[k];
+          const dz = cz[t] - ax.centre, dy = cy[t] - ax.y;
+          const rr = ax.r * 0.95;
+          if (dz * dz + dy * dy <= rr * rr) { picks[k].push(t); taken++; break; }
+        }
+      }
+      // A wheel is a small part of a car. Anything hungrier has caught bodywork.
+      const fat = picks.filter((p) => p.length > tris * 0.1).length;
+      if (!fat && taken <= tris * 0.3) break;
+      for (const ax of axles) { ax.r *= 0.78; ax.y = bb.min.y + ax.r; }
+    }
+    if (taken > tris * 0.3) return this.markWheels(raw, 0);
+
+    const IndexArray = index.length > 65535 ? Uint32Array : Uint16Array;
+    const parent = mesh.parent || raw;
+    const used = new Uint8Array(tris);
+    let made = 0;
+    for (let k = 0; k < axles.length; k++) {
+      const keep = picks[k];
+      if (keep.length < 30) continue;
+      const arr = new IndexArray(keep.length * 3);
+      keep.forEach((t, n) => {
+        used[t] = 1;
+        arr[n * 3] = index[t * 3];
+        arr[n * 3 + 1] = index[t * 3 + 1];
+        arr[n * 3 + 2] = index[t * 3 + 2];
+      });
+      const wg = new T.BufferGeometry();
+      for (const name of Object.keys(geo.attributes)) wg.setAttribute(name, geo.attributes[name]);
+      wg.setIndex(new T.BufferAttribute(arr, 1));
+
+      // The mesh carries its own transform, so the axle point is mapped into the
+      // parent's space and the wheel keeps the mesh's rotation and scale. mount
+      // holds it in place, spin is the part that turns.
+      const ax = axles[k];
+      const P = alongZ ? new T.Vector3(0, ax.y, ax.centre) : new T.Vector3(ax.centre, ax.y, 0);
+      mesh.updateMatrix();
+      const seat = P.clone().applyMatrix4(mesh.matrix);
+
+      const mount = new T.Group();
+      mount.position.copy(seat);
+      mount.quaternion.copy(mesh.quaternion);
+      const spin = new T.Group();
+      mount.add(spin);
+
+      const wheel = new T.Mesh(wg, mesh.material);
+      wheel.scale.copy(mesh.scale);
+      wheel.position.copy(P).multiply(mesh.scale).negate();
+      wheel.castShadow = true;
+      spin.add(wheel);
+
+      const ms = (Math.abs(mesh.scale.x) + Math.abs(mesh.scale.y) + Math.abs(mesh.scale.z)) / 3;
+      spin.userData.isWheel = true;
+      spin.userData.radius = ax.r * ms;
+      spin.userData.axis = alongZ ? 'x' : 'z';
+      parent.add(mount);
+      made++;
+    }
+    if (!made) return this.markWheels(raw, 0);
+
+    const rest = [];
+    for (let t = 0; t < tris; t++) {
+      if (used[t]) continue;
+      rest.push(index[t * 3], index[t * 3 + 1], index[t * 3 + 2]);
+    }
+    const body = new T.BufferGeometry();
+    for (const name of Object.keys(geo.attributes)) body.setAttribute(name, geo.attributes[name]);
+    body.setIndex(new T.BufferAttribute(new IndexArray(rest), 1));
+    body.boundingBox = geo.boundingBox;
+    mesh.geometry = body;
+
+    return this.markWheels(raw, made);
+  }
+
+  markWheels(raw, n) {
+    raw.userData = raw.userData || {};
+    raw.userData.wheelsDone = true;
+    raw.userData.wheelCount = n;
+    return n;
   }
 
   // Read every model the player has stored, before the first frame is drawn.
@@ -740,9 +1085,14 @@ class Game {
     this.prow = 0;
     this.score = 0;
     this.hopT = null;
+    this.settleT = null;
     this.face = 0;
+    if (this.tilt) { this.tilt.scale.set(1, 1, 1); this.tilt.rotation.set(0, 0, 0); }
     this.clearSplatter();
     this.deathT = null;
+    this.record = false;
+    clearTimeout(this.bannerT);
+    this.setState({ gold: false, banner: false, rank: -1 });
     this.player.position.set(0, 0.08, 0);
     this.player.rotation.y = 0;
     this.rig.rotation.set(0, Math.PI, 0);
@@ -776,14 +1126,14 @@ class Game {
       if (!entry) type = 'grass';
     }
 
-    const row = { type: type, group: g, cars: [], blockers: new Set(), run: 0, kind: null };
+    const row = { type: type, group: g, cars: [], spin: [], blockers: new Set(), run: 0, kind: null };
 
     if (type === 'grass') {
       const shade = (index % 2 === 0) ? 0x7cc35a : 0x74ba52;
       const ground = this.mesh(76, 0.6, 1, shade, 0, -0.22, 0);
       ground.receiveShadow = true;
       g.add(ground);
-      const trees = Math.random() < 0.62 ? 1 + Math.floor(Math.random() * 3) : 0;
+      const trees = Math.random() < 0.36 ? (Math.random() < 0.2 ? 2 : 1) : 0;
       for (let n = 0; n < trees; n++) {
         const col = Math.round((Math.random() * 2 - 1) * COLS);
         if (index >= -1 && index <= 2 && Math.abs(col) < 2) continue;
@@ -791,10 +1141,17 @@ class Game {
         row.blockers.add(col);
         g.add(this.tree(col));
       }
+      // A sparser treeline outside the playfield, with the odd bush for texture.
       for (const side of [-1, 1]) {
         for (let k = COLS + 1; k <= EDGE + 3; k++) {
-          if (Math.random() < 0.55) g.add(this.tree(side * k, true));
+          const r = Math.random();
+          if (r < 0.17) g.add(this.tree(side * k, true));
+          else if (r < 0.26) g.add(this.bush(side * k + (Math.random() - 0.5) * 0.4));
         }
+      }
+      if (!trees && Math.random() < 0.22) {
+        const col = Math.round((Math.random() * 2 - 1) * COLS);
+        if (!(index >= -1 && index <= 2 && Math.abs(col) < 2)) g.add(this.bush(col));
       }
     } else {
       const prev = this.rows.get(index - 1);
@@ -812,6 +1169,12 @@ class Game {
         }
         for (const dz of [-0.28, 0.28]) {
           g.add(this.mesh(76, 0.09, 0.09, 0x9aa0a6, 0, 0.08, dz));    // rails
+        }
+        row.lamps = [];
+        for (const side of [-1, 1]) {
+          const post = this.crossingSignal(side);
+          g.add(post);
+          row.lamps.push(post.userData.lampA, post.userData.lampB);
         }
       } else if (walk) {
         for (let x = -EDGE - 4; x <= EDGE + 4; x += 1.1) {
@@ -831,6 +1194,7 @@ class Game {
         actor.rotation.y = row.dir > 0 ? 0 : Math.PI;
         g.add(actor);
         row.cars.push(actor);
+        actor.traverse((o) => { if (o.userData && o.userData.isWheel) row.spin.push(o); });
         x += actor.userData.len + spec.gap + Math.random() * (walk ? 1.6 : 4.5);
       }
     }
@@ -839,20 +1203,59 @@ class Game {
     this.rows.set(index, row);
   }
 
+  // Three canopy blocks, each turned a little, over a tapered two-part trunk.
+  // Fewer of these than the old ones, so each can afford the extra pieces.
   tree(col, decor) {
+    const T = this.T;
+    const g = new T.Group();
+    const barks = [0x6b4a2c, 0x785333, 0x5d4026];
+    const bark = barks[Math.floor(Math.random() * barks.length)];
+    const greens = decor
+      ? [0x3c8438, 0x347a31, 0x2f6f2c]
+      : [0x53ad49, 0x479f40, 0x3d9138];
+    const tint = Math.floor(Math.random() * greens.length);
+    const pick = (i) => greens[(tint + i) % greens.length];
+
+    const base = this.mesh(0.28, 0.34, 0.28, bark, 0, 0.17, 0);
+    base.castShadow = true;
+    g.add(base);
+    const stem = this.mesh(0.19, 0.36, 0.19, bark, 0, 0.5, 0);
+    stem.castShadow = true;
+    g.add(stem);
+
+    const tall = 0.5 + Math.random() * 0.55;
+    const layers = [
+      { w: 0.94, h: tall * 0.62, y: 0.68 + tall * 0.31, c: pick(0) },
+      { w: 0.74, h: tall * 0.5,  y: 0.68 + tall * 0.78, c: pick(1) },
+      { w: 0.46, h: tall * 0.36, y: 0.68 + tall * 1.16, c: pick(2) }
+    ];
+    for (const l of layers) {
+      const block = this.mesh(l.w, l.h, l.w, l.c, 0, l.y, 0);
+      block.rotation.y = (Math.random() - 0.5) * 0.7;
+      block.castShadow = true;
+      g.add(block);
+    }
+
+    g.position.set(col, 0.08, (Math.random() - 0.5) * 0.16);
+    g.rotation.y = Math.random() * Math.PI;
+    g.rotation.z = (Math.random() - 0.5) * 0.05;
+    g.scale.setScalar(0.88 + Math.random() * 0.3);
+    return g;
+  }
+
+  bush(col) {
     const g = new this.T.Group();
-    const h = 0.55 + Math.random() * 0.7;
-    const trunk = this.mesh(0.22, 0.5, 0.22, 0x6b4a2c, 0, 0.25, 0);
-    trunk.castShadow = true;
-    g.add(trunk);
-    const leaf = this.mesh(0.72, h, 0.72, decor ? 0x3f8a3a : 0x46993f, 0, 0.5 + h / 2, 0);
-    leaf.castShadow = true;
-    g.add(leaf);
-    const cap = this.mesh(0.5, 0.36, 0.5, 0x50a848, 0, 0.5 + h + 0.14, 0);
-    cap.castShadow = true;
-    g.add(cap);
-    g.position.set(col, 0.08, (Math.random() - 0.5) * 0.14);
-    g.scale.setScalar(0.9 + Math.random() * 0.25);
+    const greens = [0x4f9f45, 0x459038, 0x58aa4c];
+    const n = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) {
+      const w = 0.3 + Math.random() * 0.26;
+      const b = this.mesh(w, w * 0.8, w, greens[Math.floor(Math.random() * greens.length)],
+        (Math.random() - 0.5) * 0.34, w * 0.4, (Math.random() - 0.5) * 0.3);
+      b.rotation.y = Math.random() * Math.PI;
+      b.castShadow = true;
+      g.add(b);
+    }
+    g.position.set(col, 0.08, (Math.random() - 0.5) * 0.2);
     return g;
   }
 
@@ -870,6 +1273,38 @@ class Game {
     return this.buildCar(kind);
   }
 
+  // A level-crossing post: two lamps that alternate while a train is coming.
+  crossingSignal(side) {
+    const T = this.T;
+    const g = new T.Group();
+    const dark = 0x22282e;
+    const post = this.mesh(0.09, 1.3, 0.09, dark, 0, 0.65, 0);
+    post.castShadow = true;
+    g.add(post);
+    for (let i = 0; i < 4; i++) {                       // hazard stripes up the post
+      g.add(this.mesh(0.1, 0.13, 0.1, i % 2 ? 0xf2efe4 : 0xc0392b, 0, 0.12 + i * 0.15, 0));
+    }
+    const bar = this.mesh(0.56, 0.09, 0.1, dark, 0, 1.3, 0);
+    bar.castShadow = true;
+    g.add(bar);
+    g.add(this.mesh(0.46, 0.11, 0.05, 0xf2efe4, 0, 1.53, -0.03));    // crossbuck, behind
+    g.add(this.mesh(0.11, 0.46, 0.05, 0xf2efe4, 0, 1.53, -0.03));
+
+    // Lamps face +z, which is where the camera always is.
+    const lamps = [];
+    for (const dx of [-0.19, 0.19]) {
+      g.add(this.mesh(0.26, 0.26, 0.08, dark, dx, 1.3, 0.02));
+      const lamp = new T.Mesh(this.box(0.18, 0.18, 0.05), this.glow(0x3a1614));
+      lamp.position.set(dx, 1.3, 0.08);
+      g.add(lamp);
+      lamps.push(lamp);
+    }
+    g.userData.lampA = lamps[0];
+    g.userData.lampB = lamps[1];
+    g.position.set(side * (COLS + 1.35), 0.08, 0.12);
+    return g;
+  }
+
   buildTrain() {
     const T = this.T;
     const g = new T.Group();
@@ -885,8 +1320,8 @@ class Game {
       g.add(this.mesh(carLen * 0.9, 0.3, 1.02, glass, cx, 1.02, 0));
       g.add(this.mesh(carLen * 0.96, 0.22, 1.0, skirt, cx, 0.3, 0));
       for (const sz of [-0.5, 0.5]) {
-        g.add(this.mesh(0.3, 0.24, 0.1, 0x141418, cx - carLen * 0.3, 0.2, sz));
-        g.add(this.mesh(0.3, 0.24, 0.1, 0x141418, cx + carLen * 0.3, 0.2, sz));
+        g.add(this.wheelBox(0.3, 0.24, 0.1, 0x141418, cx - carLen * 0.3, 0.2, sz));
+        g.add(this.wheelBox(0.3, 0.24, 0.1, 0x141418, cx + carLen * 0.3, 0.2, sz));
       }
     }
     g.add(this.mesh(0.12, 0.4, 0.7, glass, len / 2 - 0.02, 0.86, 0));
@@ -923,19 +1358,76 @@ class Game {
 
     const wz = wid / 2 + 0.02;
     for (const sx of [len / 2 - 0.55, -len / 2 + 0.7, -len / 2 + 1.5]) {
-      for (const sz of [-wz, wz]) g.add(this.mesh(0.42, 0.4, 0.14, 0x141418, sx, 0.2, sz));
+      for (const sz of [-wz, wz]) g.add(this.wheelBox(0.42, 0.4, 0.14, 0x141418, sx, 0.2, sz));
     }
     g.userData.len = len;
     return g;
   }
 
+  // A 64px canvas per shirt, nearest-filtered so the print stays as blocky as
+  // the people wearing it. The print goes on the chest and the back only.
+  shirtMats(i) {
+    this.shirtCache = this.shirtCache || {};
+    if (this.shirtCache[i]) return this.shirtCache[i];
+    const T = this.T;
+    const spec = SHIRTS[i];
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#' + spec.cloth.toString(16).padStart(6, '0');
+    g.fillRect(0, 0, 64, 64);
+
+    if (spec.art === 'logo') {
+      g.fillStyle = spec.ink;
+      const cx = 32, cy = 30;
+      g.beginPath();
+      g.moveTo(cx - 17, cy - 15); g.lineTo(cx + 17, cy - 15);
+      g.lineTo(cx + 13, cy - 9);  g.lineTo(cx + 4.5, cy - 9);
+      g.lineTo(cx + 3, cy + 17);  g.lineTo(cx - 3, cy + 17);
+      g.lineTo(cx - 4.5, cy - 9); g.lineTo(cx - 13, cy - 9);
+      g.closePath();
+      g.fill();
+      g.fillRect(cx - 20, cy - 15, 4, 6);
+      g.fillRect(cx + 16, cy - 15, 4, 6);
+    } else if (spec.art === 'word') {
+      g.fillStyle = spec.ink;
+      g.font = 'bold 12px "JetBrains Mono", monospace';
+      g.textBaseline = 'middle';
+      const letters = 'TESLA';
+      let x = 6;
+      for (const ch of letters) { g.fillText(ch, x, 32); x += 11; }
+    } else {
+      g.fillStyle = '#3a2a1c'; g.fillRect(19, 11, 26, 10);            // hair
+      g.fillStyle = '#f0c9a8'; g.fillRect(21, 17, 22, 25);            // face
+      g.fillStyle = '#3a2a1c'; g.fillRect(19, 17, 3, 12); g.fillRect(42, 17, 3, 12);
+      g.fillStyle = '#1b1b20'; g.fillRect(26, 25, 4, 4); g.fillRect(35, 25, 4, 4);
+      g.fillStyle = '#c78f6b'; g.fillRect(31, 30, 3, 4);              // nose
+      g.fillStyle = '#1b1b20'; g.fillRect(28, 37, 9, 2);              // smile
+      g.fillStyle = '#2b2f36'; g.fillRect(14, 42, 36, 12);            // shoulders
+      g.fillStyle = '#f4f4f4';
+      g.beginPath(); g.moveTo(27, 42); g.lineTo(32, 50); g.lineTo(37, 42); g.closePath(); g.fill();
+      g.fillStyle = '#c0392b'; g.fillRect(30, 44, 4, 10);             // tie
+    }
+
+    const tex = new T.CanvasTexture(c);
+    tex.magFilter = T.NearestFilter;
+    tex.minFilter = T.LinearMipmapLinearFilter;
+    tex.colorSpace = T.SRGBColorSpace;
+    const print = new T.MeshLambertMaterial({ map: tex });
+    const plain = this.mat(spec.cloth);
+    // BoxGeometry material order: +x, -x, +y, -y, +z, -z. People walk along x,
+    // so the print lands on the chest and the back.
+    this.shirtCache[i] = [print, print, plain, plain, plain, plain];
+    return this.shirtCache[i];
+  }
+
   buildPerson() {
     const g = new this.T.Group();
-    const tops = [0xd63b2f, 0x2d5f8b, 0xe0a63c, 0x2f7d52, 0x7a4fb5, 0xf4f4f4];
     const legs = [0x23252b, 0x1b3a5c, 0x4a4a52];
     const skins = [0xf0c9a8, 0xd7a97f, 0x8d5a3b, 0xf6d9bd];
     const hairs = [0x3a2a1c, 0x141418, 0x8a5a2b, 0xb8942f];
-    const top = tops[Math.floor(Math.random() * tops.length)];
+    const shirt = Math.floor(Math.random() * SHIRTS.length);
+    const top = SHIRTS[shirt].cloth;
     const leg = legs[Math.floor(Math.random() * legs.length)];
     const skin = skins[Math.floor(Math.random() * skins.length)];
     const hair = hairs[Math.floor(Math.random() * hairs.length)];
@@ -944,7 +1436,9 @@ class Game {
     hip.add(this.mesh(0.16, 0.34, 0.15, leg, 0, 0.17, -0.09));
     hip.add(this.mesh(0.16, 0.34, 0.15, leg, 0, 0.17, 0.09));
     g.add(hip);
-    g.add(this.mesh(0.34, 0.4, 0.28, top, 0, 0.54, 0));
+    const torso = new this.T.Mesh(this.box(0.34, 0.4, 0.28), this.shirtMats(shirt));
+    torso.position.set(0, 0.54, 0);
+    g.add(torso);
     g.add(this.mesh(0.09, 0.3, 0.09, top, 0, 0.55, -0.21));
     g.add(this.mesh(0.09, 0.3, 0.09, top, 0, 0.55, 0.21));
     g.add(this.mesh(0.26, 0.26, 0.24, skin, 0, 0.87, 0));
@@ -1006,7 +1500,7 @@ class Game {
     const wz = (kind === 'cyber' ? 0.98 : (kind === 'my' ? 0.94 : 0.86)) / 2 + 0.02;
     for (const sx of [-wx, wx]) {
       for (const sz of [-wz, wz]) {
-        g.add(this.mesh(0.34, 0.28, 0.12, 0x141418, sx, wheelY, sz));
+        g.add(this.wheelBox(0.34, 0.28, 0.12, 0x141418, sx, wheelY, sz));
       }
     }
     g.userData.len = len;
@@ -1342,6 +1836,15 @@ class Game {
       this.score = nrow;
       this.setState({ score: nrow });
       if (nrow % 10 === 0) this.beep(760, 0.1, 'triangle', 0.05);
+      // The moment this run passes the standing record, say so.
+      if (!this.record && this.best > 0 && nrow > this.best) {
+        this.record = true;
+        this.setState({ gold: true, banner: true });
+        this.beep(880, 0.09, 'triangle', 0.05);
+        setTimeout(() => this.beep(1320, 0.16, 'triangle', 0.05), 110);
+        clearTimeout(this.bannerT);
+        this.bannerT = setTimeout(() => this.setState({ banner: false }), 1900);
+      }
     }
   }
 
@@ -1362,10 +1865,19 @@ class Game {
     }
 
     this.clock = (this.clock || 0) + dt;
-    for (const row of this.rows.values()) {
+    for (const [i, row] of this.rows) {
       if (row.type !== 'road') continue;
       const speed = playing ? row.speed : row.speed * 0.35;
       const walking = row.kind === 'person';
+      if (row.lamps) this.runSignal(row, i);
+      if (row.spin.length) {
+        const dist = row.dir * speed * dt;
+        for (const w of row.spin) {
+          const r = Math.max(0.03, (w.userData.radius || 0.14) * (w.userData.mscale || 1));
+          const turn = dist / r;
+          if (w.userData.axis === 'z') w.rotation.z -= turn; else w.rotation.x += turn;
+        }
+      }
       for (const car of row.cars) {
         car.position.x += row.dir * speed * dt;
         if (walking) car.position.y = Math.abs(Math.sin(this.clock * 5 + car.userData.walk)) * 0.07;
@@ -1378,14 +1890,32 @@ class Game {
     if (this.hopT !== null) {
       this.hopT += (dt * 1000) / HOP_MS;
       const t = Math.min(1, this.hopT);
-      const e = t * t * (3 - 2 * t);
+      // Crouch first, then travel: the wind-up is what sells the jump.
+      const move = t < ANTIC ? 0 : (t - ANTIC) / (1 - ANTIC);
+      const e = move * move * (3 - 2 * move);
+      const air = Math.sin(move * Math.PI);
+      const crouch = t < ANTIC ? Math.sin((t / ANTIC) * Math.PI) : 0;
       const x = this.from.x + (this.to.x - this.from.x) * e;
       const z = -(this.from.r + (this.to.r - this.from.r) * e);
-      this.player.position.set(x, 0.08 + Math.sin(t * Math.PI) * 0.42, z);
-      const sq = 1 + Math.sin(t * Math.PI) * 0.12;
-      this.rig.scale.set(1 / sq, sq, 1 / sq);
-      this.rig.rotation.z = Math.sin(t * Math.PI) * 0.12 * (this.to.x < this.from.x ? 1 : this.to.x > this.from.x ? -1 : 0);
-      if (t >= 1) { this.hopT = null; this.rig.scale.set(1, 1, 1); }
+      this.player.position.set(x, 0.08 + air * 0.5, z);
+      this.tilt.scale.set(1 + crouch * 0.13 - air * 0.11, 1 - crouch * 0.2 + air * 0.17, 1 + crouch * 0.13 - air * 0.11);
+      this.tilt.rotation.x = -air * 0.3 - crouch * 0.12;
+      this.tilt.rotation.z = air * 0.09 * (this.to.x < this.from.x ? 1 : this.to.x > this.from.x ? -1 : 0);
+      if (t >= 1) { this.hopT = null; this.settleT = 0; }
+    } else if (this.settleT !== null && this.settleT !== undefined) {
+      // Landing: compress, spring back, wobble out.
+      this.settleT += (dt * 1000) / SETTLE_MS;
+      const k = Math.min(1, this.settleT);
+      if (k >= 1) {
+        this.settleT = null;
+        this.tilt.scale.set(1, 1, 1);
+        this.tilt.rotation.set(0, 0, 0);
+      } else {
+        const damp = Math.exp(-k * 4.2) * Math.cos(k * Math.PI * 2.4);
+        this.tilt.scale.set(1 + damp * 0.14, 1 - damp * 0.22, 1 + damp * 0.14);
+        this.tilt.rotation.x *= 0.72;
+        this.tilt.rotation.z *= 0.72;
+      }
     }
 
     if (this.rig && this.state.phase !== 'over') {
@@ -1403,6 +1933,33 @@ class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // Red flashing while a train is inside the warning distance, dark otherwise.
+  runSignal(row, index) {
+    let coming = false;
+    for (const car of row.cars) {
+      const x = car.position.x;
+      const ahead = row.dir > 0 ? -x : x;          // how far before the crossing
+      if (ahead > -3.5 && ahead < WARN_DIST) { coming = true; break; }
+    }
+    if (coming) {
+      const on = Math.floor(this.clock * 2.6) % 2 === 0;
+      row.lamps[0].material = this.glow(on ? 0xff2e21 : 0x3a1614);
+      row.lamps[1].material = this.glow(on ? 0x3a1614 : 0xff2e21);
+      row.lamps[2].material = row.lamps[0].material;
+      row.lamps[3].material = row.lamps[1].material;
+      if (!row.warned) {
+        row.warned = true;
+        if (Math.abs(index - this.prow) <= 5) {
+          this.beep(1180, 0.09, 'sine', 0.035);
+          setTimeout(() => this.beep(1180, 0.09, 'sine', 0.035), 210);
+        }
+      }
+    } else if (row.warned || row.lamps[0].material !== this.glow(0x3a1614)) {
+      row.warned = false;
+      for (const lamp of row.lamps) lamp.material = this.glow(0x3a1614);
+    }
+  }
+
   checkHit() {
     const row = this.rows.get(this.prow);
     if (!row || row.type !== 'road') return;
@@ -1417,17 +1974,23 @@ class Game {
     this.beep(150, 0.32, 'sawtooth', 0.09);
     setTimeout(() => this.beep(90, 0.4, 'sawtooth', 0.07), 90);
     this.hopT = null;
+    this.settleT = null;
+    if (this.tilt) { this.tilt.scale.set(1, 1, 1); this.tilt.rotation.set(0, 0, 0); }
     // Knocked the way the car was going, then flattened on the tarmac.
     this.deathT = 0;
     this.deathDir = dir || 1;
     this.deathFrom = { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z };
     this.deathTilt = this.rig.rotation.z;
     this.spawnSplatter(this.player.position, this.deathDir);
-    if (this.score > this.best) {
-      this.best = this.score;
-      try { localStorage.setItem('crossyTeslaBest', String(this.best)); } catch (e) {}
+    let rank = -1;
+    if (this.score > 0) {
+      const list = this.scores.concat([this.score]).sort((a, b) => b - a).slice(0, TOP_N);
+      rank = list.indexOf(this.score);
+      this.scores = list;
+      this.best = list[0] || 0;
+      this.saveScores();
     }
-    this.setState({ phase: 'over', best: this.best });
+    this.setState({ phase: 'over', best: this.best, scores: this.scores, rank: rank, banner: false });
   }
 
   // ---------- wreckage ----------
