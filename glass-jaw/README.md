@@ -12,6 +12,15 @@ npm install
 npm run dev        # play at http://localhost:5173
 ```
 
+Or build a single self-contained file you can just double-click:
+
+```bash
+npm run standalone   # -> dist-standalone/glass-jaw.html
+```
+
+That one file is the entire game — about 280 KB, no install, no server, no
+network. It works because there are no assets to load.
+
 ---
 
 ## Controls
@@ -185,6 +194,7 @@ npm run build      # typecheck + production bundle
 npm run typecheck  # types only
 npm test           # 52 unit, balance and AI tests
 npm run playtest   # drives every screen in a real browser, fails on any error
+npm run standalone # one-file build, then verifies it runs from file://
 ```
 
 ### The pose lab
