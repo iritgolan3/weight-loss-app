@@ -13,7 +13,7 @@ import { EnemyAI } from '../ai/EnemyAI';
 import { PlayerProfile } from '../ai/PlayerProfile';
 import { AnimationSystem } from '../anim/AnimationSystem';
 
-import { ArenaRenderer, RING } from '../render/ArenaRenderer';
+import { ArenaRenderer, RING, RING_BAND_H } from '../render/ArenaRenderer';
 import { CameraController } from '../render/CameraController';
 import { FighterRenderer } from '../render/FighterRenderer';
 import { VFXManager } from '../render/VFXManager';
@@ -249,7 +249,7 @@ export class FightScene implements Scene {
       if (perfect) {
         this.stats.perfectDodges++;
         this.excitement = Math.min(1, this.excitement + 0.22);
-        this.vfx.callout('PERFECT DODGE', this.game.renderer.dw / 2, 380, PALETTE.green, 72);
+        this.callout('PERFECT DODGE', 380, PALETTE.green, 72);
         this.camera.onCounter(0, -60);
         this.counterWindow = 0.5;
         audio.play('crowdCheer');
@@ -262,7 +262,7 @@ export class FightScene implements Scene {
       const p = this.screenOf(this.player);
       audio.play('parry');
       this.vfx.parry(p.x, p.y - 260);
-      this.vfx.callout('PARRY!', this.game.renderer.dw / 2, 380, PALETTE.gold, 68);
+      this.callout('PARRY!', 380, PALETTE.gold, 68);
       this.camera.onCounter(0, -40);
       this.counterWindow = 0.45;
       this.excitement = Math.min(1, this.excitement + 0.18);
@@ -273,7 +273,7 @@ export class FightScene implements Scene {
       audio.play('guardBreak');
       const p = this.screenOf(fighter);
       this.vfx.impact(p.x, p.y - 240, 0.8, '#ffb347', true);
-      this.vfx.callout('GUARD BROKEN', this.game.renderer.dw / 2, 400, PALETTE.orange, 62);
+      this.callout('GUARD BROKEN', 400, PALETTE.orange, 62);
       this.camera.shake(0.6);
     }));
 
@@ -282,7 +282,7 @@ export class FightScene implements Scene {
       const p = this.screenOf(fighter);
       this.vfx.stun(p.x, p.y - (fighter.isPlayer ? 560 : 430));
       if (!fighter.isPlayer) {
-        this.vfx.callout('STUNNED!', this.game.renderer.dw / 2, 340, PALETTE.gold, 80);
+        this.callout('STUNNED!', 340, PALETTE.gold, 80);
         audio.play('crowdBig');
         this.excitement = 1;
       }
@@ -300,7 +300,7 @@ export class FightScene implements Scene {
         perfectDodgeCounter: 'SLIP STAR!',
         stunFinish: 'STAR!',
       };
-      this.vfx.callout(words[reason] ?? 'STAR!', this.game.renderer.dw / 2, 300, PALETTE.gold, 64);
+      this.callout(words[reason] ?? 'STAR!', 300, PALETTE.gold, 64);
     }));
 
     this.unsub.push(this.bus.on('knockdown', ({ fighter }) => {
@@ -312,10 +312,10 @@ export class FightScene implements Scene {
       this.excitement = 1;
       if (fighter.isPlayer) {
         this.stats.knockdownsTaken++;
-        this.vfx.callout('DOWN!', this.game.renderer.dw / 2, 300, PALETTE.red, 96);
+        this.callout('DOWN!', 300, PALETTE.red, 96);
       } else {
         this.stats.knockdownsDealt++;
-        this.vfx.callout('KNOCKDOWN!', this.game.renderer.dw / 2, 300, PALETTE.gold, 96);
+        this.callout('KNOCKDOWN!', 300, PALETTE.gold, 96);
       }
       this.ref.onKnockdown(fighter);
     }));
@@ -326,7 +326,7 @@ export class FightScene implements Scene {
 
     this.unsub.push(this.bus.on('getUp', ({ fighter }) => {
       audio.play('crowdCheer');
-      this.vfx.callout(fighter.isPlayer ? 'UP!' : 'HE IS UP!', this.game.renderer.dw / 2, 340,
+      this.callout(fighter.isPlayer ? 'UP!' : 'HE IS UP!', 340,
         fighter.isPlayer ? PALETTE.green : PALETTE.orange, 62);
     }));
 
@@ -339,13 +339,13 @@ export class FightScene implements Scene {
       this.camera.shake(0.5);
       this.vfx.flash(this.def.appearance.glow, 0.35, 0.3);
       if (rage) {
-        this.vfx.callout('ENRAGED!', this.game.renderer.dw / 2, 320, PALETTE.red, 86);
+        this.callout('ENRAGED!', 320, PALETTE.red, 86);
       } else if (phase > 0 && this.def.boss) {
-        this.vfx.callout(`PHASE ${phase + 1}`, this.game.renderer.dw / 2, 320, this.def.appearance.glow, 76);
+        this.callout(`PHASE ${phase + 1}`, 320, this.def.appearance.glow, 76);
       }
       // Remind the player that a boss's weak point just moved.
       if (this.def.phaseWeaknesses && phase > 0) {
-        this.vfx.callout('WEAK POINT MOVED', this.game.renderer.dw / 2, 410, PALETTE.gold, 44);
+        this.callout('WEAK POINT MOVED', 410, PALETTE.gold, 44);
       }
     }));
 
@@ -353,7 +353,7 @@ export class FightScene implements Scene {
       if (fighter.isPlayer) return;
       audio.voice(this.def.voice.pitch, this.def.voice.grit, 0);
       const line = this.rng.pick(this.def.quotes.taunt);
-      this.vfx.callout(line, this.game.renderer.dw / 2, 470, '#ffffff', 34, 'drift');
+      this.callout(line, 470, '#ffffff', 34, 'drift');
     }));
 
     this.unsub.push(this.bus.on('fightEnd', () => {
@@ -425,7 +425,7 @@ export class FightScene implements Scene {
 
       if (r.outcome === 'weakness') {
         this.stats.weaknessHits++;
-        this.vfx.callout('WEAK POINT!', this.game.renderer.dw / 2, 330, PALETTE.gold, 88);
+        this.callout('WEAK POINT!', 330, PALETTE.gold, 88);
         this.camera.onCounter(0, -50);
         this.vfx.flash('#ffd166', 0.4, 0.2);
         audio.play('crowdBig');
@@ -433,17 +433,19 @@ export class FightScene implements Scene {
         this.game.career.noteWeaknessFound(this.def.id);
       } else if (r.outcome === 'perfectCounter') {
         this.stats.counters++;
-        this.vfx.callout('PERFECT COUNTER!', this.game.renderer.dw / 2, 330, PALETTE.green, 76);
+        this.callout('PERFECT COUNTER!', 330, PALETTE.green, 76);
         this.camera.onCounter(0, -40);
         audio.play('crowdCheer');
         this.ref.addScore(700);
         this.profile.recordCounter(true);
       } else if (r.outcome === 'counter') {
         this.stats.counters++;
-        this.vfx.callout('COUNTER', this.game.renderer.dw / 2, 350, PALETTE.blue, 58);
+        this.callout('COUNTER', 350, PALETTE.blue, 58);
         this.ref.addScore(300);
       } else if (this.combo >= 3) {
-        this.vfx.callout(`${this.combo} HIT`, this.game.renderer.dw / 2 + 300, 420, PALETTE.gold, 46, 'drift');
+        // Offset to the side so a combo counter never covers the opponent.
+        this.vfx.callout(`${this.combo} HIT`, this.game.renderer.dw / 2 + 300,
+          this.band + 420, PALETTE.gold, 46, 'drift');
       }
       this.ref.addScore(r.damage * 8);
     } else {
@@ -456,6 +458,20 @@ export class FightScene implements Scene {
   }
 
   // -- Layout ---------------------------------------------------------------
+
+  /** Vertical offset of the authored ring band within the design space. */
+  private get band(): number {
+    return Math.max(0, (this.game.renderer.dh - RING_BAND_H) / 2);
+  }
+
+  /**
+   * Big callout text, positioned relative to the ring band so it stays with
+   * the action on tall displays instead of drifting to the top of the screen.
+   */
+  private callout(text: string, y: number, color: string, size: number,
+    style: 'slam' | 'pop' | 'drift' = 'slam'): void {
+    this.vfx.callout(text, this.game.renderer.dw / 2, this.band + y, color, size, style);
+  }
 
   /** Screen position of a fighter's feet. */
   private screenOf(f: Fighter): { x: number; y: number } {
@@ -576,9 +592,17 @@ export class FightScene implements Scene {
     const dw = r.dw, dh = r.dh;
     const q = r.quality;
     const cx = dw / 2;
+    // Centre the authored 1080-tall ring band in whatever design space we have.
+    const band = (dh - RING_BAND_H) / 2;
+
+    if (band > 0.5) {
+      ctx.fillStyle = '#05030a';
+      ctx.fillRect(0, 0, dw, dh);
+    }
 
     ctx.save();
-    this.camera.apply(ctx, cx, dh * 0.52);
+    ctx.translate(0, band);
+    this.camera.apply(ctx, cx, RING_BAND_H * 0.52);
 
     this.arena.drawBack(ctx, this.arenaDef, this.animTime, this.excitement);
     this.arena.drawSpotlight(ctx, this.arenaDef, dw, 0.8 + this.excitement * 0.5);
@@ -612,7 +636,7 @@ export class FightScene implements Scene {
       alpha: 1, reflection: false, time: this.animTime,
     });
 
-    this.arena.drawFront(ctx, this.arenaDef, dw, dh);
+    this.arena.drawFront(ctx, this.arenaDef, dw, RING_BAND_H);
     ctx.restore();
 
     // --- HUD (outside the camera transform so it never shakes) ---

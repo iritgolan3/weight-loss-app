@@ -24,6 +24,10 @@ export class Loop {
   private rafId = 0;
   private running = false;
 
+  /** Optional render rate limit. 0 follows the display. */
+  frameCap = 0;
+  private capAccum = 0;
+
   private fpsAccum = 0;
   private fpsFrames = 0;
   readonly stats: LoopStats = { fps: 0, frameMs: 0, updateMs: 0, renderMs: 0, steps: 0 };
@@ -57,6 +61,15 @@ export class Loop {
     let rawDt = Math.min((ts - this.lastTs) / 1000, 0.1);
     this.lastTs = ts;
     if (rawDt <= 0) rawDt = this.fixedStep;
+
+    // Frame limiter: skip whole frames rather than simulating a partial one,
+    // so capping the rate never changes how the fight plays.
+    if (this.frameCap > 0) {
+      this.capAccum += rawDt;
+      if (this.capAccum < 1 / this.frameCap) return;
+      rawDt = this.capAccum;
+      this.capAccum = 0;
+    }
 
     this.time.advance(rawDt);
     this.accumulator += this.time.dt;

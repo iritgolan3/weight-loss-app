@@ -38,15 +38,21 @@ export class Renderer {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
 
-  /** Design-space dimensions. Height is always DESIGN_H. */
+  /** Design-space dimensions. These adapt to the display's aspect ratio. */
   static readonly DESIGN_H = 1080;
+  static readonly DESIGN_W = 1280;
   dw = 1920;
-  readonly dh = Renderer.DESIGN_H;
+  dh = Renderer.DESIGN_H;
+  /** Letterbox offsets in device pixels, when the aspect cannot be matched. */
+  offsetX = 0;
+  offsetY = 0;
 
   /** Device pixels per design unit. */
   scale = 1;
   quality: QualitySettings = QUALITY.high;
   qualityName: Quality = 'high';
+  /** User-facing multiplier on top of the quality preset's pixel scale. */
+  resolutionScale = 1;
 
   /** Physical canvas size in CSS pixels. */
   cssW = 0;
@@ -68,6 +74,13 @@ export class Renderer {
     this.resize();
   }
 
+  setResolutionScale(scale: number): void {
+    const next = Math.max(0.5, Math.min(2, scale));
+    if (next === this.resolutionScale) return;
+    this.resolutionScale = next;
+    this.resize();
+  }
+
   resize(): void {
     const parent = this.canvas.parentElement;
     const w = parent?.clientWidth || window.innerWidth;
@@ -75,7 +88,15 @@ export class Renderer {
     this.cssW = w;
     this.cssH = h;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality.pixelScale;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality.pixelScale * this.resolutionScale;
+    // Clamp the total backing store. On a 4K display at Ultra the naive figure
+    // is over 100 megapixels, which is enough to make a browser drop the
+    // rendering context entirely. Scale the ratio down rather than fail.
+    const maxPixels = 8.3e6; // ~4K worth of pixels
+    const wanted = w * dpr * h * dpr;
+    if (wanted > maxPixels) dpr *= Math.sqrt(maxPixels / wanted);
+    dpr = Math.max(0.5, dpr);
+
     const bw = Math.max(1, Math.round(w * dpr));
     const bh = Math.max(1, Math.round(h * dpr));
     if (this.canvas.width !== bw || this.canvas.height !== bh) {
@@ -85,21 +106,36 @@ export class Renderer {
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
 
-    // Design space: fixed height, width follows the aspect ratio within limits.
+    // Design space follows the display's aspect ratio so nothing is stretched.
+    // Landscape grows wider; portrait grows taller. Outside those limits the
+    // frame is letterboxed rather than distorted.
     const aspect = w / h;
-    this.dw = Math.round(Math.min(2560, Math.max(1280, this.dh * aspect)));
-    this.scale = bh / this.dh;
+    if (aspect >= 1) {
+      this.dh = Renderer.DESIGN_H;
+      this.dw = Math.round(Math.min(2560, Math.max(Renderer.DESIGN_W, this.dh * aspect)));
+    } else {
+      this.dw = Renderer.DESIGN_W;
+      this.dh = Math.round(Math.min(2400, Math.max(Renderer.DESIGN_H, this.dw / aspect)));
+    }
+
+    // One uniform scale for both axes — never sx/sy separately, or the art
+    // squashes on any display whose aspect the design space could not match.
+    this.scale = Math.min(bw / this.dw, bh / this.dh);
+    this.offsetX = (bw - this.dw * this.scale) / 2;
+    this.offsetY = (bh - this.dh * this.scale) / 2;
     this.gradientCache.clear();
   }
 
   /** Resets the transform to design space for this frame. */
   begin(): CanvasRenderingContext2D {
     const ctx = this.ctx;
+    // Clear the letterbox bars before entering design space.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // Letterbox horizontally: design width maps to the full backing width.
-    const sx = this.canvas.width / this.dw;
-    const sy = this.canvas.height / this.dh;
-    ctx.setTransform(sx, 0, 0, sy, 0, 0);
+    if (this.offsetX > 0.5 || this.offsetY > 0.5) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    ctx.setTransform(this.scale, 0, 0, this.scale, this.offsetX, this.offsetY);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     return ctx;

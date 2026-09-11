@@ -109,6 +109,8 @@ export class Game {
 
   applySettings(s: Settings): void {
     this.renderer.setQuality(s.quality);
+    this.renderer.setResolutionScale(s.resolutionScale);
+    this.loop.frameCap = s.frameCap;
     this.input.keys = s.keys;
     this.input.pad = s.pad;
     this.input.bufferMs = s.inputBuffer;

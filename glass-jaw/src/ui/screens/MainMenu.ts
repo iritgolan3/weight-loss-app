@@ -11,6 +11,7 @@ import { RosterScreen } from './RosterScreen';
 import { StatsScreen } from './StatsScreen';
 import { CreditsScreen } from './CreditsScreen';
 import { startFight } from '../../scenes/launch';
+import { TitleScreen } from './TitleScreen';
 import { ALL_BOXERS } from '../../data/boxers';
 
 /** The hub. Everything in the game is one hop from here. */
@@ -22,7 +23,7 @@ export class MainMenu extends MenuScreen {
     this.listTop = 268;
     this.listW = 620;
     this.rowH = 68;
-    this.visibleRows = 8;
+    this.visibleRows = 11;
     this.rebuild();
   }
 
@@ -122,10 +123,12 @@ export class MainMenu extends MenuScreen {
 
   protected override onBack(): void {
     // Nothing above the main menu; bounce back to the title.
+    //
+    // This MUST be synchronous. It used to load TitleScreen with a dynamic
+    // import, which meant the stack replacement landed several frames later —
+    // often after the player had already opened another screen, wiping it.
     this.game.audio.play('uiBack');
-    void import('./TitleScreen').then(({ TitleScreen }) => {
-      this.game.replace(new TitleScreen(this.game));
-    });
+    this.game.replace(new TitleScreen(this.game));
   }
 
   protected override footerHint(): string {
@@ -167,10 +170,10 @@ export class MainMenu extends MenuScreen {
   protected override drawBackdrop(ctx: Ctx): void {
     const { dw, dh } = this.game.renderer;
     this.defaultBackdrop(ctx, dw, dh);
-    // A faint wordmark watermark behind everything.
+    // A faint wordmark watermark, kept low and clear of the panels.
     ctx.save();
-    ctx.globalAlpha = 0.05;
-    displayText(ctx, 'GLASS JAW', dw * 0.62, dh * 0.5, 230, rgba(PALETTE.gold, 1), { outlineWidth: 0 });
+    ctx.globalAlpha = 0.04;
+    displayText(ctx, 'GLASS JAW', dw * 0.5, dh * 0.9, 190, rgba(PALETTE.gold, 1), { outlineWidth: 0 });
     ctx.restore();
   }
 }

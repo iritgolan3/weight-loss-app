@@ -4,6 +4,13 @@ import { clamp01 } from '../core/MathUtil';
 import { Ctx, rgba, roundRect, shade, tint } from './draw';
 import type { Renderer } from './Renderer';
 
+/**
+ * The ring composition is authored for a fixed 1080-tall band. On displays
+ * whose design space is taller (portrait), the band is centred vertically
+ * rather than stretched, so the framing never distorts.
+ */
+export const RING_BAND_H = 1080;
+
 /** Fixed layout landmarks in design space, shared by every arena and the HUD. */
 export const RING = {
   /** Y of the far ring apron. */
@@ -49,16 +56,16 @@ export class ArenaRenderer {
     const q = r.quality;
     const c = document.createElement('canvas');
     c.width = r.dw;
-    c.height = r.dh;
+    c.height = RING_BAND_H;
     const ctx = c.getContext('2d')!;
 
-    this.drawBackdrop(ctx, arena, r.dw, r.dh);
+    this.drawBackdrop(ctx, arena, r.dw, RING_BAND_H);
     this.drawCrowd(ctx, arena, r.dw, q.crowdRows, q.crowdDetail);
     this.drawRingBack(ctx, arena, r.dw);
     this.drawMat(ctx, arena, r.dw);
 
     this.cache = c;
-    this.cacheKey = `${arena.id}:${r.dw}:${r.dh}:${r.qualityName}`;
+    this.cacheKey = `${arena.id}:${r.dw}:${r.qualityName}`;
   }
 
   // -- Static layers ---------------------------------------------------------
@@ -276,7 +283,7 @@ export class ArenaRenderer {
   /** Draws the arena behind the fighters. */
   drawBack(ctx: Ctx, arena: ArenaDef, time: number, excitement: number): void {
     const r = this.renderer;
-    const key = `${arena.id}:${r.dw}:${r.dh}:${r.qualityName}`;
+    const key = `${arena.id}:${r.dw}:${r.qualityName}`;
     if (!this.cache || this.cacheKey !== key) this.buildCache(arena);
     const cache = this.cache!;
 
@@ -296,8 +303,8 @@ export class ArenaRenderer {
       );
     }
     ctx.drawImage(
-      cache, 0, crowdBottom, r.dw, r.dh - crowdBottom,
-      0, crowdBottom, r.dw, r.dh - crowdBottom,
+      cache, 0, crowdBottom, r.dw, RING_BAND_H - crowdBottom,
+      0, crowdBottom, r.dw, RING_BAND_H - crowdBottom,
     );
 
     this.updateFlashes(ctx, arena, time, excitement);

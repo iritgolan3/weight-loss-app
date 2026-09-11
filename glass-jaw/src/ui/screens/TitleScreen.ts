@@ -12,12 +12,15 @@ import { RNG } from '../../core/RNG';
 export class TitleScreen implements Scene {
   readonly name = 'title';
   private t = 0;
+  /** Wall-clock time the screen appeared, for the input gate. */
+  private shownAt = 0;
   private rng = new RNG(7);
   private sparks: { x: number; y: number; vx: number; vy: number; life: number }[] = [];
 
   constructor(private readonly game: Game) {}
 
   enter(): void {
+    this.shownAt = performance.now();
     this.game.audio.playMusic('menu', 1.2);
     this.game.onAudioReady = () => this.game.audio.playMusic('menu', 0.6);
   }
@@ -29,7 +32,10 @@ export class TitleScreen implements Scene {
     const any = i.justPressed(Action.Confirm) || i.justPressed(Action.PunchLeft) ||
       i.justPressed(Action.PunchRight) || i.justPressed(Action.Special) ||
       i.justPressed(Action.Block) || i.justPressed(Action.Pause);
-    if (any && this.t > 0.4) {
+    // Gate on real elapsed time, not accumulated frame time: frame deltas are
+    // clamped, so on a slow machine the latter lags far behind the wall clock
+    // and the player is left unable to start for seconds.
+    if (any && performance.now() - this.shownAt > 350) {
       this.game.audio.play('uiConfirm');
       this.game.replace(new MainMenu(this.game));
     }

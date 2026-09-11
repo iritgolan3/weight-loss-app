@@ -124,9 +124,8 @@ export class SettingsScreen extends MenuScreen {
           },
         });
         items.push({
-          kind: 'toggle', label: 'VSYNC',
-          hint: 'The browser always presents in sync with the display; this caps the simulation to match.',
-          get: () => c.vsync, set: (v) => s.set('vsync', v),
+          kind: 'info', label: 'VSYNC', value: () => 'ALWAYS ON',
+          hint: 'Browsers always present in sync with the display, so this cannot be turned off from inside the page. Use the frame cap below if you want to render less often.',
         });
         items.push({
           kind: 'choice', label: 'FRAME CAP',
