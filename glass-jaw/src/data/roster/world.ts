@@ -1,0 +1,323 @@
+import type { BoxerDef } from '../types';
+import { ai, atk, look, tell } from '../factory';
+
+/**
+ * WORLD LEAGUE — opponents that lie to you. Tells still exist and are still
+ * honest; the difficulty is that not every tell resolves into an attack.
+ */
+
+export const HIROSHI: BoxerDef = {
+  id: 'hiroshi',
+  name: 'Hiroshi Tanabe',
+  nickname: 'Kagemusha',
+  country: 'Japan',
+  flag: ['#e63946', '#ffffff'],
+  age: 28, height: 180, weight: 78,
+  record: { w: 31, l: 3, ko: 16 },
+  archetype: 'THE TRICKSTER',
+  personality: 'Serene, courteous, and lying to you constantly.',
+  bio: 'Hiroshi studied theatre before he studied boxing and it shows. He will show you a punch three times without throwing it, and the fourth time you will be on the canvas wondering which one was real.',
+  style: 'Layered feints. The truth is always the shot you stopped believing in.',
+  strengths: ['Masterful deception', 'Perfect distance control'],
+  flaws: ['Must set his stance low to commit', 'Feints cost him position'],
+  league: 'world', order: 0,
+  stats: { maxHealth: 108, power: 1.12, speed: 1.16, defense: 0.22, poise: 90, getUpHealth: 0.6, knockdownResistance: 1.1 },
+  weakness: {
+    telegraphKinds: ['crouch'],
+    zone: 'body',
+    damageMult: 3.3,
+    stunBonus: 40,
+    hint: 'A feint keeps him tall. A real punch drops his stance first. When he sinks, go downstairs.',
+  },
+  attacks: {
+    ghost: atk({
+      id: 'hiro_ghost', name: 'Shadow Jab', hand: 'left', damage: 6, weight: 1.1, startup: 4, recovery: 16,
+      tell: tell('shoulder', 18, '#dddddd', 'JAB?', 'left'), anim: 'jab',
+    }),
+    real: atk({
+      id: 'hiro_real', name: 'Truth', hand: 'right', damage: 15, weight: 2.3, stunPower: 22,
+      startup: 5, recovery: 28,
+      tell: tell('crouch', 30, '#ff4d4d', 'REAL ONE', 'right', 'tellBig'), anim: 'straight',
+    }),
+    mirror: atk({
+      id: 'hiro_mirror', name: 'Mirror Strike', zone: 'body', hand: 'left', damage: 11, weight: 1.8,
+      startup: 5, recovery: 24,
+      tell: tell('crouch', 26, '#4cc9f0', 'BODY', 'left'), anim: 'uppercut',
+    }),
+    triple: atk({
+      id: 'hiro_triple', name: 'Three Shadows', hand: 'both', damage: 6.5, hits: 3, weight: 1.4,
+      startup: 5, recovery: 28,
+      tell: tell('hop', 24, '#c77dff', 'THREE', 'center'), anim: 'combo',
+    }),
+    cutRight: atk({
+      id: 'hiro_cut', name: 'Shadow Cut', hand: 'left', damage: 13, weight: 2, tracking: 'right',
+      startup: 6, recovery: 28,
+      tell: tell('eyeFlash', 28, '#c77dff', 'CUTS OFF RIGHT', 'right', 'tellBig'), anim: 'hook',
+    }),
+  },
+  routines: [
+    { id: 'threeFakes', weight: 26, steps: [{ t: 'feint', id: 'real', frames: 20 }, { t: 'feint', id: 'real', frames: 18 }, { t: 'attack', id: 'real' }], cooldown: 2.6 },
+    { id: 'jabTruth', weight: 24, steps: [{ t: 'attack', id: 'ghost' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'real' }] },
+    { id: 'shadows', weight: 22, steps: [{ t: 'attack', id: 'triple' }] },
+    { id: 'lowline', weight: 20, steps: [{ t: 'feint', id: 'ghost', frames: 16 }, { t: 'attack', id: 'mirror' }], adapt: (p) => 1 + p.turtling * 1.5 },
+    { id: 'cutRight', weight: 18, steps: [{ t: 'attack', id: 'cutRight' }], adapt: (p) => 1 + p.rightDodgeHabit * 2.6, cooldown: 2.5 },
+    { id: 'stillness', weight: 16, steps: [{ t: 'guard', frames: [40, 70] }], adapt: (p) => 1 + p.rushing * 1.5 },
+    { id: 'ragePressure', weight: 30, rageOnly: true, steps: [{ t: 'attack', id: 'triple' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'real' }] },
+  ],
+  ai: ai({
+    idleGap: [28, 50], counterChance: 0.3, blockChance: 0.36, reaction: 0.2,
+    phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.8, 0.62], rageAfterKnockdowns: 1,
+    counterAttack: 'real', rageAttack: 'real', getUpSpeed: 1.1,
+  }),
+  appearance: look({
+    skin: '#e8c49a', height: 1.04, width: 0.98, shoulder: 1.06, gut: 0.07,
+    hair: { style: 'topknot', color: '#100c08' },
+    trunks: { main: '#1a1a2e', accent: '#e63946', pattern: 'split' },
+    gloves: { main: '#e63946', accent: '#1a1a2e' },
+    accessory: 'headband', accessoryColor: '#e63946',
+    glow: '#c77dff', browAngle: -0.15, eyeSize: 0.9, jaw: 1, mouth: 0.85,
+  }),
+  quotes: {
+    intro: ['Watch closely. Then watch again.', 'Which of us is the shadow?'],
+    taunt: ['You believed that one.', 'Two were lies. Which two?'],
+    win: ['You watched the hand. Never the hand.', 'A shame. You almost saw it.'],
+    lose: ['Ah... you stopped watching my hands.', 'You saw through me. Well done.'],
+    hurt: ['Kh!', 'Tsk!'],
+  },
+  music: 'world', arena: 'dome', voice: { pitch: 0.96, grit: 0.25 }, purse: 3000, phases: 3,
+};
+
+export const DUKE: BoxerDef = {
+  id: 'duke',
+  name: 'Duke Marlow',
+  nickname: 'The Sergeant',
+  country: 'United Kingdom',
+  flag: ['#2b4fb0', '#e63946'],
+  age: 33, height: 186, weight: 92,
+  record: { w: 29, l: 7, ko: 24 },
+  archetype: 'THE PRESSURE FIGHTER',
+  personality: 'Loud. Extremely loud. Believes in cardio as a moral position.',
+  bio: 'Duke ran a military fitness camp before he turned professional and still counts cadence between punches. He does not out-think you. He simply refuses to stop, for three rounds, until you do.',
+  style: 'Relentless forward pressure. No gaps, no rest, no mercy.',
+  strengths: ['Bottomless engine', 'Never gives you a free second'],
+  flaws: ['Roars before the big one', 'Overcommits when he smells blood'],
+  league: 'world', order: 1,
+  stats: { maxHealth: 118, power: 1.18, speed: 1.08, defense: 0.18, poise: 100, getUpHealth: 0.64, knockdownResistance: 1.25 },
+  weakness: {
+    telegraphKinds: ['roar'],
+    zone: 'head',
+    damageMult: 3.4,
+    stunBonus: 44,
+    hint: 'He announces the finisher with a roar. His chin comes up with his voice — shut him up.',
+  },
+  attacks: {
+    march: atk({
+      id: 'duke_march', name: 'Cadence Jab', hand: 'left', damage: 6.5, weight: 1.2, startup: 4, recovery: 14,
+      tell: tell('shoulder', 16, '#ffd166', 'JAB', 'left'), anim: 'jab',
+    }),
+    drill: atk({
+      id: 'duke_drill', name: 'Drill Combo', hand: 'both', damage: 6, hits: 3, weight: 1.5,
+      startup: 5, recovery: 26,
+      tell: tell('hop', 22, '#ff9a3c', 'COMBO x3', 'center'), anim: 'combo',
+    }),
+    roar: atk({
+      id: 'duke_roar', name: 'Full Volume', hand: 'right', damage: 20, weight: 2.8, stunPower: 30,
+      startup: 7, recovery: 34, chip: 0.5,
+      tell: tell('roar', 40, '#ff4d4d', 'ON MY COUNT!', 'right', 'tellBig'), anim: 'overhand',
+    }),
+    gut: atk({
+      id: 'duke_gut', name: 'Gut Check', zone: 'body', hand: 'left', damage: 12, weight: 1.9,
+      startup: 5, recovery: 22,
+      tell: tell('crouch', 22, '#4cc9f0', 'BODY', 'left'), anim: 'uppercut',
+    }),
+  },
+  routines: [
+    { id: 'pressure', weight: 30, steps: [{ t: 'attack', id: 'march' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'march' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'gut' }] },
+    { id: 'drills', weight: 26, steps: [{ t: 'attack', id: 'drill' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'march' }] },
+    { id: 'volume', weight: 22, steps: [{ t: 'wait', frames: [12, 20] }, { t: 'attack', id: 'roar' }], cooldown: 3 },
+    { id: 'bodyWork', weight: 20, steps: [{ t: 'attack', id: 'gut' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'gut' }], adapt: (p) => 1 + p.turtling * 1.8 },
+    { id: 'finisher', weight: 24, belowHealth: 0.4, steps: [{ t: 'attack', id: 'drill' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'roar' }] },
+    { id: 'ragePress', weight: 34, rageOnly: true, steps: [{ t: 'attack', id: 'drill' }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'drill' }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'roar' }] },
+  ],
+  ai: ai({
+    idleGap: [16, 32], counterChance: 0.22, blockChance: 0.2, reaction: 0.22,
+    phaseSpeed: [1, 1.12, 1.3], phaseTempo: [1, 0.76, 0.58], rageAfterKnockdowns: 1,
+    rageAttack: 'roar', getUpSpeed: 1.2,
+  }),
+  appearance: look({
+    skin: '#e0a87e', height: 1.1, width: 1.14, shoulder: 1.22, gut: 0.24, neck: 1.22,
+    hair: { style: 'flattop', color: '#7a5c3a' },
+    facialHair: 'mustache', facialHairColor: '#7a5c3a',
+    trunks: { main: '#2f4f2f', accent: '#f4c430', pattern: 'check' },
+    gloves: { main: '#2f4f2f', accent: '#f4c430' },
+    accessory: 'tattoo', accessoryColor: '#2b4a6f',
+    glow: '#ff6b35', browAngle: -0.4, eyeSize: 0.9, noseSize: 1.2, jaw: 1.25, mouth: 1.3,
+  }),
+  quotes: {
+    intro: ['ON YOUR FEET, SUNSHINE!', 'THREE ROUNDS. I HAVE FOUR IN ME.'],
+    taunt: ['IS THAT ALL THE AIR YOU BROUGHT?', 'PACE! YOURSELF!'],
+    win: ['CARDIO, SUNSHINE. CARDIO.', 'FALL OUT.'],
+    lose: ['...tank... empty...', 'Blimey. You had more than me.'],
+    hurt: ['ARGH!', 'RRGH!'],
+  },
+  music: 'world', arena: 'dome', voice: { pitch: 0.8, grit: 0.7 }, purse: 3600, phases: 3,
+};
+
+export const ZARA: BoxerDef = {
+  id: 'zara',
+  name: 'Zara Nazari',
+  nickname: 'Mirage',
+  country: 'Türkiye',
+  flag: ['#e63946', '#ffffff'],
+  age: 28, height: 177, weight: 73,
+  record: { w: 33, l: 2, ko: 12 },
+  archetype: 'THE ILLUSIONIST',
+  personality: 'Cool, watchful, and already three moves ahead of your habits.',
+  bio: 'Zara does not study opponents; she studies patterns. By the second round she knows which way you slip, and she has an answer built specifically for it. Break the habit and the answer becomes a liability.',
+  style: 'Adaptive. She builds a punch around whatever you keep doing.',
+  strengths: ['Punishes any repeated habit', 'Superb ring intelligence'],
+  flaws: ['Her eyes flash when she commits to a read', 'Overcommits to a pattern you have abandoned'],
+  league: 'world', order: 2,
+  stats: { maxHealth: 106, power: 1.14, speed: 1.2, defense: 0.24, poise: 92, getUpHealth: 0.6, knockdownResistance: 1.1 },
+  weakness: {
+    telegraphKinds: ['eyeFlash'],
+    zone: 'body',
+    damageMult: 3.4,
+    stunBonus: 42,
+    hint: 'Her eyes flash the instant she locks onto a read. She is looking at your feet, not your hands — hit the body.',
+  },
+  attacks: {
+    probe: atk({
+      id: 'zara_probe', name: 'Probe', hand: 'left', damage: 6, weight: 1.1, startup: 4, recovery: 16,
+      tell: tell('shoulder', 17, '#ffd166', 'PROBE', 'left'), anim: 'jab',
+    }),
+    huntLeft: atk({
+      id: 'zara_hl', name: 'Left Trap', hand: 'right', damage: 15, weight: 2.2, tracking: 'left',
+      startup: 5, recovery: 28, stunPower: 20,
+      tell: tell('eyeFlash', 30, '#c77dff', 'READS LEFT SLIP', 'left', 'tellBig'), anim: 'hook',
+    }),
+    huntRight: atk({
+      id: 'zara_hr', name: 'Right Trap', hand: 'left', damage: 15, weight: 2.2, tracking: 'right',
+      startup: 5, recovery: 28, stunPower: 20,
+      tell: tell('eyeFlash', 30, '#c77dff', 'READS RIGHT SLIP', 'right', 'tellBig'), anim: 'hook',
+    }),
+    guardBreaker: atk({
+      id: 'zara_gb', name: 'Guard Breaker', zone: 'body', hand: 'right', damage: 14, weight: 2.3, chip: 0.6,
+      startup: 6, recovery: 28,
+      tell: tell('lean', 28, '#ff9a3c', 'GUARD BREAKER', 'center', 'tellBig'), anim: 'uppercut',
+    }),
+    mirage: atk({
+      id: 'zara_mir', name: 'Mirage', hand: 'both', damage: 6, hits: 3, weight: 1.4,
+      startup: 5, recovery: 26,
+      tell: tell('spin', 26, '#8ecae6', 'TRIPLE', 'center'), anim: 'combo',
+    }),
+  },
+  routines: [
+    { id: 'probes', weight: 26, steps: [{ t: 'attack', id: 'probe' }, { t: 'wait', frames: 12 }, { t: 'attack', id: 'probe' }] },
+    { id: 'trapLeft', weight: 14, steps: [{ t: 'attack', id: 'huntLeft' }], adapt: (p) => 1 + p.leftDodgeHabit * 3.2, cooldown: 2.4 },
+    { id: 'trapRight', weight: 14, steps: [{ t: 'attack', id: 'huntRight' }], adapt: (p) => 1 + p.rightDodgeHabit * 3.2, cooldown: 2.4 },
+    { id: 'breakGuard', weight: 16, steps: [{ t: 'attack', id: 'guardBreaker' }], adapt: (p) => 1 + p.turtling * 2.8, cooldown: 2.4 },
+    { id: 'mirage', weight: 22, steps: [{ t: 'attack', id: 'mirage' }] },
+    { id: 'bait', weight: 20, steps: [{ t: 'expose', frames: 30 }, { t: 'attack', id: 'guardBreaker' }], adapt: (p) => 1 + p.rushing * 2 },
+    { id: 'fakeRead', weight: 16, phases: [1, 2], steps: [{ t: 'feint', id: 'huntLeft', frames: 22 }, { t: 'attack', id: 'mirage' }] },
+  ],
+  ai: ai({
+    idleGap: [26, 46], counterChance: 0.36, blockChance: 0.38, reaction: 0.19,
+    phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.8, 0.64], counterAttack: 'probe', getUpSpeed: 1.1,
+  }),
+  appearance: look({
+    skin: '#cd9b6e', height: 1.03, width: 0.96, shoulder: 1.04, gut: 0.06, armLength: 1.08,
+    hair: { style: 'ponytail', color: '#1c1008' },
+    trunks: { main: '#5a189a', accent: '#ffd166', pattern: 'waves' },
+    gloves: { main: '#c77dff', accent: '#2a0a4a' },
+    accessory: 'facepaint', accessoryColor: '#c77dff',
+    glow: '#c77dff', browAngle: -0.22, eyeSize: 1.12, jaw: 0.95, mouth: 0.9,
+  }),
+  quotes: {
+    intro: ['I already know which way you go.', 'Show me your habit. I will keep it.'],
+    taunt: ['Left again. Of course.', 'You have three moves. I have counted them.'],
+    win: ['You never changed. That was all it took.', 'Habits. Terrible things.'],
+    lose: ['You... broke your own pattern. Clever.', 'I was reading a book you stopped writing.'],
+    hurt: ['Hh!', 'Nn!'],
+  },
+  music: 'world', arena: 'dome', voice: { pitch: 1.02, grit: 0.3 }, purse: 4200, phases: 3,
+};
+
+export const MCGRAW: BoxerDef = {
+  id: 'mcgraw',
+  name: 'Bruiser McGraw',
+  nickname: 'The Mauler',
+  country: 'Ireland',
+  flag: ['#0f9d58', '#ff9a3c'],
+  age: 30, height: 188, weight: 104,
+  record: { w: 27, l: 9, ko: 25 },
+  archetype: 'THE BRAWLER',
+  personality: 'Cheerfully unpleasant. Fights like a bar closing.',
+  bio: 'McGraw has been disqualified in four countries and welcomed back in three. He fights ugly on purpose, because ugly works, and he genuinely cannot understand why anyone would object.',
+  style: 'Mauling, overwhelming, technically illegal in at least two ways.',
+  strengths: ['Enormous punch volume', 'Utterly unbothered by pain'],
+  flaws: ['Leans in to load up', 'Swings himself off balance'],
+  league: 'world', order: 3,
+  stats: { maxHealth: 124, power: 1.26, speed: 1.0, defense: 0.16, poise: 108, getUpHealth: 0.66, knockdownResistance: 1.4 },
+  weakness: {
+    telegraphKinds: ['lean'],
+    zone: 'head',
+    damageMult: 3.3,
+    stunBonus: 42,
+    hint: 'He leans his whole weight in before a mauling combination. His head comes with it. Meet it.',
+  },
+  attacks: {
+    maul: atk({
+      id: 'mcg_maul', name: 'Maul', hand: 'both', damage: 7, hits: 3, weight: 1.8,
+      startup: 6, recovery: 30,
+      tell: tell('lean', 30, '#ff6b35', 'MAULING', 'center', 'tellBig'), anim: 'combo',
+    }),
+    clubbing: atk({
+      id: 'mcg_club', name: 'Clubbing Right', hand: 'right', damage: 18, weight: 2.7, stunPower: 26,
+      startup: 7, recovery: 32,
+      tell: tell('wideWind', 36, '#ff4d4d', 'CLUBBING RIGHT', 'right', 'tellBig'), anim: 'axe',
+    }),
+    dig: atk({
+      id: 'mcg_dig', name: 'Dig', zone: 'body', hand: 'left', damage: 12, weight: 2,
+      startup: 5, recovery: 22,
+      tell: tell('crouch', 22, '#4cc9f0', 'DIG', 'left'), anim: 'uppercut',
+    }),
+    headbutt: atk({
+      id: 'mcg_butt', name: '"Accidental" Clash', hand: 'both', damage: 14, weight: 2.4, unblockable: true,
+      startup: 7, recovery: 36, stunPower: 22,
+      tell: tell('stomp', 42, '#ff1e56', 'UNBLOCKABLE! DODGE!', 'center', 'tellBig'), anim: 'axe',
+    }),
+  },
+  routines: [
+    { id: 'maul', weight: 28, steps: [{ t: 'attack', id: 'maul' }] },
+    { id: 'club', weight: 24, steps: [{ t: 'wait', frames: [14, 24] }, { t: 'attack', id: 'clubbing' }], cooldown: 2.6 },
+    { id: 'digs', weight: 22, steps: [{ t: 'attack', id: 'dig' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'dig' }], adapt: (p) => 1 + p.turtling * 1.9 },
+    { id: 'clash', weight: 18, phases: [1, 2], steps: [{ t: 'attack', id: 'headbutt' }], cooldown: 4 },
+    { id: 'mixed', weight: 22, steps: [{ t: 'attack', id: 'dig' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'clubbing' }] },
+    { id: 'rageMaul', weight: 34, rageOnly: true, steps: [{ t: 'attack', id: 'maul' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'clubbing' }] },
+  ],
+  ai: ai({
+    idleGap: [20, 38], counterChance: 0.2, blockChance: 0.16, reaction: 0.28,
+    phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.78, 0.6], rageAfterKnockdowns: 1,
+    rageAttack: 'clubbing', getUpSpeed: 1.25,
+  }),
+  appearance: look({
+    skin: '#f2c2a0', height: 1.12, width: 1.2, shoulder: 1.26, gut: 0.38, neck: 1.34, headScale: 0.97,
+    hair: { style: 'buzz', color: '#c0491f' },
+    facialHair: 'beard', facialHairColor: '#c0491f',
+    trunks: { main: '#0f9d58', accent: '#ff9a3c', pattern: 'stripe' },
+    gloves: { main: '#2f2f2f', accent: '#0f9d58' },
+    accessory: 'scar',
+    glow: '#ff6b35', browAngle: -0.42, eyeSize: 0.82, noseSize: 1.45, jaw: 1.3, mouth: 1.25,
+  }),
+  quotes: {
+    intro: ['Ah, lovely. A volunteer.', 'Nothing personal. Well. Some of it.'],
+    taunt: ['That one was an accident.', 'Ref! Did you see what he did to me hand?'],
+    win: ['Grand. Who is next?', 'Told ye it was an accident.'],
+    lose: ['Ah... that is the one... that is the one...', 'Fair play. Fair PLAY.'],
+    hurt: ['GARGH!', 'Ye little—!'],
+  },
+  music: 'world', arena: 'dome', voice: { pitch: 0.76, grit: 0.75 }, purse: 5000, phases: 3,
+};
+
+export const WORLD_LEAGUE: BoxerDef[] = [HIROSHI, DUKE, ZARA, MCGRAW];

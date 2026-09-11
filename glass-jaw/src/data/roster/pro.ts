@@ -1,0 +1,322 @@
+import type { BoxerDef } from '../types';
+import { ai, atk, look, tell } from '../factory';
+
+/**
+ * PRO LEAGUE — the same lessons, now with consequences. Opponents here start
+ * punishing specific bad habits rather than just running patterns at you.
+ */
+
+export const OLGA: BoxerDef = {
+  id: 'olga',
+  name: 'Olga Voronova',
+  nickname: 'The Anvil',
+  country: 'Ukraine',
+  flag: ['#2b6fd6', '#f4c430'],
+  age: 29, height: 176, weight: 71,
+  record: { w: 26, l: 3, ko: 11 },
+  archetype: 'THE TECHNICIAN',
+  personality: 'Economical. Says four words a fight, three of them are your mistakes.',
+  bio: 'Olga does not waste anything — not a step, not a punch, not a breath. She will block for twenty seconds and then take a round off you in two. Everything she does is correct, which is exactly how you beat her.',
+  style: 'Airtight guard, surgical straight punches, zero wasted motion.',
+  strengths: ['Impeccable defence', 'Punishes impatience'],
+  flaws: ['Must drop the guard to punch', 'Textbook to a fault'],
+  league: 'pro', order: 0,
+  stats: { maxHealth: 105, power: 1.0, speed: 1.05, defense: 0.32, poise: 96, getUpHealth: 0.62, knockdownResistance: 1.15 },
+  weakness: {
+    telegraphKinds: ['guardDrop'],
+    zone: 'body',
+    damageMult: 3.3,
+    stunBonus: 38,
+    hint: 'Her guard has to open before she fires. The instant that elbow lifts, put one under it.',
+  },
+  attacks: {
+    straight: atk({
+      id: 'olga_str', name: 'Textbook Straight', hand: 'right', damage: 10, weight: 1.7, stunPower: 13,
+      startup: 5, recovery: 22,
+      tell: tell('guardDrop', 26, '#f4c430', 'STRAIGHT', 'right'), anim: 'straight',
+    }),
+    onetwo: atk({
+      id: 'olga_12', name: 'One-Two', hand: 'both', damage: 7, hits: 2, weight: 1.4,
+      startup: 5, recovery: 24,
+      tell: tell('guardDrop', 24, '#f4c430', 'ONE-TWO', 'center'), anim: 'combo',
+    }),
+    liver: atk({
+      id: 'olga_liver', name: 'Liver Check', zone: 'body', hand: 'left', damage: 12, weight: 2, stunPower: 18,
+      startup: 6, recovery: 26,
+      tell: tell('crouch', 28, '#4cc9f0', 'LIVER SHOT', 'left', 'tellBig'), anim: 'uppercut',
+    }),
+    anvil: atk({
+      id: 'olga_anvil', name: 'The Anvil', hand: 'right', damage: 17, weight: 2.6, stunPower: 24,
+      startup: 7, recovery: 32, chip: 0.45,
+      tell: tell('lean', 34, '#ff4d4d', 'ANVIL DROP', 'right', 'tellBig'), anim: 'overhand',
+    }),
+  },
+  routines: [
+    { id: 'turtle', weight: 26, steps: [{ t: 'guard', frames: [50, 84] }], adapt: (p) => 1 + p.rushing * 1.8 },
+    { id: 'straight', weight: 24, steps: [{ t: 'wait', frames: [16, 26] }, { t: 'attack', id: 'straight' }] },
+    { id: 'onetwo', weight: 22, steps: [{ t: 'attack', id: 'onetwo' }] },
+    { id: 'liver', weight: 20, steps: [{ t: 'attack', id: 'liver' }], adapt: (p) => 1 + p.turtling * 2.0 },
+    { id: 'anvilDrop', weight: 18, phases: [1, 2], steps: [{ t: 'guard', frames: 24 }, { t: 'attack', id: 'anvil' }], cooldown: 3 },
+    { id: 'counterSet', weight: 16, steps: [{ t: 'guard', frames: 30 }, { t: 'attack', id: 'straight' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'liver' }] },
+    { id: 'punishGreed', weight: 14, steps: [{ t: 'feint', id: 'straight', frames: 18 }, { t: 'attack', id: 'anvil' }], adapt: (p) => 1 + p.greed * 1.6 },
+  ],
+  ai: ai({
+    idleGap: [34, 60], counterChance: 0.34, blockChance: 0.55, reaction: 0.24,
+    phaseSpeed: [1, 1.1, 1.24], phaseTempo: [1, 0.82, 0.66], counterAttack: 'straight', getUpSpeed: 0.95,
+  }),
+  appearance: look({
+    skin: '#eec2a0', height: 1.02, width: 0.98, shoulder: 1.05, gut: 0.1,
+    hair: { style: 'braids', color: '#d9b26f' },
+    trunks: { main: '#2b6fd6', accent: '#f4c430', pattern: 'stripe' },
+    gloves: { main: '#f4c430', accent: '#1b2432' },
+    accessory: 'tape', accessoryColor: '#ffffff',
+    glow: '#f4c430', browAngle: -0.3, eyeSize: 0.95, jaw: 1.05, mouth: 0.85,
+  }),
+  quotes: {
+    intro: ['You are already making mistakes.', 'Show me something I have not seen.'],
+    taunt: ['Predictable.', 'Again? Really?'],
+    win: ['Correct technique. Nothing more.', 'Come back when you have a plan.'],
+    lose: ['...that was well done.', 'I underestimated the pattern. Once.'],
+    hurt: ['Tch!', 'Hnn.'],
+  },
+  music: 'pro', arena: 'civic', voice: { pitch: 0.95, grit: 0.3 }, purse: 1200, phases: 3,
+};
+
+export const KWAME: BoxerDef = {
+  id: 'kwame',
+  name: 'Kwame Adeyemi',
+  nickname: 'Sunrise',
+  country: 'Nigeria',
+  flag: ['#0f9d58', '#ffffff'],
+  age: 27, height: 182, weight: 79,
+  record: { w: 22, l: 4, ko: 14 },
+  archetype: 'THE DANCER',
+  personality: 'Joyful. Fights to music only he can hear, and changes the song on purpose.',
+  bio: 'Kwame trained in his uncle\'s dance hall in Lagos and never fully left it. He moves on a beat, and every third beat he changes tempo just to watch you swing at nothing.',
+  style: 'Constant motion, rhythmic attacks, sudden tempo shifts.',
+  strengths: ['Impossible to time', 'Excellent footwork'],
+  flaws: ['Spins when he commits', 'Wide open at the end of a turn'],
+  league: 'pro', order: 1,
+  stats: { maxHealth: 100, power: 1.05, speed: 1.18, defense: 0.14, poise: 80, getUpHealth: 0.6, knockdownResistance: 1 },
+  weakness: {
+    telegraphKinds: ['spin'],
+    zone: 'head',
+    damageMult: 3.4,
+    stunBonus: 40,
+    hint: 'He turns his back to load the big one. He cannot see you for half a second — use all of it.',
+  },
+  attacks: {
+    tap: atk({
+      id: 'kwame_tap', name: 'Downbeat', hand: 'left', damage: 5, weight: 1, startup: 4, recovery: 15,
+      tell: tell('hop', 17, '#ffd166', 'BEAT', 'left'), anim: 'jab',
+    }),
+    spinner: atk({
+      id: 'kwame_spin', name: 'Sunrise Turn', hand: 'right', damage: 16, weight: 2.5, stunPower: 22,
+      startup: 6, recovery: 32, chip: 0.4,
+      tell: tell('spin', 38, '#ff9a3c', 'SPIN!', 'right', 'tellBig'), anim: 'spin',
+    }),
+    doubleStep: atk({
+      id: 'kwame_dbl', name: 'Two-Step', hand: 'both', damage: 6, hits: 2, weight: 1.2,
+      startup: 5, recovery: 22,
+      tell: tell('hop', 22, '#8ecae6', 'TWO-STEP', 'center'), anim: 'combo',
+    }),
+    lowSweep: atk({
+      id: 'kwame_low', name: 'Floorwork', zone: 'body', hand: 'left', damage: 9, weight: 1.6,
+      startup: 5, recovery: 24,
+      tell: tell('crouch', 24, '#4cc9f0', 'LOW', 'left'), anim: 'uppercut',
+    }),
+    offbeat: atk({
+      id: 'kwame_off', name: 'Offbeat', hand: 'right', damage: 11, weight: 1.8, stunPower: 16,
+      startup: 4, recovery: 24,
+      tell: tell('eyeFlash', 16, '#ffe066', 'OFFBEAT!', 'right', 'tellFast'), anim: 'straight',
+    }),
+  },
+  routines: [
+    { id: 'onbeat', weight: 26, steps: [{ t: 'attack', id: 'tap' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'tap' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'doubleStep' }] },
+    { id: 'turn', weight: 22, steps: [{ t: 'wait', frames: [16, 26] }, { t: 'attack', id: 'spinner' }], cooldown: 2.6 },
+    { id: 'shuffle', weight: 22, steps: [{ t: 'dodge', dir: 'left' }, { t: 'wait', frames: 6 }, { t: 'dodge', dir: 'right' }, { t: 'attack', id: 'doubleStep' }] },
+    { id: 'tempoShift', weight: 20, steps: [{ t: 'attack', id: 'tap' }, { t: 'wait', frames: 30 }, { t: 'attack', id: 'offbeat' }] },
+    { id: 'floor', weight: 18, steps: [{ t: 'attack', id: 'lowSweep' }, { t: 'wait', frames: 12 }, { t: 'attack', id: 'tap' }], adapt: (p) => 1 + p.turtling * 1.5 },
+    { id: 'showtime', weight: 12, calmOnly: true, steps: [{ t: 'taunt', frames: 50, line: 'You hear that? That is MY song!' }] },
+    { id: 'rageSpin', weight: 30, rageOnly: true, steps: [{ t: 'attack', id: 'spinner' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'offbeat' }] },
+  ],
+  ai: ai({
+    idleGap: [26, 48], counterChance: 0.24, blockChance: 0.24, reaction: 0.26,
+    phaseSpeed: [1, 1.12, 1.26], phaseTempo: [1, 0.8, 0.62], rageAfterKnockdowns: 1,
+    rageAttack: 'spinner', getUpSpeed: 1.15,
+  }),
+  appearance: look({
+    skin: '#7a4a2b', height: 1.06, width: 1, shoulder: 1.1, gut: 0.08, armLength: 1.08,
+    hair: { style: 'afro', color: '#1a120b' },
+    facialHair: 'goatee', facialHairColor: '#1a120b',
+    trunks: { main: '#0f9d58', accent: '#ffd166', pattern: 'waves' },
+    gloves: { main: '#ffd166', accent: '#0f9d58' },
+    accessory: 'chain', accessoryColor: '#f0c040',
+    glow: '#ff9a3c', browAngle: -0.12, eyeSize: 1.05, mouth: 1.2,
+  }),
+  quotes: {
+    intro: ['You brought shoes? Good. You will need them.', 'One-two-three, one-two-THREE!'],
+    taunt: ['You hear that? That is MY song!', 'Keep up! Keep up!'],
+    win: ['The sun always comes up, my friend.', 'Next time, dance a little.'],
+    lose: ['Haha! You found the beat!', 'Ahh... you changed the song on ME.'],
+    hurt: ['Hup!', 'Ho!'],
+  },
+  music: 'pro', arena: 'civic', voice: { pitch: 0.98, grit: 0.35 }, purse: 1500, phases: 3,
+};
+
+export const SVEN: BoxerDef = {
+  id: 'sven',
+  name: 'Sven Hammarlund',
+  nickname: 'Timber',
+  country: 'Sweden',
+  flag: ['#1f6fb2', '#f4c430'],
+  age: 31, height: 194, weight: 112,
+  record: { w: 24, l: 6, ko: 22 },
+  archetype: 'THE POWERHOUSE',
+  personality: 'Quiet, enormous, deeply serious about firewood.',
+  bio: 'Sven still does his roadwork carrying a log. Every punch he throws is an axe stroke, and he counts them out loud in Swedish. When he reaches three, someone goes down.',
+  style: 'Chopping power shots delivered on a slow, audible count.',
+  strengths: ['One-punch knockout power', 'Enormous stamina reserves'],
+  flaws: ['Counts his own combination out loud', 'Plants his feet to swing'],
+  league: 'pro', order: 2,
+  stats: { maxHealth: 122, power: 1.32, speed: 0.82, defense: 0.22, poise: 112, getUpHealth: 0.62, knockdownResistance: 1.35 },
+  weakness: {
+    telegraphKinds: ['stomp'],
+    zone: 'body',
+    damageMult: 3.5,
+    stunBonus: 44,
+    hint: 'He plants his back foot with a stomp before the axe falls. Dig into the body on the stomp.',
+  },
+  attacks: {
+    chop: atk({
+      id: 'sven_chop', name: 'Chop', hand: 'right', damage: 13, weight: 2.2, stunPower: 18,
+      startup: 7, recovery: 28,
+      tell: tell('stomp', 32, '#f4c430', 'CHOP', 'right', 'tellBig'), anim: 'axe',
+    }),
+    timber: atk({
+      id: 'sven_timber', name: 'TIMBER', hand: 'both', damage: 24, weight: 3.1, stunPower: 34,
+      startup: 9, recovery: 42, chip: 0.55,
+      tell: tell('raiseBoth', 48, '#ff4d4d', 'TIMBER!!', 'center', 'tellBig'), anim: 'axe',
+    }),
+    splitter: atk({
+      id: 'sven_split', name: 'Log Splitter', zone: 'body', hand: 'left', damage: 12, weight: 2,
+      startup: 6, recovery: 26,
+      tell: tell('crouch', 28, '#4cc9f0', 'BODY AXE', 'left'), anim: 'uppercut',
+    }),
+    jab: atk({
+      id: 'sven_jab', name: 'Range Finder', hand: 'left', damage: 7, weight: 1.3, startup: 6, recovery: 20,
+      tell: tell('shoulder', 22, '#ffd166', 'JAB', 'left'), anim: 'jab',
+    }),
+  },
+  routines: [
+    { id: 'count3', weight: 28, steps: [{ t: 'attack', id: 'chop' }, { t: 'wait', frames: 16 }, { t: 'attack', id: 'chop' }, { t: 'wait', frames: 16 }, { t: 'attack', id: 'timber' }], cooldown: 4 },
+    { id: 'rangefind', weight: 24, steps: [{ t: 'attack', id: 'jab' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'chop' }] },
+    { id: 'bodywork', weight: 22, steps: [{ t: 'attack', id: 'splitter' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'splitter' }], adapt: (p) => 1 + p.turtling * 1.7 },
+    { id: 'singleTimber', weight: 18, steps: [{ t: 'wait', frames: [22, 34] }, { t: 'attack', id: 'timber' }], cooldown: 4.5 },
+    { id: 'brace', weight: 16, steps: [{ t: 'guard', frames: [40, 66] }], adapt: (p) => 1 + p.rushing * 1.4 },
+    { id: 'fakeTimber', weight: 14, phases: [1, 2], steps: [{ t: 'feint', id: 'timber', frames: 26 }, { t: 'attack', id: 'splitter' }] },
+  ],
+  ai: ai({
+    idleGap: [46, 78], counterChance: 0.14, blockChance: 0.34, reaction: 0.42,
+    phaseSpeed: [1, 1.1, 1.22], phaseTempo: [1, 0.84, 0.7], getUpSpeed: 0.8,
+  }),
+  appearance: look({
+    skin: '#f0c8a8', height: 1.18, width: 1.22, shoulder: 1.28, gut: 0.34, neck: 1.3, armLength: 1.1,
+    hair: { style: 'long', color: '#e0b060' },
+    facialHair: 'beard', facialHairColor: '#e0b060',
+    trunks: { main: '#1f6fb2', accent: '#f4c430', pattern: 'check' },
+    gloves: { main: '#8b4513', accent: '#f4c430' },
+    accessory: 'tattoo', accessoryColor: '#2b4a6f',
+    glow: '#f4c430', browAngle: -0.2, eyeSize: 0.9, noseSize: 1.25, jaw: 1.25,
+  }),
+  quotes: {
+    intro: ['Ett. Två. Tre. Then you sleep.', 'I have chopped bigger.'],
+    taunt: ['Still standing. Good wood.', 'Ett... två...'],
+    win: ['TIMBER.', 'Stack him with the others.'],
+    lose: ['...the tree fell the wrong way.', 'Hmph. Good swing.'],
+    hurt: ['Hrrgh!', 'Nngh!'],
+  },
+  music: 'pro', arena: 'civic', voice: { pitch: 0.72, grit: 0.6 }, purse: 1800, phases: 3,
+};
+
+export const RICO: BoxerDef = {
+  id: 'rico',
+  name: 'Rico Vega',
+  nickname: 'Ricochet',
+  country: 'Cuba',
+  flag: ['#e63946', '#2b4fb0'],
+  age: 26, height: 179, weight: 76,
+  record: { w: 25, l: 2, ko: 9 },
+  archetype: 'THE COUNTER SPECIALIST',
+  personality: 'Patient to the point of rudeness. Will not throw first. Ever.',
+  bio: 'Rico has gone entire rounds without leading. He leans back, he waits, and the instant you commit he comes off the ropes like something released. Against Rico, patience is not a virtue — it is the only weapon.',
+  style: 'Pure counter-punching. Everything he throws is a reply.',
+  strengths: ['Lethal counters', 'Endless patience'],
+  flaws: ['Must lean back to load a counter', 'Nothing to offer if you never swing'],
+  league: 'pro', order: 3,
+  stats: { maxHealth: 98, power: 1.15, speed: 1.12, defense: 0.2, poise: 84, getUpHealth: 0.6, knockdownResistance: 1.05 },
+  weakness: {
+    telegraphKinds: ['lean'],
+    zone: 'head',
+    damageMult: 3.4,
+    stunBonus: 42,
+    hint: 'He leans back to load the counter. That lean is an invitation — beat him to the punch, up top.',
+  },
+  attacks: {
+    counter: atk({
+      id: 'rico_ctr', name: 'Ricochet', hand: 'right', damage: 14, weight: 2.2, stunPower: 20,
+      startup: 4, recovery: 24, counterMult: 2,
+      tell: tell('lean', 24, '#ff4d4d', 'COUNTER!', 'right', 'tellFast'), anim: 'straight',
+    }),
+    check: atk({
+      id: 'rico_chk', name: 'Check Hook', hand: 'left', damage: 8, weight: 1.4, startup: 5, recovery: 20,
+      tell: tell('shoulder', 20, '#ffd166', 'HOOK', 'left'), anim: 'hook',
+    }),
+    rip: atk({
+      id: 'rico_rip', name: 'Rip', zone: 'body', hand: 'left', damage: 10, weight: 1.8,
+      startup: 5, recovery: 24,
+      tell: tell('crouch', 24, '#4cc9f0', 'BODY RIP', 'left'), anim: 'uppercut',
+    }),
+    pounce: atk({
+      id: 'rico_pounce', name: 'Off The Ropes', hand: 'both', damage: 7, hits: 3, weight: 1.6,
+      startup: 5, recovery: 30,
+      tell: tell('crouch', 26, '#ff9a3c', 'FLURRY', 'center', 'tellBig'), anim: 'combo',
+    }),
+    trackLeft: atk({
+      id: 'rico_trk', name: 'Cut-Off Hook', hand: 'right', damage: 12, weight: 2, tracking: 'left',
+      startup: 6, recovery: 28,
+      tell: tell('eyeFlash', 28, '#c77dff', 'CUTS OFF LEFT', 'left', 'tellBig'), anim: 'hook',
+    }),
+  },
+  routines: [
+    { id: 'wait', weight: 34, steps: [{ t: 'guard', frames: [46, 80] }] },
+    { id: 'bait', weight: 24, steps: [{ t: 'expose', frames: 34 }, { t: 'attack', id: 'counter' }] },
+    { id: 'hook', weight: 20, steps: [{ t: 'attack', id: 'check' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'rip' }] },
+    { id: 'ropes', weight: 18, phases: [1, 2], steps: [{ t: 'attack', id: 'pounce' }], cooldown: 3 },
+    { id: 'cutLeft', weight: 18, steps: [{ t: 'attack', id: 'trackLeft' }], adapt: (p) => 1 + p.leftDodgeHabit * 2.6, cooldown: 2.5 },
+    { id: 'punish', weight: 22, steps: [{ t: 'guard', frames: 26 }, { t: 'attack', id: 'counter' }], adapt: (p) => 1 + p.rushing * 1.8 },
+  ],
+  ai: ai({
+    idleGap: [38, 68], counterChance: 0.62, blockChance: 0.48, reaction: 0.2,
+    phaseSpeed: [1, 1.1, 1.25], phaseTempo: [1, 0.85, 0.7], counterAttack: 'counter', getUpSpeed: 1.05,
+  }),
+  appearance: look({
+    skin: '#a9714b', height: 1.03, width: 0.97, shoulder: 1.06, gut: 0.08, armLength: 1.1,
+    hair: { style: 'curls', color: '#14100c' },
+    facialHair: 'stubble', facialHairColor: '#14100c',
+    trunks: { main: '#e63946', accent: '#ffffff', pattern: 'flame' },
+    gloves: { main: '#ffffff', accent: '#e63946' },
+    accessory: 'scar',
+    glow: '#ff4d4d', browAngle: -0.34, eyeSize: 0.92, jaw: 1.06, mouth: 0.9,
+  }),
+  quotes: {
+    intro: ['After you.', 'I am not in a hurry. Are you?'],
+    taunt: ['Go on. Throw it.', 'I can wait all night.'],
+    win: ['You threw first. That was the mistake.', 'Patience, amigo. Patience.'],
+    lose: ['You... you waited longer than me.', 'Hah. I taught you that.'],
+    hurt: ['Ssss!', 'Agh!'],
+  },
+  music: 'pro', arena: 'civic', voice: { pitch: 0.9, grit: 0.4 }, purse: 2200, phases: 3,
+};
+
+export const PRO_LEAGUE: BoxerDef[] = [OLGA, KWAME, SVEN, RICO];
