@@ -485,6 +485,13 @@ export class FightScene implements Scene {
 
   // -- Layout ---------------------------------------------------------------
 
+  /** 0..1 how far through a knockdown a fighter is, for framing. */
+  private downAmount(f: Fighter): number {
+    if (f.state === FState.KnockedDown) return clamp01(f.downPose);
+    if (f.state === FState.GettingUp) return clamp01(1 - f.progress);
+    return 0;
+  }
+
   /** Vertical offset of the authored ring band within the design space. */
   private get band(): number {
     return Math.max(0, (this.game.renderer.dh - RING_BAND_H) / 2);
@@ -505,7 +512,10 @@ export class FightScene implements Scene {
     if (f.isPlayer) {
       return { x: cx + this.playerAnim.pose.offset.x * PLAYER_UNIT, y: RING.playerFeet };
     }
-    return { x: cx - this.oppAnim.pose.offset.x * OPPONENT_UNIT, y: RING.opponentFeet };
+    return {
+      x: cx - this.oppAnim.pose.offset.x * OPPONENT_UNIT,
+      y: RING.opponentFeet - this.downAmount(f) * 168,
+    };
   }
 
   // -- Update ---------------------------------------------------------------
@@ -644,8 +654,12 @@ export class FightScene implements Scene {
 
     // --- Opponent ---
     const oppTell = this.opponent.tellGlow;
+    // A downed fighter lies toward the back of the ring, not into the camera:
+    // raise and shrink them so the sprawl never lands on top of the player.
+    const down = this.downAmount(this.opponent);
     this.oppArt.draw(ctx, this.oppAnim.pose, {
-      x: cx, y: RING.opponentFeet, unit: OPPONENT_UNIT, facing: -1, showFace: true,
+      x: cx, y: RING.opponentFeet - down * 168,
+      unit: OPPONENT_UNIT * (1 - down * 0.12), facing: -1, showFace: true,
       light: this.arenaDef.light, rim: this.arenaDef.rim,
       flash: this.opponent.flash, tell: oppTell,
       tellColor: this.opponent.telegraphColor,

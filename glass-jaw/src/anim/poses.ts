@@ -481,10 +481,13 @@ export function applyKnockdown(out: Pose, t: number, dir: number, time: number):
   const d = -dir || -1; // topple away from the punch
   const breathe = Math.sin(time * 3.4) * 0.035 * settle;
 
-  out.rot += d * 1.46 * fall;
+  // Just short of flat: a fully horizontal body reads as a plank and sprawls
+  // right across the foreground fighter.
+  out.rot += d * 1.26 * fall;
   // Re-centre and lift the body so it rests on the mat instead of inside it.
-  out.offset.x -= d * 1.05 * fall;
-  out.offset.y -= 0.24 * fall;
+  out.offset.x -= d * 0.74 * fall;
+  out.offset.y -= 0.3 * fall;
+  out.scale = lerp(out.scale, 0.94, fall);
 
   // Sprawl: limbs flop away from the torso line.
   out.headRot += d * 0.42 * fall;

@@ -175,7 +175,12 @@ try {
       const s = window.GLASSJAW.current;
       if (s.ref && s.ref.phase === 'Fighting') s.ref.clock = 0.4;
     });
-    for (let i = 0; i < 24; i++) await page.keyboard.press(moves[i % moves.length]);
+    // Stop mashing the moment the fight is over, or the result screen gets
+    // dismissed by the very keys that were being used to fight.
+    for (let i = 0; i < 24; i++) {
+      if (i % 8 === 0 && (await scene(page)) !== 'fight') break;
+      await page.keyboard.press(moves[i % moves.length]);
+    }
     await wait(page, 700);
     if ((await scene(page)) === 'fight') {
       const ph = await page.evaluate(() => window.GLASSJAW.current.ref?.phase);
@@ -186,7 +191,10 @@ try {
       }
       if (ph === 'Count') {
         await shot(page, 'count');
-        for (let i = 0; i < 60; i++) await page.keyboard.press('Space');
+        for (let i = 0; i < 60; i++) {
+          if (i % 10 === 0 && (await scene(page)) !== 'fight') break;
+          await page.keyboard.press('Space');
+        }
       }
     }
   }

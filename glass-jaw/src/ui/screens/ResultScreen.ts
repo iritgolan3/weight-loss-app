@@ -85,7 +85,9 @@ export class ResultScreen implements Scene {
 
   update(_dt: number, _time: GameTime): void {
     const i = this.game.input;
-    if (this.t < 0.5) return;
+    // Players are usually still mashing when the final bell rings. Hold inputs
+    // off long enough that nobody skips their own scorecard by accident.
+    if (this.t < 0.9) return;
     if (i.justPressed(Action.MenuDown)) { this.index = (this.index + 1) % this.items.length; this.game.audio.play('uiMove'); }
     if (i.justPressed(Action.MenuUp)) { this.index = (this.index + this.items.length - 1) % this.items.length; this.game.audio.play('uiMove'); }
     if (i.justPressed(Action.Confirm)) { this.game.audio.play('uiConfirm'); this.items[this.index].run(); }

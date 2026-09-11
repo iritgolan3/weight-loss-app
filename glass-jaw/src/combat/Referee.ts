@@ -156,8 +156,9 @@ export class Referee {
         if (this.timer >= this.config.roundCardSeconds) {
           this.timer = 0;
           this.phase = FightPhase.Fighting;
-          this.player.setState(FState.Idle, 0);
-          this.opponent.setState(FState.Idle, 0);
+          // Never reset a fighter who is on the canvas — the count owns them.
+          if (!this.player.isDown) this.player.setState(FState.Idle, 0);
+          if (!this.opponent.isDown) this.opponent.setState(FState.Idle, 0);
         }
         break;
 
