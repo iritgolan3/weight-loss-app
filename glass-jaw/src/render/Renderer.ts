@@ -23,7 +23,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
   low: { pixelScale: 0.75, softShadows: false, reflections: false, particles: 0.35, crowdRows: 3, crowdDetail: false, atmosphere: false, richShading: false },
   medium: { pixelScale: 1, softShadows: false, reflections: true, particles: 0.7, crowdRows: 5, crowdDetail: false, atmosphere: true, richShading: true },
   high: { pixelScale: 1, softShadows: true, reflections: true, particles: 1, crowdRows: 7, crowdDetail: true, atmosphere: true, richShading: true },
-  ultra: { pixelScale: 1.35, softShadows: true, reflections: true, particles: 1.5, crowdRows: 9, crowdDetail: true, atmosphere: true, richShading: true },
+  ultra: { pixelScale: 1.25, softShadows: true, reflections: true, particles: 1.5, crowdRows: 9, crowdDetail: true, atmosphere: true, richShading: true },
 };
 
 /**
@@ -60,12 +60,46 @@ export class Renderer {
 
   private gradientCache = new Map<string, CanvasGradient>();
 
+  /**
+   * Called when the browser drops the rendering context — usually because the
+   * backing store was too large for the machine. Subscribers should shed
+   * quality; the context comes back on its own afterwards.
+   */
+  onContextLost: (() => void) | null = null;
+  onContextRestored: (() => void) | null = null;
+  /** True between a loss and its restoration; nothing should be drawn. */
+  contextLost = false;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) throw new Error('Canvas 2D is not available in this browser.');
     this.ctx = ctx;
+
+    canvas.addEventListener('contextlost', this.handleContextLost);
+    canvas.addEventListener('contextrestored', this.handleContextRestored);
+
     this.resize();
+  }
+
+  private handleContextLost = (e: Event): void => {
+    // Preventing the default asks the browser to restore the context.
+    e.preventDefault();
+    this.contextLost = true;
+    this.gradientCache.clear();
+    this.onContextLost?.();
+  };
+
+  private handleContextRestored = (): void => {
+    this.contextLost = false;
+    this.gradientCache.clear();
+    this.resize();
+    this.onContextRestored?.();
+  };
+
+  dispose(): void {
+    this.canvas.removeEventListener('contextlost', this.handleContextLost);
+    this.canvas.removeEventListener('contextrestored', this.handleContextRestored);
   }
 
   setQuality(q: Quality): void {

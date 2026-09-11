@@ -1,7 +1,7 @@
 import { Loop } from './Loop';
 import { GameTime } from './Time';
 import { InputManager } from '../input/InputManager';
-import { Renderer } from '../render/Renderer';
+import { Renderer, type Quality } from '../render/Renderer';
 import { AudioManager } from '../audio/AudioManager';
 import { SettingsSystem, Settings } from '../settings/SettingsSystem';
 import { SaveSystem } from '../save/SaveSystem';
@@ -70,6 +70,10 @@ export class Game {
     this.applySettings(this.settings.current);
     this.settings.onChange((s) => this.applySettings(s));
 
+    // If the browser drops the canvas, step the quality down rather than
+    // sitting on a dead context and rendering nothing.
+    this.renderer.onContextLost = () => this.degradeQuality();
+
     this.input.attach(window);
     window.addEventListener('resize', this.onResize);
     window.addEventListener('orientationchange', this.onResize);
@@ -89,6 +93,13 @@ export class Game {
       this.audio.resume();
     }
   };
+
+  /** Drops one graphics tier after a lost rendering context. */
+  private degradeQuality(): void {
+    const order: Quality[] = ['low', 'medium', 'high', 'ultra'];
+    const i = order.indexOf(this.settings.current.quality);
+    if (i > 0) this.settings.set('quality', order[i - 1]);
+  }
 
   private armAudio(): void {
     if (this.audioArmed) return;
@@ -167,6 +178,7 @@ export class Game {
 
   private render(alpha: number, time: GameTime): void {
     this.clock += time.rawDt;
+    if (this.renderer.contextLost) return;
     // Presentation systems advance on unscaled time so effects survive hit-stop.
     for (const s of this.stack) s.updateRaw?.(time.rawDt);
 
@@ -227,6 +239,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('orientationchange', this.onResize);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    this.renderer.dispose();
     this.audio.dispose();
   }
 }
