@@ -175,19 +175,28 @@ export class CombatSystem {
     const heavy = attack.weight >= 2 || v.outcome === 'perfectCounter' || v.outcome === 'weakness';
     const dir = attacker.isPlayer ? 1 : -1;
     const wasDown = defender.isDown;
+    // Only these earn the right to stop a committed attack outright.
+    const breakArmor = v.outcome === 'weakness' || v.outcome === 'perfectCounter' ||
+      attack.tier !== undefined;
+    const wasArmored = defender.hasArmor && !breakArmor;
 
     const dmg = this.applyDamage(
-      defender, base, attack.stunPower + v.stunBonus, attack.weight, dir, heavy,
+      defender, base, attack.stunPower + v.stunBonus, attack.weight, dir, heavy, breakArmor,
     );
     result.damage = dmg;
     result.causedKnockdown = !wasDown && defender.isDown;
     result.causedStun = defender.state === FState.Stunned;
 
-    // Landing clean pays back stamina: precision sustains offence, mashing doesn't.
-    attacker.stamina.reward(attack.stamina * (v.outcome === 'hit' ? 0.45 : 0.9));
+    // Landing clean pays back stamina: precision sustains offence, mashing
+    // doesn't. Chipping an armoured opponent pays nothing — you are about to
+    // be hit for it.
+    attacker.stamina.reward(wasArmored ? 0 : attack.stamina * (v.outcome === 'hit' ? 0.35 : 0.9));
 
-    // Getting hit cleanly costs the defender a token.
-    if (defender.special.tokens > 0) {
+    // Getting hit cleanly costs the defender a token — unless they ate it on
+    // purpose behind the armour of their own attack.
+    if (wasArmored) {
+      // no token penalty
+    } else if (defender.special.tokens > 0) {
       defender.special.penalize();
       this.bus.emit('tokenLost', { fighter: defender });
     } else {
@@ -197,7 +206,8 @@ export class CombatSystem {
     let reason: TokenReason | null = null;
     if (v.outcome === 'weakness') reason = 'weakness';
     else if (v.outcome === 'perfectCounter') reason = 'perfectCounter';
-    else if (v.outcome === 'counter' && attack.weight >= 1.2) reason = 'perfectCounter';
+    // Trading into an armoured wind-up is not a counter; it is greed.
+    else if (v.outcome === 'counter' && attack.weight >= 1.2 && !wasArmored) reason = 'perfectCounter';
     else if (defender.state === FState.Stunned && attack.tier) reason = 'stunFinish';
 
     if (reason && attacker.special.award(reason)) {
@@ -242,7 +252,7 @@ export class CombatSystem {
 
   private applyDamage(
     defender: Fighter, amount: number, stun: number,
-    weight: number, dir: number, heavy: boolean,
+    weight: number, dir: number, heavy: boolean, breakArmor: boolean,
   ): number {
     if (defender.isPlayer && this.playerInvincible) {
       defender.flash = 1;
@@ -251,7 +261,7 @@ export class CombatSystem {
       return 0;
     }
     const before = defender.health.current;
-    defender.takeDamage(amount, stun, weight, dir, heavy);
+    defender.takeDamage(amount, stun, weight, dir, heavy, breakArmor);
     return before - defender.health.current;
   }
 

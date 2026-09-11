@@ -89,6 +89,11 @@ export class Fighter {
   readonly hitTimes: number[] = [];
   /** Seconds since the current attack was committed. Independent of stateTime. */
   attackClock = 0;
+  /**
+   * Monotonic id for the current attack. Lets observers tell a multi-hit combo
+   * (one attack, several hits) apart from two separate attacks.
+   */
+  attackSeq = 0;
   /** Total seconds the current attack will take, wind-up excluded. */
   attackTotal = 0;
   /** Index of the next hit to resolve. */
@@ -116,7 +121,15 @@ export class Fighter {
   dodgeDir: -1 | 0 | 1 = 0;
   /** Seconds remaining in which a block counts as a parry. */
   parryTimer = 0;
-  /** Seconds this fighter is wide open to a perfect counter. */
+  /**
+   * Seconds this fighter is wide open to a PERFECT counter.
+   *
+   * This is only ever set by something the opponent earned — a perfect dodge,
+   * a parry, a guard break or a stun. Ordinary attack recovery is not "open":
+   * hitting someone in recovery is a normal counter, which is worth less and
+   * does not need to be read. Keeping these separate is what stops a player
+   * from mashing their way into a stream of maximum-value counters.
+   */
   openTimer = 0;
   /** The tell/punch pairing that punishes this fighter. Null for the player. */
   weakness: Weakness | null = null;
@@ -267,6 +280,7 @@ export class Fighter {
   /** Commit to an attack immediately (no wind-up). */
   startAttack(def: AttackDef): void {
     this.attack = def;
+    this.attackSeq++;
     this.pendingAttack = null;
     this.telegraphKind = null;
     this.weaknessOpen = false;
@@ -344,16 +358,37 @@ export class Fighter {
     return false;
   }
 
-  /** Applies damage and the appropriate reaction. Returns true if knocked down. */
-  takeDamage(amount: number, stunPower: number, weight: number, dir: number, heavy: boolean): boolean {
+  /**
+   * True while this fighter is committed to an attack and therefore armoured.
+   *
+   * A punch that lands here still hurts, but it does NOT cancel the attack.
+   * Without this the game has no risk: a player can simply mash, interrupt
+   * every wind-up on reaction, and the opponent never gets a punch off. With
+   * it, hitting someone mid-wind-up means trading — which is exactly the
+   * decision the game is meant to be about.
+   */
+  get hasArmor(): boolean {
+    return this.state === FState.Windup || this.state === FState.Startup ||
+      this.state === FState.Active;
+  }
+
+  /**
+   * Applies damage and the appropriate reaction. Returns true if knocked down.
+   *
+   * `breakArmor` is set for the hits that have earned the right to stop an
+   * attack outright: a weak-point hit, a special punch, or anything that fills
+   * the stun meter or empties the health bar.
+   */
+  takeDamage(
+    amount: number, stunPower: number, weight: number, dir: number,
+    heavy: boolean, breakArmor = false,
+  ): boolean {
     const mitigated = amount / (1 + Math.max(0, this.stats.defense));
     this.health.damage(mitigated);
     this.stunMeter = clamp(this.stunMeter + stunPower, 0, this.stats.poise * 1.2);
     this.flash = 1;
     this.recoil = Math.min(1.4, 0.42 + weight * 0.3);
     this.recoilDir = dir;
-    this.invuln = 0;
-    this.openTimer = 0;
 
     if (this.health.isDown) { this.knockDown(); return true; }
 
@@ -364,6 +399,11 @@ export class Fighter {
       return false;
     }
 
+    // Armoured: take the damage, flinch visibly, but throw the punch anyway.
+    if (this.hasArmor && !breakArmor) return false;
+
+    this.invuln = 0;
+    this.openTimer = 0;
     this.interrupt();
     this.setState(heavy ? FState.Stagger : FState.HitStun, heavy ? HITSTUN.heavy : HITSTUN.light);
     return false;
@@ -483,8 +523,10 @@ export class Fighter {
           } else {
             const rec = this.attack.recovery;
             this.setState(FState.Recovery, rec);
-            // A whiffed attack leaves you far more exposed than a landed one.
-            this.open(this.attackConnected ? Math.round(rec * 0.4) : rec);
+            // Missing is punished: a whiff leaves a genuine opening. Landing
+            // does not — otherwise every exchange hands the other fighter a
+            // free maximum-value counter and mashing becomes optimal.
+            if (!this.attackConnected) this.open(Math.round(rec * 0.55));
           }
         }
         break;

@@ -21,7 +21,7 @@ export const HIROSHI: BoxerDef = {
   strengths: ['Masterful deception', 'Perfect distance control'],
   flaws: ['Must set his stance low to commit', 'Feints cost him position'],
   league: 'world', order: 0,
-  stats: { maxHealth: 108, power: 1.12, speed: 1.16, defense: 0.22, poise: 90, getUpHealth: 0.6, knockdownResistance: 1.1 },
+  stats: { maxHealth: 200, power: 1.12, speed: 1.16, defense: 0.22, poise: 90, getUpHealth: 0.6, knockdownResistance: 1.1 },
   weakness: {
     telegraphKinds: ['crouch'],
     zone: 'body',
@@ -65,7 +65,7 @@ export const HIROSHI: BoxerDef = {
     { id: 'ragePressure', weight: 30, rageOnly: true, steps: [{ t: 'attack', id: 'triple' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'real' }] },
   ],
   ai: ai({
-    idleGap: [28, 50], counterChance: 0.3, blockChance: 0.36, reaction: 0.2,
+    idleGap: [28, 50], counterChance: 0.51, blockChance: 0.522, reaction: 0.2,
     phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.8, 0.62], rageAfterKnockdowns: 1,
     counterAttack: 'real', rageAttack: 'real', getUpSpeed: 1.1,
   }),
@@ -102,7 +102,7 @@ export const DUKE: BoxerDef = {
   strengths: ['Bottomless engine', 'Never gives you a free second'],
   flaws: ['Roars before the big one', 'Overcommits when he smells blood'],
   league: 'world', order: 1,
-  stats: { maxHealth: 118, power: 1.18, speed: 1.08, defense: 0.18, poise: 100, getUpHealth: 0.64, knockdownResistance: 1.25 },
+  stats: { maxHealth: 218, power: 1.18, speed: 1.08, defense: 0.18, poise: 100, getUpHealth: 0.64, knockdownResistance: 1.25 },
   weakness: {
     telegraphKinds: ['roar'],
     zone: 'head',
@@ -140,7 +140,7 @@ export const DUKE: BoxerDef = {
     { id: 'ragePress', weight: 34, rageOnly: true, steps: [{ t: 'attack', id: 'drill' }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'drill' }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'roar' }] },
   ],
   ai: ai({
-    idleGap: [16, 32], counterChance: 0.22, blockChance: 0.2, reaction: 0.22,
+    idleGap: [16, 32], counterChance: 0.374, blockChance: 0.29, reaction: 0.22,
     phaseSpeed: [1, 1.12, 1.3], phaseTempo: [1, 0.76, 0.58], rageAfterKnockdowns: 1,
     rageAttack: 'roar', getUpSpeed: 1.2,
   }),
@@ -178,7 +178,7 @@ export const ZARA: BoxerDef = {
   strengths: ['Punishes any repeated habit', 'Superb ring intelligence'],
   flaws: ['Her eyes flash when she commits to a read', 'Overcommits to a pattern you have abandoned'],
   league: 'world', order: 2,
-  stats: { maxHealth: 106, power: 1.14, speed: 1.2, defense: 0.24, poise: 92, getUpHealth: 0.6, knockdownResistance: 1.1 },
+  stats: { maxHealth: 196, power: 1.14, speed: 1.2, defense: 0.24, poise: 92, getUpHealth: 0.6, knockdownResistance: 1.1 },
   weakness: {
     telegraphKinds: ['eyeFlash'],
     zone: 'body',
@@ -222,7 +222,7 @@ export const ZARA: BoxerDef = {
     { id: 'fakeRead', weight: 16, phases: [1, 2], steps: [{ t: 'feint', id: 'huntLeft', frames: 22 }, { t: 'attack', id: 'mirage' }] },
   ],
   ai: ai({
-    idleGap: [26, 46], counterChance: 0.36, blockChance: 0.38, reaction: 0.19,
+    idleGap: [26, 46], counterChance: 0.612, blockChance: 0.551, reaction: 0.19,
     phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.8, 0.64], counterAttack: 'probe', getUpSpeed: 1.1,
   }),
   appearance: look({
@@ -258,7 +258,7 @@ export const MCGRAW: BoxerDef = {
   strengths: ['Enormous punch volume', 'Utterly unbothered by pain'],
   flaws: ['Leans in to load up', 'Swings himself off balance'],
   league: 'world', order: 3,
-  stats: { maxHealth: 124, power: 1.26, speed: 1.0, defense: 0.16, poise: 108, getUpHealth: 0.66, knockdownResistance: 1.4 },
+  stats: { maxHealth: 229, power: 1.26, speed: 1.0, defense: 0.16, poise: 108, getUpHealth: 0.66, knockdownResistance: 1.4 },
   weakness: {
     telegraphKinds: ['lean'],
     zone: 'head',
@@ -297,7 +297,7 @@ export const MCGRAW: BoxerDef = {
     { id: 'rageMaul', weight: 34, rageOnly: true, steps: [{ t: 'attack', id: 'maul' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'clubbing' }] },
   ],
   ai: ai({
-    idleGap: [20, 38], counterChance: 0.2, blockChance: 0.16, reaction: 0.28,
+    idleGap: [20, 38], counterChance: 0.34, blockChance: 0.232, reaction: 0.28,
     phaseSpeed: [1, 1.12, 1.28], phaseTempo: [1, 0.78, 0.6], rageAfterKnockdowns: 1,
     rageAttack: 'clubbing', getUpSpeed: 1.25,
   }),

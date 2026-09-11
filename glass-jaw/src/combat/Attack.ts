@@ -86,16 +86,22 @@ export function scaleAttack(a: AttackDef, speed: number, damage: number): Attack
 // PLAYER MOVES
 // ---------------------------------------------------------------------------
 
+/**
+ * Damage budget note: an ordinary jab is deliberately feeble. A fight is meant
+ * to be won with counters, weak-point hits and specials — the numbers below are
+ * tuned so that landing only plain punches takes far longer than the round
+ * timer allows, while a player who reads the opponent finishes inside a round.
+ */
 const jabBase = {
   zone: 'head' as Zone, startup: 4, active: 3, recovery: 10,
-  damage: 4.2, stamina: 7, chip: 0.16, stunPower: 4, weight: 1,
-  counterMult: 2.2, parryWindow: 7, perfectDodgeWindow: 7,
+  damage: 2.5, stamina: 7, chip: 0.16, stunPower: 4, weight: 1,
+  counterMult: 2.0, parryWindow: 7, perfectDodgeWindow: 7,
 };
 
 const bodyBase = {
   zone: 'body' as Zone, startup: 5, active: 3, recovery: 12,
-  damage: 5.4, stamina: 9, chip: 0.22, stunPower: 3, weight: 1.2,
-  counterMult: 2.2, parryWindow: 7, perfectDodgeWindow: 7,
+  damage: 3.2, stamina: 9, chip: 0.22, stunPower: 3, weight: 1.2,
+  counterMult: 2.0, parryWindow: 7, perfectDodgeWindow: 7,
 };
 
 export const PLAYER_ATTACKS: Record<string, AttackDef> = {
@@ -106,19 +112,19 @@ export const PLAYER_ATTACKS: Record<string, AttackDef> = {
 
   special1: {
     id: 'special1', name: 'COMET JAB', zone: 'head', hand: 'right',
-    startup: 7, active: 4, recovery: 16, damage: 17, stamina: 0, chip: 0.5,
+    startup: 7, active: 4, recovery: 16, damage: 13, stamina: 0, chip: 0.5,
     stunPower: 22, weight: 2.4, counterMult: 1.5, parryWindow: 5, perfectDodgeWindow: 5,
     tier: 1, sfx: 'special1', anim: 'straight',
   },
   special2: {
     id: 'special2', name: 'METEOR CROSS', zone: 'head', hand: 'right',
-    startup: 9, active: 5, recovery: 20, damage: 28, stamina: 0, chip: 0.6,
+    startup: 9, active: 5, recovery: 20, damage: 21, stamina: 0, chip: 0.6,
     stunPower: 34, weight: 3, counterMult: 1.5, parryWindow: 5, perfectDodgeWindow: 5,
     tier: 2, sfx: 'special2', anim: 'overhand',
   },
   special3: {
     id: 'special3', name: 'SUPERNOVA COMBO', zone: 'head', hand: 'both',
-    startup: 8, active: 4, recovery: 26, damage: 15, stamina: 0, chip: 0.7,
+    startup: 8, active: 4, recovery: 26, damage: 10, stamina: 0, chip: 0.7,
     stunPower: 24, weight: 3.4, counterMult: 1.4, parryWindow: 4, perfectDodgeWindow: 4,
     tier: 3, hits: 4, sfx: 'special3', anim: 'combo',
   },
@@ -149,7 +155,7 @@ export const DEFENSE = {
   /** Frames of recovery after i-frames end. */
   dodgeRecovery: 8,
   /** Frames after a perfect dodge during which the opponent is wide open. */
-  counterWindow: 30,
+  counterWindow: 26,
   /** Frames of block wind-up. */
   blockStartup: 1,
   /** Frames after pressing block during which an incoming hit is PARRIED. */
@@ -157,7 +163,7 @@ export const DEFENSE = {
   /** Frames the opponent staggers after a parry. */
   parryStagger: 26,
   /** Frames of counter window granted by a parry. */
-  parryCounterWindow: 26,
+  parryCounterWindow: 22,
   /** Stamina drained per blocked hit (scaled by attack weight). */
   blockStaminaCost: 7,
   /** Guard-break threshold: blocking at 0 stamina breaks the guard. */

@@ -45,6 +45,9 @@ export class EnemyAI {
 
   /** Seconds the fighter has been holding a reactive guard. */
   private guardHold = 0;
+  /** Whether this idle gap is being spent behind a guard. */
+  private idleGuard = false;
+  private idleGuardDecided = false;
 
   /** How long the opponent has gone without landing anything — drives frustration. */
   private frustration = 0;
@@ -150,11 +153,16 @@ export class EnemyAI {
   private weightOf(r: Routine): number {
     let w = r.weight;
     if (r.adapt) {
-      // Adaptive multipliers are damped by difficulty and hard-capped, so no
-      // habit is ever punished so hard that the fight stops being winnable.
+      // Adaptive multipliers are damped by difficulty and hard-capped.
+      //
+      // The cap is a fairness invariant, not a tuning knob: however
+      // predictable the player becomes, no single punish may crowd out the
+      // rest of a boxer's repertoire. An opponent that answers one habit with
+      // one attack on loop has stopped being a pattern to learn and become a
+      // wall. Raising this above ~2.6 measurably breaks that (see ai.test.ts).
       const raw = r.adapt(this.profile);
       const damped = 1 + (raw - 1) * this.difficulty.adapt;
-      w *= clamp(damped, 0.4, 3.6);
+      w *= clamp(damped, 0.4, 2.6);
     }
     // A boxer that keeps missing starts reaching for its heavier options.
     if (this.frustration > 3 && r.steps.some((s) => s.t === 'attack')) w *= 1.25;
@@ -319,7 +327,11 @@ export class EnemyAI {
 
   private queueReaction(action: 'block' | 'counter'): void {
     this.reactAction = action;
-    this.reactTimer = this.def.ai.reaction * this.difficulty.reaction;
+    // Raising a guard is a reflex, not a decision. At full reaction latency the
+    // block lands after the player's jab has already finished, which made
+    // reactive defence useless — so blocks react roughly twice as fast.
+    const latency = this.def.ai.reaction * this.difficulty.reaction;
+    this.reactTimer = action === 'block' ? latency * 0.42 : latency;
   }
 
   private fireReaction(): void {
@@ -376,6 +388,10 @@ export class EnemyAI {
       this.routine = null;
       this.reactAction = null;
       this.feinting = false;
+      // Take a beat behind the guard before committing again, instead of
+      // walking straight into the next punch with the hands down.
+      this.idleTimer = Math.max(this.idleTimer, 0.3);
+      this.idleGuardDecided = false;
       return;
     }
 
@@ -408,9 +424,23 @@ export class EnemyAI {
       this.idleTimer -= dt;
       if (this.idleTimer <= 0) {
         this.startRoutine();
-        if (this.routine) { this.idleTimer = 0; }
+        if (this.routine) { this.idleTimer = 0; this.idleGuard = false; }
       }
-      if (!this.routine) return;
+      if (!this.routine) {
+        // Between routines a boxer keeps their hands up. Standing with the
+        // guard down is what made it possible to punch them for free all fight.
+        if (!this.idleGuardDecided) {
+          this.idleGuardDecided = true;
+          this.idleGuard = this.rng.chance(
+            clamp(this.def.ai.blockChance * this.difficulty.block * 2.2, 0, 0.92),
+          );
+        }
+        if (this.idleGuard && f.state === FState.Idle) {
+          f.startBlock(this.profile.highAim > 0.5 ? 'head' : 'body');
+        }
+        return;
+      }
+      this.idleGuardDecided = false;
     }
 
     const steps = this.routine.steps;
@@ -432,6 +462,7 @@ export class EnemyAI {
         const chain = this.rng.chance(this.difficulty.chain + (f.rage ? 0.2 : 0));
         const gap = chain ? 0 : this.rng.int(this.def.ai.idleGap[0], this.def.ai.idleGap[1]) * FRAME * tempo;
         this.idleTimer = gap;
+        this.idleGuardDecided = false;
       }
     }
   }
@@ -446,6 +477,8 @@ export class EnemyAI {
     this.seenAttack = null;
     this.seenWhiff = false;
     this.frustration = 0;
+    this.idleGuard = false;
+    this.idleGuardDecided = false;
     this.cooldowns.clear();
     this.scaledCache.clear();
     this.fighter.weakness = this.def.phaseWeaknesses?.[0] ?? this.def.weakness;

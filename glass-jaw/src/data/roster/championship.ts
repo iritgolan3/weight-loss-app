@@ -26,7 +26,7 @@ export const AUGUSTO: BoxerDef = {
   league: 'championship', order: 0,
   boss: true,
   bossTitle: 'THE OLD LION',
-  stats: { maxHealth: 126, power: 1.28, speed: 1.06, defense: 0.3, poise: 112, getUpHealth: 0.66, knockdownResistance: 1.45 },
+  stats: { maxHealth: 233, power: 1.28, speed: 1.06, defense: 0.3, poise: 112, getUpHealth: 0.66, knockdownResistance: 1.45 },
   weakness: {
     telegraphKinds: ['guardDrop'],
     zone: 'body',
@@ -72,10 +72,16 @@ export const AUGUSTO: BoxerDef = {
     { id: 'oldLion', weight: 30, phases: [2, 3], steps: [{ t: 'attack', id: 'roar' }], cooldown: 4.5 },
     { id: 'chain', weight: 26, phases: [2, 3], steps: [{ t: 'attack', id: 'veteran' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'lion' }] },
     { id: 'ragePaw', weight: 36, rageOnly: true, steps: [{ t: 'attack', id: 'lion' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'roar' }] },
-    { id: 'respect', weight: 10, phases: [0], calmOnly: true, steps: [{ t: 'taunt', frames: 52, line: 'Take your time, filho. I have plenty.' }] },
+    // He only showboats at someone who is giving him time to. Swarm him and
+    // the hands come up instead.
+    { id: 'respect', weight: 14, phases: [0], calmOnly: true, adapt: (p) => 1 - p.rushing, steps: [{ t: 'taunt', frames: 52, line: 'Take your time, filho. I have plenty.' }] },
+    // Conserving energy never means standing there. Against an aggressive
+    // opponent the old man simply waits behind the guard and counters.
+    { id: 'veteranGuard', weight: 20, phases: [0, 1], steps: [{ t: 'guard', frames: [40, 70] }, { t: 'attack', id: 'lion' }], adapt: (p) => 1 + p.rushing * 2.4 },
+    { id: 'punishGreed', weight: 18, steps: [{ t: 'guard', frames: 26 }, { t: 'attack', id: 'body' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'measure' }], adapt: (p) => 1 + p.rushing * 2.0 },
   ],
   ai: ai({
-    idleGap: [40, 70], counterChance: 0.34, blockChance: 0.44, reaction: 0.2,
+    idleGap: [40, 70], counterChance: 0.578, blockChance: 0.638, reaction: 0.2,
     phaseSpeed: [0.92, 1.06, 1.24, 1.34], phaseTempo: [1.15, 0.9, 0.68, 0.56],
     phaseDamage: [0.9, 1.05, 1.2, 1.3], phaseThresholds: [0.7, 0.42, 0.18],
     rageAfterKnockdowns: 1, counterAttack: 'lion', rageAttack: 'roar', getUpSpeed: 0.9,
@@ -116,7 +122,7 @@ export const ZARKOV: BoxerDef = {
   league: 'championship', order: 1,
   boss: true,
   bossTitle: 'THE SURGEON',
-  stats: { maxHealth: 122, power: 1.3, speed: 1.16, defense: 0.3, poise: 106, getUpHealth: 0.64, knockdownResistance: 1.35 },
+  stats: { maxHealth: 226, power: 1.3, speed: 1.16, defense: 0.3, poise: 106, getUpHealth: 0.64, knockdownResistance: 1.35 },
   weakness: {
     telegraphKinds: ['point'],
     zone: 'head',
@@ -167,7 +173,7 @@ export const ZARKOV: BoxerDef = {
     { id: 'rageOp', weight: 36, rageOnly: true, steps: [{ t: 'attack', id: 'operate' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'incision' }] },
   ],
   ai: ai({
-    idleGap: [26, 46], counterChance: 0.42, blockChance: 0.42, reaction: 0.17,
+    idleGap: [26, 46], counterChance: 0.714, blockChance: 0.609, reaction: 0.17,
     phaseSpeed: [1, 1.1, 1.24, 1.34], phaseTempo: [1, 0.82, 0.66, 0.54],
     phaseDamage: [1, 1.08, 1.18, 1.26], phaseThresholds: [0.7, 0.42, 0.18],
     rageAfterKnockdowns: 1, counterAttack: 'incision', rageAttack: 'operate', getUpSpeed: 1,
@@ -208,7 +214,7 @@ export const TEMPEST: BoxerDef = {
   league: 'championship', order: 2,
   boss: true,
   bossTitle: 'THE STORM',
-  stats: { maxHealth: 128, power: 1.24, speed: 1.2, defense: 0.26, poise: 104, getUpHealth: 0.66, knockdownResistance: 1.4 },
+  stats: { maxHealth: 237, power: 1.24, speed: 1.2, defense: 0.26, poise: 104, getUpHealth: 0.66, knockdownResistance: 1.4 },
   weakness: {
     telegraphKinds: ['spin'],
     zone: 'head',
@@ -251,6 +257,9 @@ export const TEMPEST: BoxerDef = {
     // Phase 0 — a breeze.
     { id: 'calm', weight: 34, phases: [0], steps: [{ t: 'attack', id: 'breeze' }, { t: 'wait', frames: 20 }, { t: 'attack', id: 'breeze' }] },
     { id: 'drift', weight: 22, phases: [0], steps: [{ t: 'dodge', dir: 'left' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'gust' }] },
+    // Rush the calm and you get the storm early. Swarming her is never free.
+    { id: 'earlySquall', weight: 16, phases: [0, 1], steps: [{ t: 'guard', frames: 22 }, { t: 'attack', id: 'squall' }], adapt: (p) => 1 + p.rushing * 2.8 },
+    { id: 'closeQuarters', weight: 14, phases: [0, 1], steps: [{ t: 'attack', id: 'downpour' }], adapt: (p) => 1 + p.rushing * 2.2, cooldown: 3 },
     // Phase 1 — wind.
     { id: 'gusts', weight: 30, phases: [1, 2, 3], steps: [{ t: 'attack', id: 'gust' }, { t: 'wait', frames: 10 }, { t: 'attack', id: 'breeze' }] },
     { id: 'squalls', weight: 26, phases: [1, 2, 3], steps: [{ t: 'attack', id: 'squall' }], cooldown: 2.4 },
@@ -263,9 +272,9 @@ export const TEMPEST: BoxerDef = {
     { id: 'rageStorm', weight: 40, rageOnly: true, steps: [{ t: 'attack', id: 'squall' }, { t: 'wait', frames: 8 }, { t: 'attack', id: 'hurricane' }] },
   ],
   ai: ai({
-    idleGap: [30, 54], counterChance: 0.3, blockChance: 0.3, reaction: 0.19,
-    phaseSpeed: [0.94, 1.08, 1.2, 1.36], phaseTempo: [1.2, 0.92, 0.72, 0.52],
-    phaseDamage: [0.92, 1.04, 1.16, 1.3], phaseThresholds: [0.74, 0.48, 0.22],
+    idleGap: [30, 54], counterChance: 0.51, blockChance: 0.435, reaction: 0.19,
+    phaseSpeed: [1.0, 1.1, 1.22, 1.38], phaseTempo: [0.98, 0.86, 0.7, 0.52],
+    phaseDamage: [1.0, 1.1, 1.2, 1.32], phaseThresholds: [0.8, 0.52, 0.24],
     rageAfterKnockdowns: 1, counterAttack: 'squall', rageAttack: 'hurricane', getUpSpeed: 1.1,
   }),
   appearance: look({
@@ -303,7 +312,7 @@ export const KANE: BoxerDef = {
   league: 'championship', order: 3,
   boss: true,
   bossTitle: 'THE UNDEFEATED',
-  stats: { maxHealth: 140, power: 1.34, speed: 1.22, defense: 0.34, poise: 128, getUpHealth: 0.7, knockdownResistance: 1.6 },
+  stats: { maxHealth: 259, power: 1.34, speed: 1.22, defense: 0.34, poise: 128, getUpHealth: 0.7, knockdownResistance: 1.6 },
   weakness: {
     telegraphKinds: ['guardDrop'],
     zone: 'head',
@@ -388,7 +397,7 @@ export const KANE: BoxerDef = {
     { id: 'rageZero', weight: 44, rageOnly: true, steps: [{ t: 'attack', id: 'overdrive' }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'zero' }] },
   ],
   ai: ai({
-    idleGap: [26, 44], counterChance: 0.46, blockChance: 0.46, reaction: 0.15,
+    idleGap: [26, 44], counterChance: 0.75, blockChance: 0.667, reaction: 0.15,
     phaseSpeed: [1, 1.08, 1.17, 1.26, 1.38],
     phaseTempo: [1, 0.86, 0.72, 0.6, 0.48],
     phaseDamage: [1, 1.06, 1.12, 1.2, 1.3],

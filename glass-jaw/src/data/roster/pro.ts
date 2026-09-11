@@ -21,7 +21,7 @@ export const OLGA: BoxerDef = {
   strengths: ['Impeccable defence', 'Punishes impatience'],
   flaws: ['Must drop the guard to punch', 'Textbook to a fault'],
   league: 'pro', order: 0,
-  stats: { maxHealth: 105, power: 1.0, speed: 1.05, defense: 0.32, poise: 96, getUpHealth: 0.62, knockdownResistance: 1.15 },
+  stats: { maxHealth: 194, power: 1.0, speed: 1.05, defense: 0.32, poise: 96, getUpHealth: 0.62, knockdownResistance: 1.15 },
   weakness: {
     telegraphKinds: ['guardDrop'],
     zone: 'body',
@@ -61,7 +61,7 @@ export const OLGA: BoxerDef = {
     { id: 'punishGreed', weight: 14, steps: [{ t: 'feint', id: 'straight', frames: 18 }, { t: 'attack', id: 'anvil' }], adapt: (p) => 1 + p.greed * 1.6 },
   ],
   ai: ai({
-    idleGap: [34, 60], counterChance: 0.34, blockChance: 0.55, reaction: 0.24,
+    idleGap: [34, 60], counterChance: 0.578, blockChance: 0.7, reaction: 0.24,
     phaseSpeed: [1, 1.1, 1.24], phaseTempo: [1, 0.82, 0.66], counterAttack: 'straight', getUpSpeed: 0.95,
   }),
   appearance: look({
@@ -97,7 +97,7 @@ export const KWAME: BoxerDef = {
   strengths: ['Impossible to time', 'Excellent footwork'],
   flaws: ['Spins when he commits', 'Wide open at the end of a turn'],
   league: 'pro', order: 1,
-  stats: { maxHealth: 100, power: 1.05, speed: 1.18, defense: 0.14, poise: 80, getUpHealth: 0.6, knockdownResistance: 1 },
+  stats: { maxHealth: 185, power: 1.05, speed: 1.18, defense: 0.14, poise: 80, getUpHealth: 0.6, knockdownResistance: 1 },
   weakness: {
     telegraphKinds: ['spin'],
     zone: 'head',
@@ -141,7 +141,7 @@ export const KWAME: BoxerDef = {
     { id: 'rageSpin', weight: 30, rageOnly: true, steps: [{ t: 'attack', id: 'spinner' }, { t: 'wait', frames: 14 }, { t: 'attack', id: 'offbeat' }] },
   ],
   ai: ai({
-    idleGap: [26, 48], counterChance: 0.24, blockChance: 0.24, reaction: 0.26,
+    idleGap: [26, 48], counterChance: 0.408, blockChance: 0.348, reaction: 0.26,
     phaseSpeed: [1, 1.12, 1.26], phaseTempo: [1, 0.8, 0.62], rageAfterKnockdowns: 1,
     rageAttack: 'spinner', getUpSpeed: 1.15,
   }),
@@ -179,7 +179,7 @@ export const SVEN: BoxerDef = {
   strengths: ['One-punch knockout power', 'Enormous stamina reserves'],
   flaws: ['Counts his own combination out loud', 'Plants his feet to swing'],
   league: 'pro', order: 2,
-  stats: { maxHealth: 122, power: 1.32, speed: 0.82, defense: 0.22, poise: 112, getUpHealth: 0.62, knockdownResistance: 1.35 },
+  stats: { maxHealth: 226, power: 1.32, speed: 0.82, defense: 0.22, poise: 112, getUpHealth: 0.62, knockdownResistance: 1.35 },
   weakness: {
     telegraphKinds: ['stomp'],
     zone: 'body',
@@ -217,7 +217,7 @@ export const SVEN: BoxerDef = {
     { id: 'fakeTimber', weight: 14, phases: [1, 2], steps: [{ t: 'feint', id: 'timber', frames: 26 }, { t: 'attack', id: 'splitter' }] },
   ],
   ai: ai({
-    idleGap: [46, 78], counterChance: 0.14, blockChance: 0.34, reaction: 0.42,
+    idleGap: [46, 78], counterChance: 0.238, blockChance: 0.493, reaction: 0.42,
     phaseSpeed: [1, 1.1, 1.22], phaseTempo: [1, 0.84, 0.7], getUpSpeed: 0.8,
   }),
   appearance: look({
@@ -254,7 +254,7 @@ export const RICO: BoxerDef = {
   strengths: ['Lethal counters', 'Endless patience'],
   flaws: ['Must lean back to load a counter', 'Nothing to offer if you never swing'],
   league: 'pro', order: 3,
-  stats: { maxHealth: 98, power: 1.15, speed: 1.12, defense: 0.2, poise: 84, getUpHealth: 0.6, knockdownResistance: 1.05 },
+  stats: { maxHealth: 181, power: 1.15, speed: 1.12, defense: 0.2, poise: 84, getUpHealth: 0.6, knockdownResistance: 1.05 },
   weakness: {
     telegraphKinds: ['lean'],
     zone: 'head',
@@ -297,7 +297,7 @@ export const RICO: BoxerDef = {
     { id: 'punish', weight: 22, steps: [{ t: 'guard', frames: 26 }, { t: 'attack', id: 'counter' }], adapt: (p) => 1 + p.rushing * 1.8 },
   ],
   ai: ai({
-    idleGap: [38, 68], counterChance: 0.62, blockChance: 0.48, reaction: 0.2,
+    idleGap: [38, 68], counterChance: 0.75, blockChance: 0.696, reaction: 0.2,
     phaseSpeed: [1, 1.1, 1.25], phaseTempo: [1, 0.85, 0.7], counterAttack: 'counter', getUpSpeed: 1.05,
   }),
   appearance: look({

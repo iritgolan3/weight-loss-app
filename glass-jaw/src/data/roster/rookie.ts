@@ -21,7 +21,7 @@ export const PACO: BoxerDef = {
   strengths: ['Genuine knockout power', 'Never stops coming forward'],
   flaws: ['Telegraphs everything', 'Drops his guard when he winds up'],
   league: 'rookie', order: 0,
-  stats: { maxHealth: 88, power: 0.85, speed: 0.85, defense: 0, poise: 62, getUpHealth: 0.55, knockdownResistance: 0.8 },
+  stats: { maxHealth: 163, power: 0.85, speed: 0.85, defense: 0, poise: 62, getUpHealth: 0.55, knockdownResistance: 0.8 },
   weakness: {
     telegraphKinds: ['wideWind'],
     zone: 'head',
@@ -53,7 +53,7 @@ export const PACO: BoxerDef = {
     { id: 'bodyRush', weight: 16, steps: [{ t: 'attack', id: 'bodyShot' }, { t: 'wait', frames: 12 }, { t: 'attack', id: 'jab' }], adapt: (p) => 1 + p.turtling * 1.4 },
     { id: 'breakfast', weight: 10, calmOnly: true, steps: [{ t: 'taunt', frames: 54, line: 'You want syrup with that?' }] },
   ],
-  ai: ai({ idleGap: [40, 70], counterChance: 0.06, blockChance: 0.14, reaction: 0.42, getUpSpeed: 1.1 }),
+  ai: ai({ idleGap: [40, 70], counterChance: 0.102, blockChance: 0.203, reaction: 0.42, getUpSpeed: 1.1 }),
   appearance: look({
     skin: '#c98a5e', height: 1, width: 1, gut: 0.3, shoulder: 1.05,
     hair: { style: 'shaggy', color: '#2f2013' },
@@ -88,7 +88,7 @@ export const MIMI: BoxerDef = {
   strengths: ['Devastating fakes', 'Reads a nervous opponent instantly'],
   flaws: ['Cannot resist an audience', 'Wide open mid-performance'],
   league: 'rookie', order: 1,
-  stats: { maxHealth: 92, power: 0.82, speed: 1.06, defense: 0.05, poise: 66, getUpHealth: 0.58 },
+  stats: { maxHealth: 170, power: 0.82, speed: 1.06, defense: 0.05, poise: 66, getUpHealth: 0.58 },
   weakness: {
     telegraphKinds: ['point'],
     zone: 'body',
@@ -132,7 +132,7 @@ export const MIMI: BoxerDef = {
     { id: 'ovation', weight: 18, steps: [{ t: 'wait', frames: [14, 24] }, { t: 'attack', id: 'ovation' }], cooldown: 2.6 },
     { id: 'doubleFake', weight: 14, phases: [1, 2], steps: [{ t: 'feint', id: 'rope', frames: 22 }, { t: 'feint', id: 'box', frames: 18 }, { t: 'attack', id: 'rope' }] },
   ],
-  ai: ai({ idleGap: [30, 56], counterChance: 0.14, blockChance: 0.26, reaction: 0.34, phaseTempo: [1, 0.82, 0.66] }),
+  ai: ai({ idleGap: [30, 56], counterChance: 0.238, blockChance: 0.377, reaction: 0.34, phaseTempo: [1, 0.82, 0.66] }),
   appearance: look({
     skin: '#f0d0bc', height: 0.96, width: 0.92, shoulder: 0.92, gut: 0.06, headScale: 1.02,
     hair: { style: 'topknot', color: '#1a1a1a' },
@@ -166,7 +166,7 @@ export const BRUNO: BoxerDef = {
   strengths: ['Colossal damage', 'Barely notices jabs'],
   flaws: ['Slow as weather', 'Lifts both arms before the big one'],
   league: 'rookie', order: 2,
-  stats: { maxHealth: 130, power: 1.35, speed: 0.72, defense: 0.28, poise: 120, getUpHealth: 0.6, knockdownResistance: 1.4 },
+  stats: { maxHealth: 240, power: 1.35, speed: 0.72, defense: 0.28, poise: 120, getUpHealth: 0.6, knockdownResistance: 1.4 },
   weakness: {
     telegraphKinds: ['raiseBoth'],
     zone: 'body',
@@ -203,7 +203,7 @@ export const BRUNO: BoxerDef = {
     { id: 'guardUp', weight: 14, steps: [{ t: 'guard', frames: [40, 70] }], adapt: (p) => 1 + p.rushing * 1.5 },
     { id: 'apologise', weight: 8, calmOnly: true, steps: [{ t: 'taunt', frames: 46, line: 'Scusa! I did not mean so hard!' }] },
   ],
-  ai: ai({ idleGap: [52, 88], counterChance: 0.08, blockChance: 0.3, reaction: 0.5, phaseSpeed: [1, 1.08, 1.2], getUpSpeed: 0.75 }),
+  ai: ai({ idleGap: [52, 88], counterChance: 0.136, blockChance: 0.435, reaction: 0.5, phaseSpeed: [1, 1.08, 1.2], getUpSpeed: 0.75 }),
   appearance: look({
     skin: '#d9a66c', height: 1.26, width: 1.34, shoulder: 1.3, gut: 0.55, neck: 1.4, headScale: 0.94, armLength: 1.12,
     hair: { style: 'bald', color: '#3a2a1a' },
@@ -238,7 +238,7 @@ export const KIP: BoxerDef = {
   strengths: ['Blinding hand speed', 'Never stops moving'],
   flaws: ['Glass chin', 'Utterly predictable rhythm once you hear it'],
   league: 'rookie', order: 3,
-  stats: { maxHealth: 80, power: 0.72, speed: 1.35, defense: 0, poise: 48, getUpHealth: 0.5, knockdownResistance: 0.7 },
+  stats: { maxHealth: 148, power: 0.72, speed: 1.35, defense: 0, poise: 48, getUpHealth: 0.5, knockdownResistance: 0.7 },
   weakness: {
     telegraphKinds: ['hop'],
     zone: 'head',
@@ -276,7 +276,7 @@ export const KIP: BoxerDef = {
     { id: 'fakeBurst', weight: 14, phases: [1, 2], steps: [{ t: 'feint', id: 'burst', frames: 18 }, { t: 'wait', frames: 6 }, { t: 'attack', id: 'dart' }] },
   ],
   ai: ai({
-    idleGap: [22, 40], counterChance: 0.18, blockChance: 0.18, reaction: 0.26,
+    idleGap: [22, 40], counterChance: 0.306, blockChance: 0.261, reaction: 0.26,
     phaseSpeed: [1, 1.14, 1.3], phaseTempo: [1, 0.78, 0.6], getUpSpeed: 1.4, counterAttack: 'dart',
   }),
   appearance: look({
