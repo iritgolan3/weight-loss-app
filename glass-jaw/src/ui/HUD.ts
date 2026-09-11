@@ -24,6 +24,10 @@ export interface HudState {
   tell: { label: string; color: string; side: string; remaining: number } | null;
   /** True while the player has an open counter window. */
   counterWindow: number;
+  /** Training drill state, when a drill is running. */
+  drill: {
+    name: string; goal: string; progress: number; target: number; complete: boolean;
+  } | null;
   /** Screen width/height in design units. */
   dw: number;
   dh: number;
@@ -63,6 +67,7 @@ export class HUD {
     if (s.settings.attackIndicators) this.drawAttackIndicator(ctx, s);
     if (s.settings.weaknessHints) this.drawWeaknessHint(ctx, s, scale);
     this.drawCounterWindow(ctx, s);
+    if (s.drill) this.drawDrill(ctx, s, scale);
     this.drawStateBanners(ctx, s);
   }
 
@@ -234,6 +239,42 @@ export class HUD {
     }
   }
 
+  /** Training drill progress. Only ever drawn in training mode. */
+  private drawDrill(ctx: Ctx, s: HudState, scale: number): void {
+    const d = s.drill!;
+    const w = 320 * scale;
+    const x = 34;
+    const y = 150;
+
+    panel(ctx, x, y, w, d.target > 0 ? 96 * scale : 66 * scale, {
+      radius: 12, fill: d.complete ? '#13301c' : '#171326',
+      border: d.complete ? PALETTE.green : PALETTE.line, alpha: 0.94,
+    });
+    label(ctx, 'DRILL', x + 16, y + 22, 12 * scale, PALETTE.green, { weight: 900 });
+    label(ctx, d.name, x + 16, y + 44, 17 * scale, PALETTE.text, { weight: 800 });
+
+    if (d.target > 0) {
+      bar(ctx, x + 16, y + 60 * scale, w - 32, 16 * scale,
+        clamp01(d.progress / d.target), {
+          color: d.complete ? PALETTE.green : PALETTE.gold, radius: 8,
+        });
+      label(ctx, `${d.progress} / ${d.target}`, x + w - 16, y + 84 * scale, 13 * scale,
+        d.complete ? PALETTE.green : PALETTE.dim, { align: 'right', weight: 800 });
+      if (d.complete) {
+        label(ctx, 'COMPLETE', x + 16, y + 84 * scale, 13 * scale, PALETTE.green, { weight: 900 });
+      }
+    } else if (d.goal === 'combo') {
+      label(ctx, `BEST COMBO  ${d.progress}`, x + 16, y + 62 * scale, 15 * scale,
+        PALETTE.gold, { weight: 800 });
+    } else if (d.goal === 'reaction') {
+      label(ctx, `READS  ${d.progress}`, x + 16, y + 62 * scale, 15 * scale,
+        PALETTE.gold, { weight: 800 });
+    } else {
+      label(ctx, 'No target — take your time', x + 16, y + 62 * scale, 13 * scale,
+        PALETTE.dim, { weight: 600 });
+    }
+  }
+
   // -- Assists ---------------------------------------------------------------
 
   private drawAttackIndicator(ctx: Ctx, s: HudState): void {
@@ -282,9 +323,12 @@ export class HUD {
 
     if (live) {
       const pulse = 0.5 + Math.sin(s.time * 16) * 0.5;
-      displayText(ctx, 'NOW!', x - pw / 2, y - 46 * scale, 30 * scale, rgba(PALETTE.gold, pulse), {
-        outlineWidth: 6, shadow: PALETTE.gold,
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      displayText(ctx, 'NOW!', x - pw / 2, y - 62 * scale, 34 * scale, PALETTE.gold, {
+        outlineWidth: 7, shadow: PALETTE.gold,
       });
+      ctx.restore();
     }
   }
 

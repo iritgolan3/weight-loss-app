@@ -120,6 +120,10 @@ export class FightScene implements Scene {
   private ambienceTimer = 0;
   /** Set by training mode to suppress career bookkeeping. */
   readonly isTraining: boolean;
+  /** Progress toward the current drill's goal, if any. */
+  drillProgress = 0;
+  drillComplete = false;
+  private drillBest = 0;
 
   constructor(private readonly game: Game, private readonly setup: FightSetup) {
     this.def = setup.opponent;
@@ -205,6 +209,21 @@ export class FightScene implements Scene {
     this.combat.options.slowMoScale = s.slowMotion;
   }
 
+  /** Counts a drill event and fires the completion moment once. */
+  private noteDrill(kind: TrainingConfig['goal'], amount = 1): void {
+    const t = this.setup.training;
+    if (!t || t.goal !== kind || this.drillComplete) return;
+    this.drillProgress += amount;
+    this.drillBest = Math.max(this.drillBest, this.drillProgress);
+    if (t.target > 0 && this.drillProgress >= t.target) {
+      this.drillComplete = true;
+      this.game.audio.play('uiUnlock');
+      this.game.audio.play('crowdBig');
+      this.callout('DRILL COMPLETE!', 320, PALETTE.green, 82);
+      this.vfx.flash(PALETTE.green, 0.3, 0.3);
+    }
+  }
+
   private applyTraining(t: TrainingConfig): void {
     this.combat.playerInvincible = t.invincible;
     this.ai.passive = t.passive;
@@ -248,6 +267,7 @@ export class FightScene implements Scene {
       this.vfx.dodge(p.x, p.y - 220, dir === 'left' ? -1 : 1, perfect);
       if (perfect) {
         this.stats.perfectDodges++;
+        this.noteDrill('dodges');
         this.excitement = Math.min(1, this.excitement + 0.22);
         this.callout('PERFECT DODGE', 380, PALETTE.green, 72);
         this.camera.onCounter(0, -60);
@@ -259,6 +279,7 @@ export class FightScene implements Scene {
 
     this.unsub.push(this.bus.on('parry', () => {
       this.stats.parries++;
+      this.noteDrill('blocks');
       const p = this.screenOf(this.player);
       audio.play('parry');
       this.vfx.parry(p.x, p.y - 260);
@@ -382,6 +403,7 @@ export class FightScene implements Scene {
 
       case 'block':
       case 'grazeBlock':
+        if (r.outcome === 'block' && !byPlayer) this.noteDrill('blocks');
         audio.play(r.outcome === 'block' ? 'block' : 'blockWrong');
         this.vfx.block(ix, iy, r.outcome === 'block');
         this.camera.shake(0.1);
@@ -421,6 +443,8 @@ export class FightScene implements Scene {
       this.combo++;
       this.comboTimer = 1.3;
       this.stats.maxCombo = Math.max(this.stats.maxCombo, this.combo);
+      if (this.setup.training?.goal === 'combo') this.drillProgress = this.stats.maxCombo;
+      if (this.setup.training?.goal === 'reaction') this.noteDrill('reaction');
       this.excitement = Math.min(1, this.excitement + 0.06 + r.intensity * 0.2);
 
       if (r.outcome === 'weakness') {
@@ -433,6 +457,7 @@ export class FightScene implements Scene {
         this.game.career.noteWeaknessFound(this.def.id);
       } else if (r.outcome === 'perfectCounter') {
         this.stats.counters++;
+        this.noteDrill('counters');
         this.callout('PERFECT COUNTER!', 330, PALETTE.green, 76);
         this.camera.onCounter(0, -40);
         audio.play('crowdCheer');
@@ -440,6 +465,7 @@ export class FightScene implements Scene {
         this.profile.recordCounter(true);
       } else if (r.outcome === 'counter') {
         this.stats.counters++;
+        this.noteDrill('counters');
         this.callout('COUNTER', 350, PALETTE.blue, 58);
         this.ref.addScore(300);
       } else if (this.combo >= 3) {
@@ -580,6 +606,15 @@ export class FightScene implements Scene {
       time: this.animTime,
       tell: this.tellInfo,
       counterWindow: this.counterWindow,
+      drill: this.setup.training
+        ? {
+            name: this.setup.training.name,
+            goal: this.setup.training.goal,
+            progress: Math.round(this.drillProgress),
+            target: this.setup.training.target,
+            complete: this.drillComplete,
+          }
+        : null,
       dw: this.game.renderer.dw,
       dh: this.game.renderer.dh,
     };
