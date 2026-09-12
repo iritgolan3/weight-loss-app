@@ -56,8 +56,8 @@ export const PACO: BoxerDef = {
   ai: ai({ idleGap: [40, 70], counterChance: 0.102, blockChance: 0.203, reaction: 0.42, getUpSpeed: 1.1 }),
   appearance: look({
     skin: '#c98a5e', height: 1, width: 1, gut: 0.3, shoulder: 1.05,
-    hair: { style: 'shaggy', color: '#2f2013' },
-    facialHair: 'stubble', facialHairColor: '#2f2013',
+    hair: { style: 'shaggy', color: '#5a3a1e' },
+    facialHair: 'stubble', facialHairColor: '#5a3a1e',
     trunks: { main: '#74b9e7', accent: '#ffffff', pattern: 'stripe' },
     gloves: { main: '#e8b14a', accent: '#7a4a12' },
     accessory: 'headband', accessoryColor: '#ffffff',

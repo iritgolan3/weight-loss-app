@@ -13,7 +13,8 @@ import { EnemyAI } from '../ai/EnemyAI';
 import { PlayerProfile } from '../ai/PlayerProfile';
 import { AnimationSystem } from '../anim/AnimationSystem';
 
-import { ArenaRenderer, RING, RING_BAND_H } from '../render/ArenaRenderer';
+import { ArenaRenderer, RING, RING_BAND_H, OPPONENT_UNIT, PLAYER_UNIT } from '../render/ArenaRenderer';
+import type { CrowdMood } from '../render/Crowd';
 import { CameraController } from '../render/CameraController';
 import { FighterRenderer } from '../render/FighterRenderer';
 import { VFXManager } from '../render/VFXManager';
@@ -57,14 +58,6 @@ export interface FightSetup {
   onQuit: () => void;
 }
 
-/**
- * Framing constants. The opponent fills the readable centre of the frame; the
- * player is rendered larger per-unit (he is nearer the camera) but stands so
- * far down that only his head, shoulders and gloves are in shot. That is what
- * keeps the opponent's tells unobstructed.
- */
-const OPPONENT_UNIT = 206;
-const PLAYER_UNIT = 250;
 
 /**
  * A complete bout.
@@ -273,6 +266,7 @@ export class FightScene implements Scene {
         this.camera.onCounter(0, -60);
         this.counterWindow = 0.5;
         audio.play('crowdCheer');
+        this.crowdReact(0.5);
         this.profile.recordCounter(true);
       }
     }));
@@ -286,7 +280,7 @@ export class FightScene implements Scene {
       this.callout('PARRY!', 380, PALETTE.gold, 68);
       this.camera.onCounter(0, -40);
       this.counterWindow = 0.45;
-      this.excitement = Math.min(1, this.excitement + 0.18);
+      this.crowdReact(0.45);
       audio.play('crowdCheer');
     }));
 
@@ -296,6 +290,7 @@ export class FightScene implements Scene {
       this.vfx.impact(p.x, p.y - 240, 0.8, '#ffb347', true);
       this.callout('GUARD BROKEN', 400, PALETTE.orange, 62);
       this.camera.shake(0.6);
+      this.crowdReact(fighter.isPlayer ? 0.3 : 0.6);
     }));
 
     this.unsub.push(this.bus.on('stun', ({ fighter }) => {
@@ -305,6 +300,7 @@ export class FightScene implements Scene {
       if (!fighter.isPlayer) {
         this.callout('STUNNED!', 340, PALETTE.gold, 80);
         audio.play('crowdBig');
+        this.crowdReact(0.8);
         this.excitement = 1;
       }
     }));
@@ -322,6 +318,7 @@ export class FightScene implements Scene {
         stunFinish: 'STAR!',
       };
       this.callout(words[reason] ?? 'STAR!', 300, PALETTE.gold, 64);
+      this.crowdReact(0.4);
     }));
 
     this.unsub.push(this.bus.on('knockdown', ({ fighter }) => {
@@ -330,6 +327,9 @@ export class FightScene implements Scene {
       audio.play('crowdBig');
       this.vfx.knockdown(p.x, p.y - 120);
       this.camera.onKnockdown(0, 40);
+      // A man on the canvas empties the seats either way; it is louder when
+      // it is the man they came to see go down.
+      this.crowdReact(fighter.isPlayer ? 0.8 : 1);
       this.excitement = 1;
       if (fighter.isPlayer) {
         this.stats.knockdownsTaken++;
@@ -347,17 +347,27 @@ export class FightScene implements Scene {
 
     this.unsub.push(this.bus.on('getUp', ({ fighter }) => {
       audio.play('crowdCheer');
+      this.crowdReact(0.7);
       this.callout(fighter.isPlayer ? 'UP!' : 'HE IS UP!', 340,
         fighter.isPlayer ? PALETTE.green : PALETTE.orange, 62);
     }));
 
-    this.unsub.push(this.bus.on('roundStart', () => { audio.play('bell'); }));
-    this.unsub.push(this.bus.on('roundEnd', () => { audio.play('bell3'); }));
+    this.unsub.push(this.bus.on('roundStart', () => {
+      audio.play('bell');
+      this.crowdReact(0.5);
+    }));
+    this.unsub.push(this.bus.on('roundEnd', () => {
+      audio.play('bell3');
+      // The final bell is the whole room on its feet, not a polite ripple.
+      if (this.ref.round >= this.ref.config.rounds) this.arena.ovation();
+      else this.crowdReact(0.45);
+    }));
 
     this.unsub.push(this.bus.on('phaseChange', ({ fighter, phase, rage }) => {
       if (fighter.isPlayer) return;
       audio.play('crowdBig');
       this.camera.shake(0.5);
+      this.crowdReact(rage ? 0.75 : 0.55);
       this.vfx.flash(this.def.appearance.glow, 0.35, 0.3);
       if (rage) {
         this.callout('ENRAGED!', 320, PALETTE.red, 86);
@@ -375,12 +385,46 @@ export class FightScene implements Scene {
       audio.voice(this.def.voice.pitch, this.def.voice.grit, 0);
       const line = this.rng.pick(this.def.quotes.taunt);
       this.callout(line, 470, '#ffffff', 34, 'drift');
+      this.crowdReact(0.22);
     }));
 
     this.unsub.push(this.bus.on('fightEnd', () => {
+      this.arena.ovation();
       this.resultDelay = 2.4;
       this.game.audio.stopMusic(0.5);
     }));
+  }
+
+  /**
+   * Tells the audience something happened.
+   *
+   * `strength` is 0..1 and IS the severity of the event: a jab barely stirs
+   * the front rows, a knockdown takes the whole room out of its seat. Every
+   * gameplay event routes through here so the crowd can never end up cheering
+   * at the wrong size — which is the thing that makes an arcade crowd read as
+   * wallpaper instead of an audience.
+   */
+  private crowdReact(strength: number): void {
+    this.arena.react(clamp01(strength));
+    this.excitement = Math.min(1, this.excitement + strength * 0.35);
+  }
+
+  /** The room's baseline, from what is happening in the fight right now. */
+  private updateCrowdMood(): void {
+    const hurt = Math.min(this.player.health.fraction, this.opponent.health.fraction);
+    let mood: CrowdMood;
+    if (this.ref.phase === FightPhase.Count || this.ref.phase === FightPhase.Finished) {
+      mood = 'roaring';
+    } else if (this.ref.phase === FightPhase.BetweenRounds || this.ref.phase === FightPhase.Intro) {
+      mood = 'interested';
+    } else if (hurt < 0.3 || this.excitement > 0.6) {
+      mood = 'roaring';
+    } else if (hurt < 0.62 || this.excitement > 0.28) {
+      mood = 'excited';
+    } else {
+      mood = 'interested';
+    }
+    this.arena.setMood(mood);
   }
 
   private onHit(r: HitResult): void {
@@ -407,6 +451,7 @@ export class FightScene implements Scene {
         audio.play(r.outcome === 'block' ? 'block' : 'blockWrong');
         this.vfx.block(ix, iy, r.outcome === 'block');
         this.camera.shake(0.1);
+        this.crowdReact(0.06);
         if (byPlayer) this.ai.notifyMissed();
         return;
 
@@ -422,6 +467,8 @@ export class FightScene implements Scene {
 
     this.vfx.impact(ix, iy, r.intensity, color, heavy);
     this.camera.onHit(r.intensity, byPlayer ? 1 : -1);
+    // Ordinary hit: a murmur. Heavy shot or clean counter: a roar.
+    this.crowdReact(r.intensity * (heavy ? 0.75 : 0.3) + (byPlayer ? 0.08 : 0));
 
     if (r.attack.tier) audio.play(`special${Math.min(3, r.attack.tier)}` as 'special1' | 'special2' | 'special3');
     else if (r.outcome === 'perfectCounter' || r.outcome === 'weakness') audio.play('counter');
@@ -560,6 +607,7 @@ export class FightScene implements Scene {
     if (this.comboTimer <= 0) this.combo = 0;
 
     this.counterWindow = Math.max(0, this.counterWindow - dt);
+    this.updateCrowdMood();
     if (this.tellInfo) {
       this.tellInfo.remaining -= dt;
       if (this.tellInfo.remaining <= 0) this.tellInfo = null;
@@ -635,7 +683,6 @@ export class FightScene implements Scene {
   render(ctx: Ctx, _alpha: number, _time: GameTime): void {
     const r = this.game.renderer;
     const dw = r.dw, dh = r.dh;
-    const q = r.quality;
     const cx = dw / 2;
     // Centre the authored 1080-tall ring band in whatever design space we have.
     const band = (dh - RING_BAND_H) / 2;
@@ -649,43 +696,39 @@ export class FightScene implements Scene {
     ctx.translate(0, band);
     this.camera.apply(ctx, cx, RING_BAND_H * 0.52);
 
-    this.arena.drawBack(ctx, this.arenaDef, this.animTime, this.excitement);
-    this.arena.drawSpotlight(ctx, this.arenaDef, dw, 0.8 + this.excitement * 0.5);
+    this.arena.drawBack(ctx, this.arenaDef, this.animTime, this.game.loop.time.rawDt);
 
     // --- Opponent ---
     const oppTell = this.opponent.tellGlow;
+    if (oppTell > 0.05) this.drawTellPulse(ctx, cx, oppTell);
     // A downed fighter lies toward the back of the ring, not into the camera:
     // raise and shrink them so the sprawl never lands on top of the player.
     const down = this.downAmount(this.opponent);
     this.oppArt.draw(ctx, this.oppAnim.pose, {
       x: cx, y: RING.opponentFeet - down * 168,
-      unit: OPPONENT_UNIT * (1 - down * 0.12), facing: -1, showFace: true,
-      light: this.arenaDef.light, rim: this.arenaDef.rim,
-      flash: this.opponent.flash, tell: oppTell,
+      unit: OPPONENT_UNIT * (1 - down * 0.12), facing: -1, showFace: true, flash: this.opponent.flash, tell: oppTell,
       tellColor: this.opponent.telegraphColor,
       rage: this.opponent.ragePulse, stun: this.opponent.state === FState.Stunned ? 1 : 0,
       gassed: this.opponent.stamina.gassed ? 1 : clamp01(1 - this.opponent.health.fraction * 1.4),
-      softShadows: q.softShadows, richShading: q.richShading,
-      alpha: 1, reflection: q.reflections && this.arenaDef.reflective, time: this.animTime,
+      hurt: clamp01(1 - this.opponent.health.fraction), alpha: 1, time: this.animTime,
     });
 
-    // Telegraph aura behind the callout text.
-    if (oppTell > 0.05) this.drawTellAura(ctx, cx, oppTell);
+    // The referee works between the two fighters in depth: behind the player,
+    // in front of the man he is counting over.
+    this.arena.drawReferee(ctx, dw, this.animTime, this.refereeState(),
+      this.ref.phase === FightPhase.Count ? this.ref.timer : 0);
 
     this.vfx.drawWorld(ctx);
 
     // --- Player (foreground, seen from behind) ---
     this.playerArt.draw(ctx, this.playerAnim.pose, {
-      x: cx, y: RING.playerFeet, unit: PLAYER_UNIT, facing: 1, showFace: false,
-      light: this.arenaDef.light, rim: this.arenaDef.rim,
-      flash: this.player.flash, tell: 0, tellColor: '#ffffff',
+      x: cx, y: RING.playerFeet, unit: PLAYER_UNIT, facing: 1, showFace: false, flash: this.player.flash, tell: 0, tellColor: '#ffffff',
       rage: 0, stun: this.player.state === FState.Stunned ? 1 : 0,
       gassed: this.player.stamina.gassed ? 1 : 0,
-      softShadows: q.softShadows, richShading: q.richShading,
-      alpha: 1, reflection: false, time: this.animTime,
+      hurt: clamp01(1 - this.player.health.fraction), alpha: 1, time: this.animTime,
     });
 
-    this.arena.drawFront(ctx, this.arenaDef, dw, RING_BAND_H);
+    this.arena.drawFront(ctx, this.arenaDef, dw);
     ctx.restore();
 
     // --- HUD (outside the camera transform so it never shakes) ---
@@ -698,18 +741,42 @@ export class FightScene implements Scene {
     if (this.ref.phase === FightPhase.Finished) this.drawFinishBanner(ctx, dw, dh);
   }
 
-  private drawTellAura(ctx: Ctx, cx: number, strength: number): void {
-    const y = RING.opponentFeet - 260;
+  /** What the referee should be doing right now. */
+  private refereeState(): 'idle' | 'counting' | 'waveOff' | 'raiseWinner' {
+    if (this.ref.phase === FightPhase.Count) return 'counting';
+    if (this.ref.phase === FightPhase.Finished) {
+      return this.ref.result?.winner === this.player ? 'raiseWinner' : 'waveOff';
+    }
+    return 'idle';
+  }
+
+  /**
+   * The telegraph cue, drawn BEHIND the opponent.
+   *
+   * This used to be a radial-gradient bloom laid over the fighter, which
+   * washed the character out to a glowing smear and broke the flat-cel style
+   * everywhere else in the game obeys. It is now hard-edged: concentric rings
+   * that snap outward on the telegraph's own clock. It reads at a glance, it
+   * cannot hide the animation that is the real tell, and it is drawn.
+   */
+  private drawTellPulse(ctx: Ctx, cx: number, strength: number): void {
+    const y = RING.opponentFeet - 300;
+    const col = this.opponent.telegraphColor;
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = strength * 0.42 * this.vfx.intensity;
-    const g = ctx.createRadialGradient(cx, y, 60, cx, y, 420);
-    g.addColorStop(0, this.opponent.telegraphColor);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(cx, y, 420, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = clamp01(strength) * 0.85 * this.vfx.intensity;
+    ctx.lineCap = 'butt';
+    for (let i = 0; i < 3; i++) {
+      // Each ring runs its own phase, so they chase outward rather than pulse
+      // together. Hard stroke, flat colour, no blur.
+      const t = ((this.animTime * 1.9 + i * 0.34) % 1);
+      const r = 120 + t * 330;
+      ctx.globalAlpha = clamp01(strength) * (1 - t) * 0.8 * this.vfx.intensity;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 16 * (1 - t * 0.55);
+      ctx.beginPath();
+      ctx.ellipse(cx, y, r, r * 0.78, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

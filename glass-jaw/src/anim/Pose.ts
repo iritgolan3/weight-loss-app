@@ -77,41 +77,46 @@ export function lerpPoseInto(out: Pose, a: Pose, b: Pose, t: number): void {
  * across wildly different body types.
  */
 /**
- * Proportions are deliberately heroic rather than realistic: about five and a
- * half heads tall with shoulders a little over two head-widths across, and
- * oversized gloves. That combination is what gives a fighter a silhouette you
- * can read at a glance, which is the whole point in a timing game.
+ * CARTOON PROPORTIONS, not heroic ones.
+ *
+ * Roughly four heads tall with a deliberately oversized head and oversized
+ * gloves. This is not stylistic whim: in this kind of game every attack is
+ * announced by a facial expression and a glove position, so the head and the
+ * gloves are the two things that must be legible from across the room. The
+ * torso is just a shape holding them apart.
  */
 export function stance(app: Appearance): Pose {
   const b = app.build;
   const h = b.height;
-  const shoulderX = 0.52 * b.shoulder * b.width;
-  const hipX = 0.36 * b.width;
+  const shoulderX = 0.56 * b.shoulder * b.width;
+  const hipX = 0.34 * b.width;
 
   return {
-    hip: v(0, -1.30 * h),
-    chest: v(0, -2.10 * h),
-    neck: v(0, -2.34 * h),
-    head: v(0, -2.66 * h),
+    hip: v(0, -1.16 * h),
+    chest: v(0, -2.06 * h),
+    neck: v(0, -2.28 * h),
+    head: v(0, -2.60 * h),
     headRot: 0,
     torsoRot: 0,
 
-    shoulderL: v(shoulderX, -2.26 * h),
-    shoulderR: v(-shoulderX, -2.26 * h),
-    // A real boxing guard: elbows tucked down by the ribs, forearms near
-    // vertical, gloves up at the cheeks. Flaring the elbows out turns the arm
-    // into a solid triangular wedge that reads as a wing, not an arm.
-    elbowL: v(shoulderX * 1.22, -1.76 * h),
-    elbowR: v(-shoulderX * 1.22, -1.76 * h),
-    gloveL: v(shoulderX * 0.82, -2.42 * h),
-    gloveR: v(-shoulderX * 0.82, -2.42 * h),
+    shoulderL: v(shoulderX, -2.18 * h),
+    shoulderR: v(-shoulderX, -2.18 * h),
+    // Elbows tucked by the ribs, forearms near vertical, gloves up at the
+    // cheeks. Flaring the elbows turns the arm into a wedge that reads as a
+    // wing rather than an arm.
+    elbowL: v(shoulderX * 1.2, -1.62 * h),
+    elbowR: v(-shoulderX * 1.2, -1.62 * h),
+    // Held wide enough that the face stays readable behind the guard. A guard
+    // that hides the face hides every telegraph with it.
+    gloveL: v(shoulderX * 1.04, -2.26 * h),
+    gloveR: v(-shoulderX * 1.04, -2.26 * h),
     gloveScaleL: 1, gloveScaleR: 1,
     gloveRotL: 0, gloveRotR: 0,
 
-    kneeL: v(hipX * 0.92, -0.66 * h),
-    kneeR: v(-hipX * 1.0, -0.66 * h),
-    footL: v(hipX * 1.1, 0),
-    footR: v(-hipX * 1.28, 0),
+    kneeL: v(hipX * 0.94, -0.58 * h),
+    kneeR: v(-hipX * 1.02, -0.58 * h),
+    footL: v(hipX * 1.15, 0),
+    footR: v(-hipX * 1.32, 0),
 
     brow: 0.35, squint: 0.1, mouth: 0.12,
     scale: 1,
@@ -124,21 +129,18 @@ export function stance(app: Appearance): Pose {
 export function metrics(app: Appearance) {
   const b = app.build;
   return {
-    // The face is the primary readability surface in this game, so the head is
-    // deliberately oversized: roughly four and a half heads to a body.
-    headRadius: 0.32 * b.headScale * b.height,
-    /**
-     * Big enough to read as boxing gloves, small enough that a high guard
-     * still leaves the face — and therefore the tells — visible.
-     */
-    gloveRadius: 0.20 * b.width * (0.85 + b.shoulder * 0.15),
-    torsoWidth: 0.54 * b.width,
-    shoulderWidth: 0.52 * b.shoulder * b.width,
-    chestWidth: 0.46 * b.width,
-    hipWidth: 0.36 * b.width,
-    neckWidth: 0.17 * b.neck * b.width,
-    limbWidth: 0.145 * b.width,
-    legWidth: 0.27 * b.width,
+    // Roughly a quarter of the whole fighter. The face carries every tell, so
+    // it gets the space.
+    headRadius: 0.37 * b.headScale * b.height,
+    /** Oversized on purpose — a glove position IS a telegraph. */
+    gloveRadius: 0.215 * b.width * (0.85 + b.shoulder * 0.15),
+    torsoWidth: 0.5 * b.width,
+    shoulderWidth: 0.56 * b.shoulder * b.width,
+    chestWidth: 0.44 * b.width,
+    hipWidth: 0.3 * b.width,
+    neckWidth: 0.16 * b.neck * b.width,
+    limbWidth: 0.15 * b.width,
+    legWidth: 0.3 * b.width,
     /** Total standing height in local units, used to frame the camera. */
     height: 2.98 * b.height,
   };

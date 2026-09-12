@@ -77,12 +77,8 @@ export class BoxerPortrait {
     }
 
     this.art.draw(ctx, this.anim.pose, {
-      x: x + w / 2, y: feetY, unit, facing: -1, showFace: true,
-      light: opts.light ?? '#ffe9c8', rim: opts.rim ?? '#ff9a3c',
-      flash: 0, tell: 0, tellColor: '#ffffff',
-      rage: 0, stun: 0, gassed: 0,
-      softShadows: false, richShading: true,
-      alpha: 1, reflection: false, time: this.t,
+      x: x + w / 2, y: feetY, unit, facing: -1, showFace: true, flash: 0, tell: 0, tellColor: '#ffffff',
+      rage: 0, stun: 0, gassed: 0, hurt: 0, alpha: 1, time: this.t,
     });
     ctx.restore();
   }

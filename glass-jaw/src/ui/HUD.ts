@@ -75,166 +75,175 @@ export class HUD {
 
   private drawOpponentBar(ctx: Ctx, s: HudState, scale: number): void {
     const { opponent: o, def, dw } = s;
-    const w = Math.min(760, dw * 0.46) * scale;
+    const w = Math.min(1180, dw * 0.72) * (s.settings.largeText ? 1 : 1);
     const x = dw / 2 - w / 2;
-    const y = 26;
-    const accent = s.settings.colorMode === 'normal' ? def.appearance.glow : COLOR_MODES[s.settings.colorMode].danger;
+    const y = 20;
+    const h = 96 * scale;
+    const accent = s.settings.colorMode === 'normal'
+      ? def.appearance.glow : COLOR_MODES[s.settings.colorMode].danger;
 
-    panel(ctx, x - 14, y - 12, w + 28, 108 * scale, {
-      radius: 16, fill: '#14101f', border: rgba(accent, 0.5), alpha: 0.94,
+    panel(ctx, x - 16, y - 10, w + 32, h + 20, {
+      radius: 10, fill: '#120e1c', border: rgba(accent, 0.55), alpha: 0.95,
     });
 
-    flagChip(ctx, x, y + 2, 42, 28, def.flag);
-    const nameSize = 25 * scale;
+    // Row one: who he is, and how much trouble he is in.
+    flagChip(ctx, x, y + 2, 40, 26, def.flag);
+    const nameSize = 27 * scale;
     const nameText = def.name.toUpperCase();
-    label(ctx, nameText, x + 54, y + 16, nameSize, PALETTE.text, { weight: 800 });
-    // Measure with the same font the name was drawn in, or the nickname lands
-    // on top of it.
+    label(ctx, nameText, x + 52, y + 14, nameSize, PALETTE.text, { weight: 900 });
     ctx.save();
-    ctx.font = `800 ${nameSize}px ${FONT_UI}`;
+    ctx.font = `900 ${nameSize}px ${FONT_UI}`;
     const nameW = ctx.measureText(nameText).width;
     ctx.restore();
-    label(ctx, `"${def.nickname}"`, x + 54 + nameW + 14, y + 17,
+    label(ctx, `"${def.nickname}"`, x + 52 + nameW + 14, y + 15,
       17 * scale, rgba(accent, 0.95), { weight: 700 });
 
-    // Phase / rage marker.
+    // Knockdown pips sit at the far right of the same row, with the rage or
+    // phase marker just inside them.
+    let right = x + w;
+    for (let i = 2; i >= 0; i--) {
+      const px = right - 11 - (2 - i) * 24;
+      ctx.beginPath();
+      ctx.arc(px, y + 12, 7.5, 0, Math.PI * 2);
+      ctx.fillStyle = i < o.totalKnockdowns ? PALETTE.gold : 'rgba(255,255,255,0.14)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    label(ctx, 'DOWN', right - 82, y + 17, 11, PALETTE.dim, { weight: 800, align: 'right' });
+    right -= 130;
+
     if (o.rage) {
-      displayText(ctx, 'RAGE', x + w - 6, y + 16, 24 * scale, PALETTE.red, {
-        align: 'right', outlineWidth: 5, shadow: PALETTE.red,
+      displayText(ctx, 'RAGE', right, y + 16, 23 * scale, PALETTE.red, {
+        align: 'right', outlineWidth: 5,
       });
     } else if (o.phase > 0) {
-      label(ctx, `PHASE ${o.phase + 1}`, x + w - 6, y + 16, 16 * scale, rgba(accent, 0.9),
+      label(ctx, `PHASE ${o.phase + 1}`, right, y + 16, 15 * scale, rgba(accent, 0.9),
         { align: 'right', weight: 800 });
     }
 
+    // Row two: the bar that matters, and a hairline of stamina under it.
     const lowPulse = o.health.fraction < 0.25 ? (Math.sin(s.time * 9) * 0.5 + 0.5) * 0.6 : 0;
-    bar(ctx, x, y + 34, w, 30 * scale, o.health.fraction, {
+    bar(ctx, x, y + 36, w, 30 * scale, o.health.fraction, {
       ghost: o.health.ghostFraction,
       color: o.health.fraction > 0.5 ? '#ff6b35' : o.health.fraction > 0.22 ? '#ff9a3c' : '#ff4d4d',
       pulse: lowPulse,
       segments: 4,
     });
-    bar(ctx, x, y + 68 * scale, w, 12 * scale, o.stamina.fraction, {
-      color: '#4cc9f0', radius: 6,
+    bar(ctx, x, y + 72 * scale, w, 9 * scale, o.stamina.fraction, {
+      color: '#4cc9f0', radius: 5,
     });
 
-    // Knockdown pips.
-    for (let i = 0; i < 3; i++) {
-      const px = x + w - 18 - i * 22;
-      const py = y + 90 * scale;
-      ctx.beginPath();
-      ctx.arc(px, py, 7, 0, Math.PI * 2);
-      ctx.fillStyle = i < o.totalKnockdowns ? PALETTE.gold : 'rgba(255,255,255,0.16)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    label(ctx, 'DOWN', x + w - 84, y + 90 * scale, 12, PALETTE.dim, { weight: 700, align: 'right' });
-
-    // Stun meter — shows how close a big shot is to dizzying them.
+    // Stun builds toward a knockdown, so it reads on top of his own bar.
     if (o.stunFraction > 0.05) {
-      const sw = w * 0.5;
-      bar(ctx, x + w / 2 - sw / 2, y + 100 * scale, sw, 7, o.stunFraction, {
-        color: '#ffe066', radius: 4, bg: 'rgba(0,0,0,0.5)',
+      const sw = w * 0.42;
+      bar(ctx, x + w / 2 - sw / 2, y + 86 * scale, sw, 6, o.stunFraction, {
+        color: '#ffe066', radius: 3, bg: 'rgba(0,0,0,0.5)',
       });
     }
   }
 
   // -- Player ---------------------------------------------------------------
 
+  /**
+   * The player's strip.
+   *
+   * Everything the player owns lives in ONE bar welded to the bottom edge:
+   * his condition on the left, his stars in the middle, the clock and the
+   * round on the right. The middle of the screen stays empty, because that is
+   * where the opponent's tells happen and nothing may compete with them.
+   */
   private drawPlayerBar(ctx: Ctx, s: HudState, scale: number): void {
     const { player: p, dw, dh } = s;
-    const w = Math.min(560, dw * 0.34) * scale;
-    const x = 34;
-    const y = dh - 112 * scale;
+    const h = 126 * scale;
+    const y = dh - h;
 
-    panel(ctx, x - 14, y - 34, w + 28, 118 * scale, {
-      radius: 16, fill: '#12172a', border: 'rgba(120,180,255,0.34)', alpha: 0.92,
+    panel(ctx, -20, y, dw + 40, h + 24, {
+      radius: 0, fill: '#0d1020', border: 'rgba(120,180,255,0.28)', alpha: 0.94,
     });
 
-    label(ctx, 'KID COMET', x, y - 12, 22 * scale, PALETTE.text, { weight: 800 });
+    // --- left: name, health, stamina, knockdowns ---
+    const bx = Math.max(30, dw * 0.035);
+    const bw = Math.min(470, dw * 0.3) * scale;
+    label(ctx, 'KID COMET', bx, y + 26, 21 * scale, PALETTE.text, { weight: 900 });
     if (p.stamina.gassed) {
-      label(ctx, 'GASSED', x + w, y - 12, 15 * scale, PALETTE.red,
-        { weight: 800, align: 'right', alpha: 0.6 + Math.sin(s.time * 8) * 0.4 });
+      label(ctx, 'GASSED', bx + bw, y + 26, 15 * scale, PALETTE.red,
+        { weight: 900, align: 'right', alpha: 0.6 + Math.sin(s.time * 8) * 0.4 });
     }
-
     const lowPulse = p.health.fraction < 0.25 ? (Math.sin(s.time * 9) * 0.5 + 0.5) * 0.6 : 0;
-    bar(ctx, x, y + 4, w, 26 * scale, p.health.fraction, {
+    bar(ctx, bx, y + 40, bw, 26 * scale, p.health.fraction, {
       ghost: p.health.ghostFraction,
       color: p.health.fraction > 0.5 ? '#7ef9a2' : p.health.fraction > 0.22 ? '#ffd166' : '#ff4d4d',
       pulse: lowPulse,
       segments: 4,
     });
-    bar(ctx, x, y + 36 * scale, w, 14 * scale, p.stamina.fraction, {
-      color: p.stamina.gassed ? '#ff6b6b' : '#4cc9f0', radius: 7,
+    bar(ctx, bx, y + 72 * scale, bw, 12 * scale, p.stamina.fraction, {
+      color: p.stamina.gassed ? '#ff6b6b' : '#4cc9f0', radius: 6,
     });
-    label(ctx, 'STAMINA', x + w, y + 43 * scale, 11, PALETTE.dim, { weight: 700, align: 'right' });
+    label(ctx, 'STAMINA', bx + bw, y + 81 * scale, 10, PALETTE.dim, { weight: 800, align: 'right' });
 
     for (let i = 0; i < 3; i++) {
-      const px = x + 10 + i * 22;
-      const py = y + 62 * scale;
       ctx.beginPath();
-      ctx.arc(px, py, 7, 0, Math.PI * 2);
-      ctx.fillStyle = i < p.totalKnockdowns ? PALETTE.red : 'rgba(255,255,255,0.16)';
+      ctx.arc(bx + 9 + i * 23, y + 104 * scale, 7.5, 0, Math.PI * 2);
+      ctx.fillStyle = i < p.totalKnockdowns ? PALETTE.red : 'rgba(255,255,255,0.14)';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+    label(ctx, 'DOWN', bx + 84, y + 109 * scale, 10, PALETTE.dim, { weight: 800 });
   }
 
   // -- Round / timer ---------------------------------------------------------
 
   private drawRoundBadge(ctx: Ctx, s: HudState, scale: number): void {
-    const { ref, dw } = s;
-    const cx = dw / 2;
-    const y = 160 * scale;
-    const w = 188 * scale;
-
-    panel(ctx, cx - w / 2, y - 6, w, 60 * scale, {
-      radius: 12, fill: '#1a1428', border: rgba(PALETTE.gold, 0.4), alpha: 0.9,
-    });
+    const { ref, dw, dh } = s;
+    const h = 126 * scale;
+    const y = dh - h;
+    const rx = dw - Math.max(30, dw * 0.035);
 
     const mins = Math.floor(ref.clock / 60);
     const secs = Math.floor(ref.clock % 60);
     const urgent = ref.clock <= 10 && ref.fighting;
-    const timeColor = urgent ? (Math.sin(s.time * 10) > 0 ? PALETTE.red : PALETTE.text) : PALETTE.text;
-    displayText(ctx, `${mins}:${secs.toString().padStart(2, '0')}`, cx, y + 24 * scale, 34 * scale, timeColor, {
-      outlineWidth: 5,
-    });
-    label(ctx, `ROUND ${ref.round} / ${ref.config.rounds}`, cx, y + 47 * scale, 13 * scale,
-      this.roundFlash > 0 ? PALETTE.gold : PALETTE.dim, { weight: 800, align: 'center' });
+    const timeColor = urgent
+      ? (Math.sin(s.time * 10) > 0 ? PALETTE.red : PALETTE.text) : PALETTE.text;
+    displayText(ctx, `${mins}:${secs.toString().padStart(2, '0')}`, rx, y + 56 * scale,
+      50 * scale, timeColor, { align: 'right', outlineWidth: 6 });
+
+    const finalRound = ref.round === ref.config.rounds;
+    label(ctx, `ROUND ${ref.round} / ${ref.config.rounds}`, rx, y + 88 * scale, 16 * scale,
+      this.roundFlash > 0 || finalRound ? PALETTE.gold : PALETTE.dim,
+      { weight: 900, align: 'right' });
   }
 
   // -- Tokens ---------------------------------------------------------------
 
   private drawTokens(ctx: Ctx, s: HudState, scale: number): void {
     const { player: p, dw, dh } = s;
-    const r = 26 * scale;
-    const gap = r * 2.5;
+    const h = 126 * scale;
+    const y = dh - h + 54 * scale;
+    const r = 24 * scale;
+    const gap = r * 2.4;
     const cx = dw / 2;
-    const y = dh - 104 * scale;
-
-    // Charge toward the next token.
-    const chargeW = 190 * scale;
-    bar(ctx, cx - chargeW / 2, y + 30 * scale, chargeW, 9, p.special.charge, {
-      color: PALETTE.gold, radius: 5, bg: 'rgba(0,0,0,0.55)',
-    });
 
     for (let i = 0; i < 3; i++) {
-      const x = cx + (i - 1) * gap;
-      tokenStar(ctx, x, y, r, i < p.special.tokens, this.tokenPop[i]);
+      tokenStar(ctx, cx + (i - 1) * gap, y, r, i < p.special.tokens, this.tokenPop[i]);
     }
+
+    const chargeW = 176 * scale;
+    bar(ctx, cx - chargeW / 2, y + 34 * scale, chargeW, 8, p.special.charge, {
+      color: PALETTE.gold, radius: 4, bg: 'rgba(0,0,0,0.55)',
+    });
 
     if (p.special.tokens > 0) {
       const glow = 0.55 + Math.sin(s.time * 5) * 0.45;
-      displayText(ctx, 'SHIFT', cx, y - r - 20 * scale, 16 * scale, rgba(PALETTE.gold, glow), {
+      displayText(ctx, 'SHIFT', cx, y - r - 12 * scale, 15 * scale, rgba(PALETTE.gold, glow), {
         outlineWidth: 4,
       });
     }
     if (p.special.lostFlashTimer > 0) {
-      displayText(ctx, 'STAR LOST', cx, y - r - 44 * scale, 20 * scale,
+      displayText(ctx, 'STAR LOST', cx, y - r - 38 * scale, 20 * scale,
         rgba(PALETTE.red, clamp01(p.special.lostFlashTimer / 0.7)), { outlineWidth: 5 });
     }
   }
@@ -304,7 +313,7 @@ export class HUD {
     const w = s.opponent.weakness;
     if (!w) return;
     const x = s.dw - 34;
-    const y = s.dh - 132 * scale;
+    const y = s.dh - 300 * scale;
     const live = s.opponent.weaknessOpen;
 
     ctx.save();
@@ -336,7 +345,7 @@ export class HUD {
     if (s.counterWindow <= 0) return;
     const a = clamp01(s.counterWindow * 3.4);
     const cx = s.dw / 2;
-    const y = 330;
+    const y = s.dh - 190;
     const pulse = 0.6 + Math.sin(s.time * 22) * 0.4;
     ctx.save();
     ctx.globalAlpha = a * pulse;

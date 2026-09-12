@@ -130,11 +130,9 @@ export class PoseLab implements Scene {
       const art = new FighterRenderer(look);
 
       art.draw(ctx, anim.pose, {
-        x, y, unit, facing: this.showBack ? 1 : -1, showFace: !this.showBack,
-        light: '#ffe9c8', rim: '#ff9a3c', flash: 0,
+        x, y, unit, facing: this.showBack ? 1 : -1, showFace: !this.showBack, flash: 0,
         tell: f.state === FState.Windup ? 1 : 0, tellColor: '#ffd166',
-        rage: 0, stun: f.state === FState.Stunned ? 1 : 0, gassed: 0,
-        softShadows: false, richShading: true, alpha: 1, reflection: false, time: this.t,
+        rage: 0, stun: f.state === FState.Stunned ? 1 : 0, gassed: 0, hurt: 0, alpha: 1, time: this.t,
       });
 
       if (this.showJoints) this.drawJoints(ctx, anim.pose, x, y, unit, this.showBack ? 1 : -1, look);
@@ -160,10 +158,8 @@ export class PoseLab implements Scene {
       for (let k = 0; k < 24; k++) anim.update(1 / 60, f, this.t + i);
       const art = new FighterRenderer(b.appearance);
       art.draw(ctx, anim.pose, {
-        x, y, unit, facing: -1, showFace: true,
-        light: '#ffe9c8', rim: b.appearance.glow, flash: 0, tell: 0, tellColor: '#fff',
-        rage: 0, stun: 0, gassed: 0, softShadows: false, richShading: true,
-        alpha: 1, reflection: false, time: this.t,
+        x, y, unit, facing: -1, showFace: true, flash: 0, tell: 0, tellColor: '#fff',
+        rage: 0, stun: 0, gassed: 0, hurt: 0, alpha: 1, time: this.t,
       });
       label(ctx, b.name.toUpperCase(), x, 120 + cyi * chh + 12, 12, PALETTE.dim,
         { align: 'center', weight: 800 });

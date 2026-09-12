@@ -169,6 +169,14 @@ export class VFXManager {
 
   /** Big readable callout — the game's voice for "you did the thing". */
   callout(text: string, x: number, y: number, color: string, size = 92, style: FloatingText['style'] = 'slam'): void {
+    if (style === 'slam') {
+      // One big callout at a time. Two of these landing together — a perfect
+      // dodge and the counter it opened — used to print on top of each other
+      // and neither could be read. The newest event is the one that matters.
+      for (const t of this.texts) {
+        if (t.style === 'slam') t.life = Math.min(t.life, 0.1);
+      }
+    }
     this.texts.push({
       text, x, y, vy: style === 'drift' ? -60 : -18,
       life: style === 'drift' ? 0.9 : 1.15,
@@ -179,13 +187,23 @@ export class VFXManager {
 
   damageNumber(value: number, x: number, y: number, color: string): void {
     this.texts.push({
-      text: String(Math.round(value)), x, y, vy: -120,
+      text: String(Math.round(value)), x: x + (Math.random() - 0.5) * 90, y, vy: -120,
       life: 0.7, maxLife: 0.7, size: 46, color, outline: '#1a1020', style: 'drift',
     });
   }
 
+  /**
+   * A screen flash.
+   *
+   * Hard-capped in both length and strength on purpose. A quarter-second
+   * additive wash over the whole frame is what made hits look like lens bloom
+   * instead of impact; an arcade hit flash is two or three frames and gone.
+   */
   flash(color: string, strength: number, seconds: number): void {
-    this.flashes.push({ life: seconds, maxLife: seconds, color, strength });
+    this.flashes.push({
+      life: Math.min(seconds, 0.11), maxLife: Math.min(seconds, 0.11),
+      color, strength: Math.min(strength, 0.3),
+    });
   }
 
   shockRing(x: number, y: number, color: string, radius = 90): void {
@@ -311,8 +329,11 @@ export class VFXManager {
     }
 
     for (const f of this.flashes) {
+      // Stepped, not faded: the flash holds for a couple of frames, drops
+      // once, and goes. A smooth ramp reads as a glow.
       const t = clamp01(f.life / f.maxLife);
-      const a = t * f.strength * this.flashIntensity * this.intensity;
+      const step = t > 0.62 ? 1 : t > 0.28 ? 0.4 : 0;
+      const a = step * f.strength * this.flashIntensity * this.intensity;
       if (a <= 0.002) continue;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';

@@ -66,7 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hitStop: 1,
   slowMotion: 1,
   attackIndicators: false,
-  weaknessHints: true,
+  weaknessHints: false,
   largeText: false,
   colorMode: 'normal',
   inputBuffer: 133,

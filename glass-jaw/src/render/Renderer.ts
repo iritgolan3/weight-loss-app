@@ -20,10 +20,10 @@ export interface QualitySettings {
 }
 
 export const QUALITY: Record<Quality, QualitySettings> = {
-  low: { pixelScale: 0.75, softShadows: false, reflections: false, particles: 0.35, crowdRows: 3, crowdDetail: false, atmosphere: false, richShading: false },
-  medium: { pixelScale: 1, softShadows: false, reflections: true, particles: 0.7, crowdRows: 5, crowdDetail: false, atmosphere: true, richShading: true },
-  high: { pixelScale: 1, softShadows: true, reflections: true, particles: 1, crowdRows: 7, crowdDetail: true, atmosphere: true, richShading: true },
-  ultra: { pixelScale: 1.25, softShadows: true, reflections: true, particles: 1.5, crowdRows: 9, crowdDetail: true, atmosphere: true, richShading: true },
+  low: { pixelScale: 0.75, softShadows: false, reflections: false, particles: 0.35, crowdRows: 5, crowdDetail: false, atmosphere: false, richShading: false },
+  medium: { pixelScale: 1, softShadows: false, reflections: true, particles: 0.7, crowdRows: 8, crowdDetail: false, atmosphere: true, richShading: true },
+  high: { pixelScale: 1, softShadows: true, reflections: true, particles: 1, crowdRows: 11, crowdDetail: true, atmosphere: true, richShading: true },
+  ultra: { pixelScale: 1.25, softShadows: true, reflections: true, particles: 1.5, crowdRows: 14, crowdDetail: true, atmosphere: true, richShading: true },
 };
 
 /**
@@ -209,10 +209,29 @@ export class Renderer {
 // ---------------------------------------------------------------------------
 
 /** Parses #rgb / #rrggbb into [r,g,b]. */
+/**
+ * Parses any colour this codebase produces into RGB.
+ *
+ * It must accept `rgb()`/`rgba()` as well as hex, because `darken` and
+ * `lighten` return `rgb()` and their results get fed straight back in
+ * (a far-side limb is `darken(darken(skin))`, a flashing fighter is
+ * `darken(lighten(skin))`). When this only understood hex, `parseInt` on
+ * "rgb(...)" gave NaN, NaN masked to 0 by the bit shifts, and every one of
+ * those colours silently came out pure black.
+ */
 export function parseHex(hex: string): [number, number, number] {
-  let h = hex.replace('#', '');
+  if (hex.charCodeAt(0) !== 35 /* # */) {
+    const m = /(-?[\d.]+)\D+(-?[\d.]+)\D+(-?[\d.]+)/.exec(hex);
+    if (m) {
+      const c = (v: string) => Math.max(0, Math.min(255, Math.round(parseFloat(v))));
+      return [c(m[1]), c(m[2]), c(m[3])];
+    }
+    return [0, 0, 0];
+  }
+  let h = hex.slice(1);
   if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
   const n = parseInt(h, 16);
+  if (!Number.isFinite(n)) return [0, 0, 0];
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 

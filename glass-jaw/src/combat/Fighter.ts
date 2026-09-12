@@ -451,7 +451,8 @@ export class Fighter {
 
     if (this.attack) this.attackClock += dt;
 
-    this.flash = Math.max(0, this.flash - dt * 5.5);
+    // Fast enough to read as an impact frame rather than a glow.
+    this.flash = Math.max(0, this.flash - dt * 13);
     this.recoil = damp(this.recoil, 0, 9, dt);
     this.bob += dt;
 

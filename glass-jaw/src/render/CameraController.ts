@@ -11,10 +11,16 @@ export interface CameraSettings {
 /**
  * Screen-space arcade camera.
  *
- * Readability comes first: the camera never translates far enough to push a
- * fighter off-frame, rotation is capped at a couple of degrees, and every
- * effect decays fast. Shake uses a trauma model (squared falloff) so small hits
- * barely register while a knockdown genuinely rocks the room.
+ * This camera is LOCKED, and that is the whole design. The ring composition —
+ * opponent centred, ropes across his shoulders, the player's head over his
+ * shins — is the game's readability system, and a camera that pans and zooms
+ * around during play dismantles it: the player has to re-find the frame every
+ * exchange instead of reading the fighter in it.
+ *
+ * So the numbers here are small on purpose. Shake is a trauma model (squared
+ * falloff) tuned so a jab barely registers, a knockdown rocks the room, and
+ * neither one moves the framing anywhere the eye has to follow. Zoom exists
+ * only as a few percent of punch on real impacts.
  */
 export class CameraController {
   settings: CameraSettings = { shakeScale: 1, motionScale: 1 };
@@ -71,22 +77,22 @@ export class CameraController {
 
   /** Convenience: the standard reaction to a landed hit. */
   onHit(intensity: number, dirX: number): void {
-    this.shake(0.16 + intensity * 0.5);
-    this.impulse(dirX * intensity * 16, intensity * 6);
-    this.punchZoom(intensity * 0.035);
+    this.shake(0.10 + intensity * 0.34);
+    this.impulse(dirX * intensity * 10, intensity * 4);
+    this.punchZoom(intensity * 0.012);
   }
 
   onCounter(x: number, y: number): void {
-    this.shake(0.55);
-    this.punchZoom(0.07);
-    this.focus(0.13, x, y, 0.42);
+    this.shake(0.42);
+    this.punchZoom(0.022);
+    this.focus(0.035, x, y, 0.36);
   }
 
   onKnockdown(x: number, y: number): void {
     this.shake(1);
-    this.impulse(0, 26);
-    this.punchZoom(0.1);
-    this.focus(0.2, x, y, 1.1);
+    this.impulse(0, 18);
+    this.punchZoom(0.035);
+    this.focus(0.06, x, y, 1.1);
   }
 
   reset(): void {
@@ -111,8 +117,8 @@ export class CameraController {
     // Trauma^2 keeps small hits subtle and big ones violent.
     const t2 = this.trauma * this.trauma * s.shakeScale;
     this.rng.reseed((this.seed * 977) | 0);
-    const shakeX = (this.rng.next() * 2 - 1) * 34 * t2;
-    const shakeY = (this.rng.next() * 2 - 1) * 26 * t2;
+    const shakeX = (this.rng.next() * 2 - 1) * 22 * t2;
+    const shakeY = (this.rng.next() * 2 - 1) * 16 * t2;
     // Rotation is deliberately tiny — a tilting ring is unreadable.
     const shakeR = (this.rng.next() * 2 - 1) * 0.016 * t2 * s.motionScale;
 
@@ -131,8 +137,10 @@ export class CameraController {
     this.focusY = damp(this.focusY, this.focusTarget > 0 ? this.focusYTarget : 0, 5, rawDt);
 
     const motion = s.motionScale;
-    this.x = clamp(shakeX + this.impX * motion - this.focusX * this.focusZoom * 2.2, -110, 110);
-    this.y = clamp(shakeY + this.impY * motion - this.focusY * this.focusZoom * 2.2, -90, 90);
+    // Hard clamps, not guidelines: whatever happens, the locked framing moves
+    // by at most a few dozen pixels.
+    this.x = clamp(shakeX + this.impX * motion - this.focusX * this.focusZoom * 0.8, -58, 58);
+    this.y = clamp(shakeY + this.impY * motion - this.focusY * this.focusZoom * 0.8, -40, 40);
     this.zoom = 1 + (this.zoomPunch + this.focusZoom) * motion;
     this.rotation = shakeR;
   }

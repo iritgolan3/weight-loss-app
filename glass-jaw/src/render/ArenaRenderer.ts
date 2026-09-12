@@ -1,46 +1,78 @@
 import type { ArenaDef } from '../data/arenas';
 import { RNG } from '../core/RNG';
-import { clamp01 } from '../core/MathUtil';
-import { Ctx, rgba, roundRect, shade, tint } from './draw';
+import { clamp01, lerp } from '../core/MathUtil';
+import { Ctx, darken, ink, INK, lighten, oval } from './Cel';
 import type { Renderer } from './Renderer';
+import { Crowd, type CrowdMood } from './Crowd';
 
-/**
- * The ring composition is authored for a fixed 1080-tall band. On displays
- * whose design space is taller (portrait), the band is centred vertically
- * rather than stretched, so the framing never distorts.
- */
+/** The ring composition is authored for a fixed 1080-tall band. */
 export const RING_BAND_H = 1080;
 
-/** Fixed layout landmarks in design space, shared by every arena and the HUD. */
+/**
+ * Fixed layout landmarks, in design space.
+ *
+ * These numbers ARE the camera. There is no free camera in this game: the
+ * composition is locked to the classic arcade framing — the opponent large and
+ * centred with the ropes crossing his shoulders, the player small, low and
+ * seen from behind, overlapping the opponent's shins. The player is rendered
+ * SMALLER than the opponent on purpose. He is not further away; he is the
+ * underdog, and the framing says so before a punch is thrown.
+ */
 export const RING = {
-  /** Y of the far ring apron. */
-  horizon: 430,
-  /** Y where the opponent's feet stand. */
-  opponentFeet: 836,
-  /** Y where the player's feet stand (below the frame). */
-  playerFeet: 1432,
-  /** Y of the near mat edge. */
+  /** Height of the overlaid HUD strips. The ring is composed behind them. */
+  hudTop: 150,
+  hudBottom: 930,
+
+  /** The audience fills everything behind and between the far ropes. */
+  crowdTop: 24,
+  crowdBottom: 566,
+
+  /**
+   * The three far ropes. The top one deliberately crosses the opponent at the
+   * shoulder line: his head and shoulders read against the crowd, his body
+   * against the ring. That single relationship is most of the classic framing.
+   */
+  ropeY: [386, 470, 554] as const,
+  postHalf: 786,
+  postTop: 300,
+  postBottom: 606,
+
+  /**
+   * Mat trapezoid. The camera is low and close, so very little floor is
+   * visible — a deep floor is what makes a boxing screen look like a diorama.
+   */
+  matFar: 600,
+  matFarHalf: 740,
   matNear: 1080,
-  matFar: 512,
-  /** Half-width of the mat at the far edge. */
-  matFarHalf: 560,
-  /** Half-width of the mat at the near edge. */
-  matNearHalf: 1180,
-  /** Half-distance between the corner posts. */
-  postHalf: 648,
-  postTop: 286,
-  postBottom: 566,
+  matNearHalf: 2040,
+
+  /**
+   * Where each fighter stands. The player's feet are BELOW the frame: he is
+   * seen from the chest up, from behind, and his head sits across the
+   * opponent's shins. Nothing else places the camera as clearly as that
+   * overlap does.
+   */
+  opponentFeet: 812,
+  playerFeet: 1275,
+
+  /** Referee's resting position, as an offset from centre. */
+  refX: 640,
+  refY: 764,
 } as const;
 
+/** Per-unit scale for each fighter. The player is deliberately the smaller. */
+export const OPPONENT_UNIT = 200;
+export const PLAYER_UNIT = 186;
+
 /**
- * Draws the arena.
+ * Draws the arena as flat cel artwork.
  *
- * The sky, crowd, ropes, posts and mat never change during a fight, so they are
- * baked once into an offscreen canvas and blitted. The only per-frame work is
- * the crowd's cheer wave (six sliced blits), camera flashes, and the lighting
- * pass — which keeps a very detailed backdrop essentially free.
+ * The static parts (backdrop, ropes, posts, mat) are baked once into an
+ * offscreen canvas; only the crowd, the lights and the referee are live, since
+ * those are the parts that have to react to the fight.
  */
 export class ArenaRenderer {
+  readonly crowd = new Crowd();
   private cache: HTMLCanvasElement | null = null;
   private cacheKey = '';
   private flashes: { x: number; y: number; t: number }[] = [];
@@ -51,366 +83,338 @@ export class ArenaRenderer {
 
   invalidate(): void { this.cache = null; }
 
-  private buildCache(arena: ArenaDef): void {
+  // -- Static bake -----------------------------------------------------------
+
+  private buildCache(a: ArenaDef): void {
     const r = this.renderer;
-    const q = r.quality;
     const c = document.createElement('canvas');
     c.width = r.dw;
     c.height = RING_BAND_H;
     const ctx = c.getContext('2d')!;
+    const cx = r.dw / 2;
 
-    this.drawBackdrop(ctx, arena, r.dw, RING_BAND_H);
-    this.drawCrowd(ctx, arena, r.dw, q.crowdRows, q.crowdDetail);
-    this.drawRingBack(ctx, arena, r.dw);
-    this.drawMat(ctx, arena, r.dw);
+    // NOTE: this canvas stays TRANSPARENT where there is no ring furniture.
+    // It is composited over the live crowd, so painting a backdrop here would
+    // simply erase the audience — which is exactly what it used to do.
+    this.drawRig(ctx, a, r.dw);
+    this.drawMat(ctx, a, cx);
+    this.drawRopesAndPosts(ctx, a, cx);
 
     this.cache = c;
-    this.cacheKey = `${arena.id}:${r.dw}:${r.qualityName}`;
+    this.cacheKey = `${a.id}:${r.dw}:${r.qualityName}`;
+
+    this.crowd.build(
+      r.dw, RING.crowdTop, RING.crowdBottom,
+      r.quality.crowdRows, a.density, 0xc0ffee ^ Math.round(r.dw),
+    );
   }
 
-  // -- Static layers ---------------------------------------------------------
-
-  private drawBackdrop(ctx: Ctx, a: ArenaDef, w: number, h: number): void {
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, a.sky[0]);
-    g.addColorStop(0.55, a.sky[1]);
-    g.addColorStop(1, shade(a.sky[1], 0.6));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-
-    // Overhead light rig.
+  /** Overhead light rig: flat trapezoids, no bloom. */
+  private drawRig(ctx: Ctx, a: ArenaDef, w: number): void {
     const cx = w / 2;
-    for (let i = -2; i <= 2; i++) {
-      const lx = cx + i * w * 0.19;
-      const ly = 54;
+    for (let i = -3; i <= 3; i++) {
+      const lx = cx + i * w * 0.155;
       ctx.beginPath();
-      ctx.moveTo(lx - 46, 0);
-      ctx.lineTo(lx + 46, 0);
-      ctx.lineTo(lx + 30, ly);
-      ctx.lineTo(lx - 30, ly);
+      ctx.moveTo(lx - 40, 0);
+      ctx.lineTo(lx + 40, 0);
+      ctx.lineTo(lx + 26, 42);
+      ctx.lineTo(lx - 26, 42);
       ctx.closePath();
-      ctx.fillStyle = '#1a1a22';
-      ctx.fill();
-      const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, 70);
-      lg.addColorStop(0, rgba(a.light, 0.95));
-      lg.addColorStop(1, rgba(a.light, 0));
-      ctx.fillStyle = lg;
+      ink(ctx, '#20202c', 3);
       ctx.beginPath();
-      ctx.arc(lx, ly, 70, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.ellipse(lx, 42, 26, 9, 0, 0, Math.PI * 2);
+      ink(ctx, a.light, 3);
     }
   }
 
-  private drawCrowd(ctx: Ctx, a: ArenaDef, w: number, rows: number, detail: boolean): void {
-    const rng = new RNG(0xc0ffee ^ w);
-    const top = 118;
-    const bottom = RING.horizon + 6;
-    const skinTones = ['#f0c8a8', '#d9a66c', '#a9714b', '#7a4a2b', '#e8b48c', '#5c3620'];
-
-    for (let row = 0; row < rows; row++) {
-      const t = row / Math.max(1, rows - 1);
-      const y = top + t * (bottom - top);
-      // Nearer rows are larger and darker — cheap depth.
-      const size = 15 + t * 30;
-      const dark = 1 - t * 0.55;
-      const count = Math.ceil((w / (size * 1.25)) * a.density);
-
-      for (let i = 0; i < count; i++) {
-        const x = ((i + rng.next() * 0.7) / count) * (w + size * 2) - size;
-        const bodyCol = shade(a.crowd, dark * (0.8 + rng.next() * 0.55));
-
-        // Torso.
-        ctx.beginPath();
-        ctx.moveTo(x - size * 0.62, y + size * 1.5);
-        ctx.quadraticCurveTo(x - size * 0.66, y + size * 0.22, x, y + size * 0.16);
-        ctx.quadraticCurveTo(x + size * 0.66, y + size * 0.22, x + size * 0.62, y + size * 1.5);
-        ctx.closePath();
-        ctx.fillStyle = bodyCol;
-        ctx.fill();
-
-        // Head.
-        ctx.beginPath();
-        ctx.arc(x, y - size * 0.2, size * 0.38, 0, Math.PI * 2);
-        ctx.fillStyle = detail
-          ? shade(skinTones[Math.floor(rng.next() * skinTones.length)], dark * 0.5)
-          : bodyCol;
-        ctx.fill();
-
-        // A fraction of the crowd has their arms in the air.
-        if (detail && rng.next() < 0.3) {
-          ctx.strokeStyle = bodyCol;
-          ctx.lineWidth = size * 0.17;
-          ctx.lineCap = 'round';
-          for (const s of [-1, 1]) {
-            ctx.beginPath();
-            ctx.moveTo(x + s * size * 0.44, y + size * 0.5);
-            ctx.lineTo(x + s * size * 0.66, y - size * 0.6);
-            ctx.stroke();
-          }
-        }
-      }
-      // Haze between rows pushes the far crowd back.
-      ctx.fillStyle = rgba(a.sky[1], 0.12 * (1 - t));
-      ctx.fillRect(0, y - size, w, size * 2.6);
-    }
-  }
-
-  private drawRingBack(ctx: Ctx, a: ArenaDef, w: number): void {
-    const cx = w / 2;
-    const half = RING.postHalf;
-
-    // Apron skirt below the far ropes.
-    ctx.fillStyle = shade(a.mat, 0.45);
-    ctx.fillRect(cx - half - 40, RING.horizon + 88, (half + 40) * 2, 46);
-    ctx.fillStyle = rgba('#000000', 0.3);
-    ctx.fillRect(cx - half - 40, RING.horizon + 124, (half + 40) * 2, 12);
-
-    // Ropes.
-    for (let i = 0; i < 3; i++) {
-      const y = RING.horizon - 62 + i * 56;
-      const sag = 12 + i * 3;
-      ctx.beginPath();
-      ctx.moveTo(cx - half, y);
-      ctx.quadraticCurveTo(cx, y + sag, cx + half, y);
-      ctx.strokeStyle = a.ropes[i];
-      ctx.lineWidth = 13;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      // Highlight + contour.
-      ctx.beginPath();
-      ctx.moveTo(cx - half, y - 3);
-      ctx.quadraticCurveTo(cx, y + sag - 3, cx + half, y - 3);
-      ctx.strokeStyle = rgba('#ffffff', 0.28);
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-    }
-
-    // Corner posts.
-    for (const s of [-1, 1]) {
-      const px = cx + s * half;
-      const g = ctx.createLinearGradient(px - 24, 0, px + 24, 0);
-      g.addColorStop(0, shade(a.post, 0.55));
-      g.addColorStop(0.4, tint(a.post, 0.25));
-      g.addColorStop(1, shade(a.post, 0.4));
-      ctx.fillStyle = g;
-      roundRect(ctx, px - 22, RING.postTop, 44, RING.postBottom - RING.postTop + 120, 16);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(10,8,14,0.8)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      // Padded cap.
-      ctx.beginPath();
-      ctx.ellipse(px, RING.postTop, 27, 16, 0, 0, Math.PI * 2);
-      ctx.fillStyle = tint(a.post, 0.4);
-      ctx.fill();
-      ctx.stroke();
-    }
-  }
-
-  private drawMat(ctx: Ctx, a: ArenaDef, w: number): void {
-    const cx = w / 2;
-    // Perspective trapezoid.
+  private drawMat(ctx: Ctx, a: ArenaDef, cx: number): void {
+    // Perspective trapezoid, flat filled.
     ctx.beginPath();
     ctx.moveTo(cx - RING.matFarHalf, RING.matFar);
     ctx.lineTo(cx + RING.matFarHalf, RING.matFar);
     ctx.lineTo(cx + RING.matNearHalf, RING.matNear + 40);
     ctx.lineTo(cx - RING.matNearHalf, RING.matNear + 40);
     ctx.closePath();
-    const g = ctx.createLinearGradient(0, RING.matFar, 0, RING.matNear);
-    g.addColorStop(0, shade(a.mat, 0.62));
-    g.addColorStop(0.4, a.mat);
-    g.addColorStop(1, shade(a.mat, 0.78));
-    ctx.fillStyle = g;
+    ctx.fillStyle = a.mat;
     ctx.fill();
 
     ctx.save();
     ctx.clip();
 
-    // Converging floor lines sell the perspective without a 3D projection.
-    ctx.strokeStyle = rgba(a.matAccent, 0.3);
-    ctx.lineWidth = 2.5;
-    for (let i = -6; i <= 6; i++) {
-      const fx = cx + (i / 6) * RING.matFarHalf;
-      const nx = cx + (i / 6) * RING.matNearHalf;
-      ctx.beginPath();
-      ctx.moveTo(fx, RING.matFar);
-      ctx.lineTo(nx, RING.matNear + 40);
-      ctx.stroke();
-    }
-    for (let i = 0; i <= 5; i++) {
-      const t = Math.pow(i / 5, 1.7);
-      const y = RING.matFar + t * (RING.matNear + 40 - RING.matFar);
-      ctx.beginPath();
-      ctx.moveTo(cx - (RING.matFarHalf + t * (RING.matNearHalf - RING.matFarHalf)), y);
-      ctx.lineTo(cx + (RING.matFarHalf + t * (RING.matNearHalf - RING.matFarHalf)), y);
-      ctx.stroke();
-    }
+    // A darker near band, hard edged, to seat the fighters.
+    ctx.fillStyle = darken(a.mat, 0.86);
+    ctx.fillRect(0, RING.matFar + 300, this.renderer.dw, RING.matNear);
 
-    // Centre logo — an original mark, not a licensed one.
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    ctx.translate(cx, RING.opponentFeet + 120);
-    ctx.scale(1, 0.34);
-    ctx.beginPath();
-    ctx.arc(0, 0, 190, 0, Math.PI * 2);
+    // Perspective lines: few, flat, deliberate.
     ctx.strokeStyle = a.matAccent;
-    ctx.lineWidth = 14;
-    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.4;
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + (i / 3) * RING.matFarHalf, RING.matFar);
+      ctx.lineTo(cx + (i / 3) * RING.matNearHalf, RING.matNear + 40);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Centre mark: a flat ring and the promotion's initials.
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.translate(cx, RING.opponentFeet + 150);
+    ctx.scale(1, 0.3);
     ctx.beginPath();
-    ctx.arc(0, 0, 148, 0, Math.PI * 2);
-    ctx.lineWidth = 5;
+    ctx.arc(0, 0, 210, 0, Math.PI * 2);
+    ctx.strokeStyle = a.matAccent;
+    ctx.lineWidth = 16;
     ctx.stroke();
-    ctx.font = 'bold 120px Impact, "Arial Black", sans-serif';
+    ctx.font = 'bold 150px Impact, "Arial Black", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = a.matAccent;
-    ctx.fillText('GJ', 0, 6);
+    ctx.fillText('GJ', 0, 8);
+    ctx.restore();
     ctx.restore();
 
-    ctx.restore();
-
-    // Mat edge highlight.
+    // Apron lip along the far edge.
     ctx.beginPath();
     ctx.moveTo(cx - RING.matFarHalf, RING.matFar);
     ctx.lineTo(cx + RING.matFarHalf, RING.matFar);
-    ctx.strokeStyle = rgba('#ffffff', 0.22);
-    ctx.lineWidth = 4;
-    ctx.stroke();
+    ctx.lineTo(cx + RING.matFarHalf + 30, RING.matFar + 34);
+    ctx.lineTo(cx - RING.matFarHalf - 30, RING.matFar + 34);
+    ctx.closePath();
+    ink(ctx, darken(a.mat, 0.6), 3);
   }
 
-  // -- Per-frame -------------------------------------------------------------
+  private drawRopesAndPosts(ctx: Ctx, a: ArenaDef, cx: number): void {
+    const half = RING.postHalf;
 
-  /** Draws the arena behind the fighters. */
-  drawBack(ctx: Ctx, arena: ArenaDef, time: number, excitement: number): void {
-    const r = this.renderer;
-    const key = `${arena.id}:${r.dw}:${r.qualityName}`;
-    if (!this.cache || this.cacheKey !== key) this.buildCache(arena);
-    const cache = this.cache!;
-
-    // Cheer wave: six horizontal slices of the cached crowd, each bobbing.
-    const crowdTop = 100;
-    const crowdBottom = RING.horizon - 40;
-    const slices = 6;
-    const amp = 4 + excitement * 11;
-    ctx.drawImage(cache, 0, 0, r.dw, crowdTop, 0, 0, r.dw, crowdTop);
-    for (let i = 0; i < slices; i++) {
-      const sx = (i / slices) * r.dw;
-      const sw = r.dw / slices + 1;
-      const off = Math.sin(time * 4.4 + i * 0.9) * amp;
-      ctx.drawImage(
-        cache, sx, crowdTop, sw, crowdBottom - crowdTop,
-        sx, crowdTop + off, sw, crowdBottom - crowdTop,
-      );
-    }
-    ctx.drawImage(
-      cache, 0, crowdBottom, r.dw, RING_BAND_H - crowdBottom,
-      0, crowdBottom, r.dw, RING_BAND_H - crowdBottom,
-    );
-
-    this.updateFlashes(ctx, arena, time, excitement);
-    if (r.quality.atmosphere) this.drawLightCones(ctx, arena, time);
-  }
-
-  private updateFlashes(ctx: Ctx, a: ArenaDef, time: number, excitement: number): void {
-    const rate = a.flashRate * (0.5 + excitement * 2.2);
-    this.flashTimer += 1 / 60;
-    if (rate > 0 && this.flashTimer > 1 / rate) {
-      this.flashTimer = 0;
-      this.flashes.push({
-        x: this.rng.range(0, this.renderer.dw),
-        y: this.rng.range(130, RING.horizon - 30),
-        t: 1,
-      });
-      if (this.flashes.length > 26) this.flashes.shift();
-    }
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = this.flashes.length - 1; i >= 0; i--) {
-      const f = this.flashes[i];
-      f.t -= 0.075;
-      if (f.t <= 0) { this.flashes.splice(i, 1); continue; }
-      const rr = 46 * f.t;
-      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
-      g.addColorStop(0, `rgba(255,255,250,${0.85 * f.t})`);
-      g.addColorStop(1, 'rgba(255,255,250,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, rr, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-    void time;
-  }
-
-  private drawLightCones(ctx: Ctx, a: ArenaDef, time: number): void {
-    const w = this.renderer.dw;
-    const cx = w / 2;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = -1; i <= 1; i++) {
-      const lx = cx + i * w * 0.22;
-      const flicker = 0.9 + Math.sin(time * 7 + i * 2) * 0.05;
-      const g = ctx.createLinearGradient(lx, 40, lx, RING.matNear);
-      g.addColorStop(0, rgba(a.light, 0.16 * flicker));
-      g.addColorStop(0.6, rgba(a.light, 0.05 * flicker));
-      g.addColorStop(1, rgba(a.light, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.moveTo(lx - 40, 40);
-      ctx.lineTo(lx + 40, 40);
-      ctx.lineTo(lx + 420, RING.matNear);
-      ctx.lineTo(lx - 420, RING.matNear);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  /** Foreground framing drawn after the fighters. */
-  drawFront(ctx: Ctx, a: ArenaDef, dw: number, dh: number): void {
-    const cx = dw / 2;
-    // Near ropes, kept in the corners so they frame without ever occluding.
-    for (const s of [-1, 1]) {
-      for (let i = 0; i < 3; i++) {
-        const y0 = dh - 240 + i * 92;
+    for (let i = 0; i < 3; i++) {
+      const y = RING.ropeY[i];
+      const sag = 10 + i * 4;
+      // Ink underlay then flat colour: a cel rope, not a shaded tube.
+      for (const [col, wdt] of [[INK, 20], [a.ropes[i], 13]] as const) {
         ctx.beginPath();
-        ctx.moveTo(cx + s * dw * 0.5, y0 - 150);
-        ctx.quadraticCurveTo(cx + s * dw * 0.34, y0, cx + s * dw * 0.2, y0 + 120);
-        ctx.strokeStyle = rgba(a.ropes[i], 0.85);
-        ctx.lineWidth = 20;
+        ctx.moveTo(cx - half, y);
+        ctx.quadraticCurveTo(cx, y + sag, cx + half, y);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = wdt;
         ctx.lineCap = 'round';
-        ctx.stroke();
-        ctx.strokeStyle = rgba('#ffffff', 0.16);
-        ctx.lineWidth = 5;
         ctx.stroke();
       }
     }
 
-    // Vignette — focuses the eye on the opponent.
-    const vg = ctx.createRadialGradient(cx, dh * 0.44, dh * 0.28, cx, dh * 0.46, dh * 0.92);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.62)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, dw, dh);
+    for (const s of [-1, 1]) {
+      const px = cx + s * half;
+      // Padded post: a flat capsule with an inked contour.
+      ctx.beginPath();
+      ctx.roundRect?.(px - 26, RING.postTop, 52, RING.postBottom - RING.postTop + 150, 20);
+      if (!ctx.roundRect) ctx.rect(px - 26, RING.postTop, 52, RING.postBottom - RING.postTop + 150);
+      ink(ctx, a.post, 4);
+      // One hard shade band down one side.
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect?.(px - 26, RING.postTop, 52, RING.postBottom - RING.postTop + 150, 20);
+      if (!ctx.roundRect) ctx.rect(px - 26, RING.postTop, 52, RING.postBottom - RING.postTop + 150);
+      ctx.clip();
+      ctx.fillStyle = darken(a.post, 0.74);
+      ctx.fillRect(px + 4, RING.postTop - 10, 24, 400);
+      ctx.restore();
+      oval(ctx, px, RING.postTop, 30, 16);
+      ink(ctx, lighten(a.post, 0.2), 4);
+    }
   }
 
-  /** Key light pooled on the canvas beneath the fighters. */
-  drawSpotlight(ctx: Ctx, a: ArenaDef, dw: number, intensity: number): void {
+  // -- Live layers -----------------------------------------------------------
+
+  /** Everything behind the fighters. */
+  drawBack(ctx: Ctx, a: ArenaDef, time: number, dt: number): void {
+    const r = this.renderer;
+    const key = `${a.id}:${r.dw}:${r.qualityName}`;
+    if (!this.cache || this.cacheKey !== key) this.buildCache(a);
+
+    // Backdrop band first, then the live crowd, then the baked ring on top so
+    // the ropes and posts correctly occlude the audience.
+    ctx.fillStyle = a.sky[0];
+    ctx.fillRect(0, 0, r.dw, RING.crowdBottom + 20);
+    ctx.fillStyle = a.sky[1];
+    ctx.fillRect(0, RING.crowdBottom + 20, r.dw, RING_BAND_H - RING.crowdBottom - 20);
+
+    this.crowd.update(dt);
+    this.crowd.draw(ctx, time, r.quality.crowdDetail);
+    this.drawFlashes(ctx, dt);
+
+    // Baked ring furniture (rig, mat, ropes, posts) over the crowd.
+    ctx.drawImage(this.cache!, 0, 0);
+  }
+
+  private drawFlashes(ctx: Ctx, dt: number): void {
+    this.flashTimer -= dt;
+    const rate = this.crowd.flashChance;
+    if (rate > 0 && this.flashTimer <= 0) {
+      this.flashTimer = 1 / rate;
+      this.flashes.push({
+        x: this.rng.range(0, this.renderer.dw),
+        y: this.rng.range(RING.crowdTop, RING.crowdBottom),
+        t: 1,
+      });
+      if (this.flashes.length > 24) this.flashes.shift();
+    }
+    for (let i = this.flashes.length - 1; i >= 0; i--) {
+      const f = this.flashes[i];
+      f.t -= dt * 7;
+      if (f.t <= 0) { this.flashes.splice(i, 1); continue; }
+      // A flat four-point flare, not a soft bloom.
+      ctx.save();
+      ctx.globalAlpha = clamp01(f.t);
+      ctx.fillStyle = '#fffbe8';
+      ctx.beginPath();
+      const s = 16 * f.t + 6;
+      ctx.moveTo(f.x, f.y - s);
+      ctx.lineTo(f.x + s * 0.3, f.y);
+      ctx.lineTo(f.x, f.y + s);
+      ctx.lineTo(f.x - s * 0.3, f.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(f.x - s, f.y);
+      ctx.lineTo(f.x, f.y + s * 0.3);
+      ctx.lineTo(f.x + s, f.y);
+      ctx.lineTo(f.x, f.y - s * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  /** Foreground framing, drawn after the fighters. */
+  drawFront(ctx: Ctx, a: ArenaDef, dw: number): void {
     const cx = dw / 2;
+    // Near ropes sweep in from the bottom corners, framing without occluding.
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const y0 = RING_BAND_H - 150 + i * 74;
+        for (const [col, wdt] of [[INK, 26], [a.ropes[i], 18]] as const) {
+          ctx.beginPath();
+          ctx.moveTo(cx + s * dw * 0.52, y0 - 190);
+          ctx.quadraticCurveTo(cx + s * dw * 0.36, y0, cx + s * dw * 0.235, y0 + 130);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = wdt;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  setMood(m: CrowdMood): void { this.crowd.setMood(m); }
+  react(strength: number): void { this.crowd.react(strength); }
+  ovation(): void { this.crowd.standingOvation(); }
+
+  // -- Referee ---------------------------------------------------------------
+
+  /**
+   * The referee. He stands at the side of the ring, steps in to count, and
+   * waves the fight off at the end. He is the thing that makes the ring read
+   * as an officiated bout rather than two men in a room.
+   */
+  drawReferee(
+    ctx: Ctx, dw: number, time: number,
+    state: 'idle' | 'counting' | 'waveOff' | 'raiseWinner', t: number,
+  ): void {
+    const cx = dw / 2;
+    // Steps toward the middle when he has something to do. He is drawn at the
+    // same apparent scale as the boxers — a doll-sized referee at the edge of
+    // the mat destroys the perspective the whole composition depends on.
+    const inRing = state === 'counting' ? clamp01(t * 2) : state === 'waveOff' ? 1 : 0;
+    const x = lerp(cx + RING.refX, cx + 340, inRing);
+    const y = lerp(RING.refY, 880, inRing);
+    const s = lerp(270, 330, inRing);
+
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(cx, RING.opponentFeet - 40, 20, cx, RING.opponentFeet + 40, 620);
-    g.addColorStop(0, rgba(a.light, 0.1 * intensity));
-    g.addColorStop(1, rgba(a.light, 0));
-    ctx.fillStyle = g;
-    ctx.save();
-    ctx.translate(cx, RING.opponentFeet);
-    ctx.scale(1.4, 0.55);
-    ctx.translate(-cx, -RING.opponentFeet);
+    ctx.translate(x, y);
+    ctx.scale(s / 100, s / 100);
+
+    const bob = Math.sin(time * 3) * 3;
+    const skin = '#d9a877';
+    const shirt = '#f2f0ea';
+
+    // Legs.
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 15;
+    ctx.lineCap = 'round';
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(sd * 9, -52);
+      ctx.lineTo(sd * 13, 0);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#2b2b38';
+    ctx.lineWidth = 11;
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(sd * 9, -52);
+      ctx.lineTo(sd * 13, 0);
+      ctx.stroke();
+    }
+
+    // Torso.
     ctx.beginPath();
-    ctx.arc(cx, RING.opponentFeet, 620, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    ctx.moveTo(-20, -50 + bob * 0.2);
+    ctx.quadraticCurveTo(-22, -100 + bob, 0, -102 + bob);
+    ctx.quadraticCurveTo(22, -100 + bob, 20, -50 + bob * 0.2);
+    ctx.closePath();
+    ink(ctx, shirt, 5);
+
+    // Bow tie.
+    ctx.beginPath();
+    ctx.moveTo(-9, -100 + bob);
+    ctx.lineTo(0, -96 + bob);
+    ctx.lineTo(9, -100 + bob);
+    ctx.lineTo(9, -90 + bob);
+    ctx.lineTo(0, -94 + bob);
+    ctx.lineTo(-9, -90 + bob);
+    ctx.closePath();
+    ink(ctx, '#1d1d28', 4);
+
+    // Arms: raised for a count, swept for a wave-off.
+    const armUp = state === 'counting' ? 1 : state === 'raiseWinner' ? 1 : 0;
+    const sweep = state === 'waveOff' ? Math.sin(time * 9) * 0.9 : 0;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 15;
+    ctx.beginPath();
+    ctx.moveTo(-18, -88 + bob);
+    ctx.lineTo(-30 - sweep * 22, -70 + bob - armUp * 46);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(18, -88 + bob);
+    ctx.lineTo(30 + sweep * 22, -70 + bob - armUp * 46);
+    ctx.stroke();
+    ctx.strokeStyle = shirt;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(-18, -88 + bob);
+    ctx.lineTo(-30 - sweep * 22, -70 + bob - armUp * 46);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(18, -88 + bob);
+    ctx.lineTo(30 + sweep * 22, -70 + bob - armUp * 46);
+    ctx.stroke();
+
+    // Head.
+    ctx.beginPath();
+    ctx.arc(0, -122 + bob, 20, 0, Math.PI * 2);
+    ink(ctx, skin, 5);
+    // Hair and a moustache: enough to read as a person.
+    ctx.beginPath();
+    ctx.arc(0, -128 + bob, 20, Math.PI, Math.PI * 2);
+    ink(ctx, '#3a3038', 0);
+    ctx.fillStyle = INK;
+    ctx.fillRect(-7, -118 + bob, 14, 4);
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(sd * 7, -124 + bob, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 }

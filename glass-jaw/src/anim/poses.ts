@@ -303,7 +303,7 @@ export function applyPunch(out: Pose, p: PunchParams): void {
     }
     // Foreshortening: the glove reads as coming at you. Kept modest — at 3x
     // the glove covers the fighter and you can no longer see what hit you.
-    const gs = 1 + reach * (p.anim === 'jab' ? 0.85 : 1.15);
+    const gs = 1 + reach * (p.anim === 'jab' ? 0.6 : 0.82);
     if (isL) out.gloveScaleL = gs; else out.gloveScaleR = gs;
     // The shoulder drives through with the punch.
     add(shoulder, s * 0.08 * reach, 0.03 * reach);
