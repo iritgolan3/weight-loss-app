@@ -9,6 +9,7 @@ import { CareerSystem } from '../career/CareerSystem';
 import type { Ctx } from '../render/draw';
 import { TitleScreen } from '../ui/screens/TitleScreen';
 import { PoseLab } from '../scenes/PoseLab';
+import { Transition, type TransitionKind } from './Transition';
 
 export interface Scene {
   readonly name: string;
@@ -132,9 +133,35 @@ export class Game {
 
   get current(): Scene | null { return this.stack[this.stack.length - 1] ?? null; }
 
+  /** The curtain every screen change goes behind. */
+  readonly transition = new Transition();
+
   push(scene: Scene): void { this.pendingPush.push(scene); }
   pop(): void { this.pendingPop++; }
   replace(scene: Scene): void { this.pendingReplace = scene; }
+
+  /**
+   * A screen change with a curtain over it.
+   *
+   * Use this for anything the player initiated — opening a menu, starting a
+   * fight, backing out of a screen. `push`/`pop`/`replace` still exist for
+   * changes that happen behind an effect that is already covering the screen.
+   */
+  go(kind: TransitionKind, action: () => void): void {
+    this.transition.start(kind, action);
+  }
+
+  goPush(scene: Scene, kind: TransitionKind = 'fade'): void {
+    this.go(kind, () => this.push(scene));
+  }
+
+  goPop(kind: TransitionKind = 'fade'): void {
+    this.go(kind, () => this.pop());
+  }
+
+  goReplace(scene: Scene, kind: TransitionKind = 'fade'): void {
+    this.go(kind, () => this.replace(scene));
+  }
 
   /** Clears the stack down to a single scene. */
   reset(scene: Scene): void {
@@ -170,6 +197,9 @@ export class Game {
 
   private update(dt: number, time: GameTime): void {
     this.flushStack();
+    // A scene must not read input through a closed curtain, or a held button
+    // fires again on the screen that comes up behind it.
+    if (this.transition.busy) this.input.flush();
     this.input.pollPads();
     const top = this.current;
     if (top) top.update(dt, time);
@@ -181,6 +211,7 @@ export class Game {
     if (this.renderer.contextLost) return;
     // Presentation systems advance on unscaled time so effects survive hit-stop.
     for (const s of this.stack) s.updateRaw?.(time.rawDt);
+    this.transition.update(time.rawDt);
 
     const ctx = this.renderer.begin();
     ctx.fillStyle = '#06040a';
@@ -196,6 +227,8 @@ export class Game {
     for (let i = first; i < this.stack.length; i++) {
       this.stack[i].render(ctx, alpha, time);
     }
+
+    this.transition.draw(ctx, this.renderer.dw, this.renderer.dh);
 
     if (this.settings.current.showFps) this.drawFps(ctx);
   }
@@ -224,6 +257,8 @@ export class Game {
     }
     // Bring the first scene up before the loop starts so frame one has content.
     this.flushStack();
+    // The game fades up rather than snapping on.
+    this.transition.reveal();
     this.loop.start();
   }
 

@@ -27,7 +27,7 @@ export class PauseOverlay implements Scene {
   private build(): void {
     this.items = [
       { label: 'RESUME', run: () => { this.game.audio.play('uiBack'); this.game.pop(); } },
-      { label: 'SETTINGS', run: () => this.game.push(new SettingsScreen(this.game, true)) },
+      { label: 'SETTINGS', run: () => this.game.goPush(new SettingsScreen(this.game, true)) },
       {
         label: this.confirmQuit ? 'REALLY QUIT? PRESS AGAIN' : 'QUIT FIGHT',
         run: () => {

@@ -43,32 +43,39 @@ export function startFight(game: Game, o: LaunchOptions): void {
       const reward = o.onResolve?.(result, stats);
       game.save.flush();
 
-      game.push(new ResultScreen(game, {
+      // A knockout gets the knockout curtain: a white slam into black. A
+      // decision gets the ordinary wipe.
+      const ko = result.method !== 'DEC' && result.method !== 'DRAW';
+      game.goPush(new ResultScreen(game, {
         result, stats, opponent: o.opponent, mode: o.mode,
         difficulty: o.difficulty,
         reward,
         onDone: () => {
-          game.pop(); // result
-          game.pop(); // fight
-          o.onDone?.(result, stats);
+          game.go('wipe', () => {
+            game.pop(); // result
+            game.pop(); // fight
+            o.onDone?.(result, stats);
+          });
         },
         onRematch: () => {
-          game.pop();
-          game.pop();
-          startFight(game, o);
+          game.go('wipe', () => {
+            game.pop();
+            game.pop();
+            startFight(game, o);
+          });
         },
-      }));
+      }), ko ? 'ko' : 'wipe');
     },
 
     onQuit: () => {
-      game.pop();
+      game.goPop('wipe');
       o.onDone?.(
         { winner: null, loser: null, method: 'DRAW', round: 1, seconds: 0, playerScore: 0, opponentScore: 0 },
         scene.stats,
       );
     },
   });
-  game.push(scene);
+  game.goPush(scene, 'wipe');
 }
 
 /** Folds a finished fight into the lifetime statistics. */

@@ -319,16 +319,27 @@ export class ArenaRenderer {
    */
   drawReferee(
     ctx: Ctx, dw: number, time: number,
-    state: 'idle' | 'counting' | 'waveOff' | 'raiseWinner', t: number,
+    state: 'idle' | 'counting' | 'waveOff' | 'raiseWinner' | 'instruct', t: number,
   ): void {
     const cx = dw / 2;
     // Steps toward the middle when he has something to do. He is drawn at the
     // same apparent scale as the boxers — a doll-sized referee at the edge of
     // the mat destroys the perspective the whole composition depends on.
-    const inRing = state === 'counting' ? clamp01(t * 2) : state === 'waveOff' ? 1 : 0;
-    const x = lerp(cx + RING.refX, cx + 340, inRing);
-    const y = lerp(RING.refY, 880, inRing);
-    const s = lerp(270, 330, inRing);
+    //
+    // The pre-fight instructions are their own arrival: he comes in, talks,
+    // and walks back out again, so the bell lands on an empty centre.
+    const instruct = state === 'instruct'
+      ? Math.min(clamp01(t * 4), clamp01((1 - t) * 5))
+      : 0;
+    const inRing = state === 'counting' ? clamp01(t * 2)
+      : state === 'waveOff' ? 1
+      : instruct;
+    // He works the right-hand side, and steps toward the middle — but never
+    // into it: the centre belongs to the two fighters.
+    const target = state === 'instruct' ? 250 : 340;
+    const x = lerp(cx + RING.refX, cx + target, inRing);
+    const y = lerp(RING.refY, state === 'instruct' ? 840 : 880, inRing);
+    const s = lerp(270, 340, inRing);
 
     ctx.save();
     ctx.translate(x, y);
@@ -377,8 +388,11 @@ export class ArenaRenderer {
     ink(ctx, '#1d1d28', 4);
 
     // Arms: raised for a count, swept for a wave-off.
-    const armUp = state === 'counting' ? 1 : state === 'raiseWinner' ? 1 : 0;
-    const sweep = state === 'waveOff' ? Math.sin(time * 9) * 0.9 : 0;
+    const armUp = state === 'counting' || state === 'raiseWinner' ? 1 : 0;
+    const sweep = state === 'waveOff' ? Math.sin(time * 9) * 0.9
+      // Talking with his hands: a slow chop between the two of them.
+      : state === 'instruct' ? Math.sin(time * 5) * 0.45 * instruct
+      : 0;
     ctx.strokeStyle = INK;
     ctx.lineWidth = 15;
     ctx.beginPath();

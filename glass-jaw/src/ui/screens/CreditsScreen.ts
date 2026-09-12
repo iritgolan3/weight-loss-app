@@ -104,7 +104,7 @@ export class CreditsScreen implements Scene {
     const i = this.game.input;
     if (i.justPressed(Action.Cancel) || i.justPressed(Action.Confirm)) {
       this.game.audio.play('uiBack');
-      this.game.pop();
+      this.game.goPop();
       return;
     }
     // Hold down to speed through, up to scroll back.

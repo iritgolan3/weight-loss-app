@@ -37,7 +37,7 @@ export class TitleScreen implements Scene {
     // and the player is left unable to start for seconds.
     if (any && performance.now() - this.shownAt > 350) {
       this.game.audio.play('uiConfirm');
-      this.game.replace(new MainMenu(this.game));
+      this.game.goReplace(new MainMenu(this.game), 'wipe');
     }
   }
 

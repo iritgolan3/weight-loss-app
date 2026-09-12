@@ -38,7 +38,7 @@ export const DEFAULT_FIGHT: FightConfig = {
   tkoKnockdowns: 3,
   koKnockdowns: 3,
   countInterval: 0.82,
-  introSeconds: 3.6,
+  introSeconds: 6,
   roundCardSeconds: 1.9,
   breakSeconds: 3.4,
   mashToRise: true,

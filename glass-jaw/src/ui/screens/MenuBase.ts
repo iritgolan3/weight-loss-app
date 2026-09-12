@@ -61,7 +61,7 @@ export abstract class MenuScreen implements Scene {
   protected drawDetail?(ctx: Ctx, x: number, y: number, w: number, h: number): void;
   /** Drawn behind the list. */
   protected drawBackdrop?(ctx: Ctx): void;
-  protected onBack(): void { this.game.pop(); }
+  protected onBack(): void { this.game.goPop(); }
   protected footerHint(): string {
     return 'W/S or ↑↓ move    A/D or ←→ adjust    ENTER select    ESC back';
   }

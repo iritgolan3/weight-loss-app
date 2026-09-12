@@ -28,6 +28,10 @@ export interface HudState {
   drill: {
     name: string; goal: string; progress: number; target: number; complete: boolean;
   } | null;
+  /** Which beat of the opening sequence is playing, and how far through. */
+  intro: { beat: 'arena' | 'opponent' | 'referee'; t: number } | null;
+  /** Arena name and city, for the opening card. */
+  arena: { name: string; location: string };
   /** Screen width/height in design units. */
   dw: number;
   dh: number;
@@ -368,11 +372,17 @@ export class HUD {
       ctx.globalAlpha = fade;
       ctx.translate(dw / 2, dh * 0.42);
       ctx.scale(pop, pop);
-      displayText(ctx, `ROUND ${ref.round}`, 0, 0, 132, PALETTE.gold, {
-        outlineWidth: 20, shadow: PALETTE.orange,
-      });
+      // A flat card, not a glow. A blurred drop shadow on the biggest type in
+      // the game is the single fastest way to make hand-drawn art look
+      // rendered, and this text sits over the ring for two full seconds.
+      ctx.fillStyle = 'rgba(10,7,19,0.88)';
+      ctx.fillRect(-520, -96, 1040, 176);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.fillRect(-520, -96, 1040, 8);
+      ctx.fillRect(-520, 72, 1040, 8);
+      displayText(ctx, `ROUND ${ref.round}`, 0, -6, 132, PALETTE.gold, { outlineWidth: 20 });
       if (ref.round === ref.config.rounds) {
-        displayText(ctx, 'FINAL ROUND', 0, 96, 40, PALETTE.red, { outlineWidth: 8 });
+        displayText(ctx, 'FINAL ROUND', 0, 116, 44, PALETTE.red, { outlineWidth: 9 });
       }
       ctx.restore();
     }
@@ -440,28 +450,69 @@ export class HUD {
     ctx.restore();
   }
 
-  /** The entrance card shown during the intro. */
+  /**
+   * The opening sequence's cards.
+   *
+   * One card per beat, each entering and leaving on its own: the arena, then
+   * the man, then the official. Cards never overlap, because the point of the
+   * sequence is that the player looks at one thing at a time.
+   */
   drawIntro(ctx: Ctx, s: HudState): void {
-    const { ref, def, dw, dh } = s;
-    const t = clamp01(ref.timer / ref.config.introSeconds);
-    const slide = Ease.cubicOut(clamp01(t * 3));
-    const out = t > 0.86 ? (t - 0.86) / 0.14 : 0;
-    const x = lerp(-560, 56, slide) + out * 560;
+    const { def, dw, dh } = s;
+    const b = s.intro;
+    if (!b) return;
 
+    // Every card uses the same entrance: slide in fast, hold, slide out.
+    const inT = Ease.cubicOut(clamp01(b.t * 4));
+    const outT = Ease.cubicOut(clamp01((b.t - 0.82) / 0.18));
+    const slide = inT - outT;
+    const alpha = clamp01(slide * 1.6);
+
+    if (b.beat === 'arena') {
+      const y = dh * 0.34;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(lerp(-dw * 0.5, 0, inT) + outT * dw * 0.5, 0);
+      displayText(ctx, s.arena.name.toUpperCase(), dw / 2, y, 78, PALETTE.gold, {
+        outlineWidth: 13,
+      });
+      label(ctx, s.arena.location.toUpperCase(), dw / 2, y + 52, 24, PALETTE.text,
+        { align: 'center', weight: 800 });
+      // A hard rule under the card, drawn not glowed.
+      ctx.fillStyle = rgba(PALETTE.gold, 0.85);
+      ctx.fillRect(dw / 2 - 220, y + 74, 440, 4);
+      ctx.restore();
+      return;
+    }
+
+    if (b.beat === 'referee') {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      const iy = dh * 0.19;
+      label(ctx, "REFEREE'S INSTRUCTIONS", dw / 2, iy - 34, 18, PALETTE.gold,
+        { align: 'center', weight: 900 });
+      displayText(ctx, 'PROTECT YOURSELF', dw / 2, iy + 8, 52, PALETTE.text, { outlineWidth: 10 });
+      displayText(ctx, 'AT ALL TIMES', dw / 2, iy + 62, 52, PALETTE.text, { outlineWidth: 10 });
+      ctx.restore();
+      return;
+    }
+
+    // --- The opponent's card ---
+    const x = lerp(-560, 56, inT) + outT * 620;
     ctx.save();
-    ctx.globalAlpha = 1 - out;
-    panel(ctx, x, dh * 0.3, 520, 300, {
-      radius: 20, fill: '#12101d', border: def.appearance.glow, glow: def.appearance.glow,
+    ctx.globalAlpha = alpha;
+    panel(ctx, x, dh * 0.28, 520, 306, {
+      radius: 14, fill: '#12101d', border: def.appearance.glow,
     });
-    flagChip(ctx, x + 30, dh * 0.3 + 28, 58, 38, def.flag);
-    label(ctx, def.country.toUpperCase(), x + 100, dh * 0.3 + 47, 16, PALETTE.dim, { weight: 800 });
-    displayText(ctx, def.name.toUpperCase(), x + 30, dh * 0.3 + 106, 44, PALETTE.text, {
+    flagChip(ctx, x + 30, dh * 0.28 + 28, 58, 38, def.flag);
+    label(ctx, def.country.toUpperCase(), x + 100, dh * 0.28 + 47, 16, PALETTE.dim, { weight: 800 });
+    displayText(ctx, def.name.toUpperCase(), x + 30, dh * 0.28 + 106, 44, PALETTE.text, {
       align: 'left', outlineWidth: 8,
     });
-    displayText(ctx, `"${def.nickname}"`, x + 30, dh * 0.3 + 152, 30, def.appearance.glow, {
+    displayText(ctx, `"${def.nickname}"`, x + 30, dh * 0.28 + 152, 30, def.appearance.glow, {
       align: 'left', outlineWidth: 6,
     });
-    label(ctx, def.archetype, x + 30, dh * 0.3 + 192, 17, PALETTE.gold, { weight: 800 });
+    label(ctx, def.archetype, x + 30, dh * 0.28 + 192, 17, PALETTE.gold, { weight: 800 });
 
     const rows: [string, string][] = [
       ['RECORD', `${def.record.w}-${def.record.l} (${def.record.ko} KO)`],
@@ -470,19 +521,19 @@ export class HUD {
       ['AGE', `${def.age}`],
     ];
     rows.forEach((r, i) => {
-      const ry = dh * 0.3 + 226 + i * 22;
+      const ry = dh * 0.28 + 226 + i * 22;
       label(ctx, r[0], x + 30, ry, 13, PALETTE.dim, { weight: 700 });
       label(ctx, r[1], x + 250, ry, 13, PALETTE.text, { weight: 700, align: 'right' });
     });
 
     if (def.boss && def.bossTitle) {
-      displayText(ctx, def.bossTitle, dw / 2, dh * 0.16, 64, PALETTE.red, {
+      displayText(ctx, def.bossTitle, dw / 2, dh * 0.14, 64, PALETTE.red, {
         outlineWidth: 12, shadow: PALETTE.red,
       });
     }
     ctx.restore();
 
-    // Skip prompt.
+    // Skip prompt sits under everything, for the whole sequence.
     const blink = 0.5 + Math.sin(s.time * 5) * 0.5;
     label(ctx, 'PRESS ANY BUTTON TO SKIP', dw / 2, dh - 46, 16, rgba(PALETTE.dim, blink),
       { align: 'center', weight: 800, font: FONT_UI });

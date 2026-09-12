@@ -70,7 +70,7 @@ export const PACO: BoxerDef = {
     lose: ['Ay... my griddle...', 'Okay. Okay. That was a good one.'],
     hurt: ['Oof!', 'Ay!'],
   },
-  music: 'rookie', arena: 'gym', voice: { pitch: 1.08, grit: 0.3 }, purse: 400, phases: 2,
+  music: 'rookie', arena: 'gym', voice: { pitch: 1.08, grit: 0.3 }, entrance: 'hop', purse: 400, phases: 2,
 };
 
 export const MIMI: BoxerDef = {
@@ -148,7 +148,7 @@ export const MIMI: BoxerDef = {
     lose: ['*mimes being hit by a truck*', '*takes one final bow*'],
     hurt: ['*silent gasp*', '!'],
   },
-  music: 'rookie', arena: 'gym', voice: { pitch: 1.3, grit: 0.1 }, purse: 550, phases: 2,
+  music: 'rookie', arena: 'gym', voice: { pitch: 1.3, grit: 0.1 }, entrance: 'fold', purse: 550, phases: 2,
 };
 
 export const BRUNO: BoxerDef = {
@@ -220,7 +220,7 @@ export const BRUNO: BoxerDef = {
     lose: ['Ahh... the little one is strong!', 'My mother will never believe this.'],
     hurt: ['Ungh!', 'Ah! Cattivo!'],
   },
-  music: 'rookie', arena: 'gym', voice: { pitch: 0.7, grit: 0.55 }, purse: 750, phases: 2,
+  music: 'rookie', arena: 'gym', voice: { pitch: 0.7, grit: 0.55 }, entrance: 'raise', purse: 750, phases: 2,
 };
 
 export const KIP: BoxerDef = {
@@ -294,7 +294,7 @@ export const KIP: BoxerDef = {
     lose: ['Whoa... whoa... the room is fast now...', 'I think... I need... water...'],
     hurt: ['Yeep!', 'Hey!'],
   },
-  music: 'rookie', arena: 'gym', voice: { pitch: 1.22, grit: 0.2 }, purse: 900, phases: 2,
+  music: 'rookie', arena: 'gym', voice: { pitch: 1.22, grit: 0.2 }, entrance: 'shadow', purse: 900, phases: 2,
 };
 
 export const ROOKIE_LEAGUE: BoxerDef[] = [PACO, MIMI, BRUNO, KIP];

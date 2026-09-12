@@ -84,7 +84,7 @@ export const HIROSHI: BoxerDef = {
     lose: ['Ah... you stopped watching my hands.', 'You saw through me. Well done.'],
     hurt: ['Kh!', 'Tsk!'],
   },
-  music: 'world', arena: 'dome', voice: { pitch: 0.96, grit: 0.25 }, purse: 3000, phases: 3,
+  music: 'world', arena: 'dome', voice: { pitch: 0.96, grit: 0.25 }, entrance: 'salute', purse: 3000, phases: 3,
 };
 
 export const DUKE: BoxerDef = {
@@ -160,7 +160,7 @@ export const DUKE: BoxerDef = {
     lose: ['...tank... empty...', 'Blimey. You had more than me.'],
     hurt: ['ARGH!', 'RRGH!'],
   },
-  music: 'world', arena: 'dome', voice: { pitch: 0.8, grit: 0.7 }, purse: 3600, phases: 3,
+  music: 'world', arena: 'dome', voice: { pitch: 0.8, grit: 0.7 }, entrance: 'point', purse: 3600, phases: 3,
 };
 
 export const ZARA: BoxerDef = {
@@ -240,7 +240,7 @@ export const ZARA: BoxerDef = {
     lose: ['You... broke your own pattern. Clever.', 'I was reading a book you stopped writing.'],
     hurt: ['Hh!', 'Nn!'],
   },
-  music: 'world', arena: 'dome', voice: { pitch: 1.02, grit: 0.3 }, purse: 4200, phases: 3,
+  music: 'world', arena: 'dome', voice: { pitch: 1.02, grit: 0.3 }, entrance: 'cross', purse: 4200, phases: 3,
 };
 
 export const MCGRAW: BoxerDef = {
@@ -317,7 +317,7 @@ export const MCGRAW: BoxerDef = {
     lose: ['Ah... that is the one... that is the one...', 'Fair play. Fair PLAY.'],
     hurt: ['GARGH!', 'Ye little—!'],
   },
-  music: 'world', arena: 'dome', voice: { pitch: 0.76, grit: 0.75 }, purse: 5000, phases: 3,
+  music: 'world', arena: 'dome', voice: { pitch: 0.76, grit: 0.75 }, entrance: 'flex', purse: 5000, phases: 3,
 };
 
 export const WORLD_LEAGUE: BoxerDef[] = [HIROSHI, DUKE, ZARA, MCGRAW];

@@ -102,7 +102,7 @@ export const AUGUSTO: BoxerDef = {
     lose: ['Ahh... finally. Someone new.', 'Take it. It was always going to be someone.'],
     hurt: ['Hnh!', 'Ha!'],
   },
-  music: 'boss', arena: 'coliseum', voice: { pitch: 0.78, grit: 0.5 }, purse: 7000, phases: 4,
+  music: 'boss', arena: 'coliseum', voice: { pitch: 0.78, grit: 0.5 }, entrance: 'raise', purse: 7000, phases: 4,
 };
 
 export const ZARKOV: BoxerDef = {
@@ -194,7 +194,7 @@ export const ZARKOV: BoxerDef = {
     lose: ['Mis... diagnosis...', 'I opened the wrong seam. Remarkable.'],
     hurt: ['Kk!', 'Hnn!'],
   },
-  music: 'boss', arena: 'coliseum', voice: { pitch: 0.86, grit: 0.4 }, purse: 9000, phases: 4,
+  music: 'boss', arena: 'coliseum', voice: { pitch: 0.86, grit: 0.4 }, entrance: 'shadow', purse: 9000, phases: 4,
 };
 
 export const TEMPEST: BoxerDef = {
@@ -292,7 +292,7 @@ export const TEMPEST: BoxerDef = {
     lose: ['You... walked into the eye...', 'Every storm breaks. Fine.'],
     hurt: ['Hah!', 'Chah!'],
   },
-  music: 'boss', arena: 'coliseum', voice: { pitch: 1.0, grit: 0.45 }, purse: 12000, phases: 4,
+  music: 'boss', arena: 'coliseum', voice: { pitch: 1.0, grit: 0.45 }, entrance: 'hop', purse: 12000, phases: 4,
 };
 
 export const KANE: BoxerDef = {
@@ -419,7 +419,7 @@ export const KANE: BoxerDef = {
     lose: ['...one.', '*finally, he nods*'],
     hurt: ['...', 'Hn.'],
   },
-  music: 'final', arena: 'coliseum', voice: { pitch: 0.66, grit: 0.8 }, purse: 25000, phases: 5,
+  music: 'final', arena: 'coliseum', voice: { pitch: 0.66, grit: 0.8 }, entrance: 'fold', purse: 25000, phases: 5,
 };
 
 export const CHAMPIONSHIP_LEAGUE: BoxerDef[] = [AUGUSTO, ZARKOV, TEMPEST, KANE];

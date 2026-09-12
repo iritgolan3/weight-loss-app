@@ -13,6 +13,18 @@ import { EnemyAI } from '../ai/EnemyAI';
 import { PlayerProfile } from '../ai/PlayerProfile';
 import { AnimationSystem } from '../anim/AnimationSystem';
 
+/**
+ * The opening sequence, beat by beat, in seconds.
+ *
+ * These add up to the referee's `introSeconds`. Slower than a modern game
+ * wants to be, on purpose: the entrance is where an arcade boxing game sells
+ * that the next three minutes matter.
+ */
+const INTRO_ARENA = 1.5;
+const INTRO_OPPONENT = 2.9;
+const INTRO_REFEREE = 1.6;
+export const INTRO_TOTAL = INTRO_ARENA + INTRO_OPPONENT + INTRO_REFEREE;
+
 import { ArenaRenderer, RING, RING_BAND_H, OPPONENT_UNIT, PLAYER_UNIT } from '../render/ArenaRenderer';
 import type { CrowdMood } from '../render/Crowd';
 import { CameraController } from '../render/CameraController';
@@ -145,6 +157,7 @@ export class FightScene implements Scene {
 
     this.playerAnim = new AnimationSystem(PLAYER_LOOK, false);
     this.oppAnim = new AnimationSystem(this.def.appearance, true);
+    this.oppAnim.entrance = this.def.entrance;
     this.playerArt = new FighterRenderer(PLAYER_LOOK);
     this.oppArt = new FighterRenderer(this.def.appearance);
     this.arena = new ArenaRenderer(game.renderer);
@@ -663,6 +676,8 @@ export class FightScene implements Scene {
       settings: this.game.settings.current,
       time: this.animTime,
       tell: this.tellInfo,
+      intro: this.ref.phase === FightPhase.Intro ? this.introBeat() : null,
+      arena: { name: this.arenaDef.name, location: this.arenaDef.location },
       counterWindow: this.counterWindow,
       drill: this.setup.training
         ? {
@@ -698,25 +713,39 @@ export class FightScene implements Scene {
 
     this.arena.drawBack(ctx, this.arenaDef, this.animTime, this.game.loop.time.rawDt);
 
+    const ib = this.ref.phase === FightPhase.Intro ? this.introBeat() : null;
+
     // --- Opponent ---
     const oppTell = this.opponent.tellGlow;
     if (oppTell > 0.05) this.drawTellPulse(ctx, cx, oppTell);
+
+    // During the arena beat he is not in the ring yet; during his own beat he
+    // walks out of his corner to the centre. Arriving is half the entrance.
+    let walkIn = 0;
+    let introAlpha = 1;
+    if (ib) {
+      if (ib.beat === 'arena') { walkIn = 1; introAlpha = clamp01(ib.t * 2 - 1.2); }
+      else if (ib.beat === 'opponent') { walkIn = 1 - Ease.cubicOut(clamp01(ib.t * 2.2)); }
+    }
     // A downed fighter lies toward the back of the ring, not into the camera:
     // raise and shrink them so the sprawl never lands on top of the player.
     const down = this.downAmount(this.opponent);
     this.oppArt.draw(ctx, this.oppAnim.pose, {
-      x: cx, y: RING.opponentFeet - down * 168,
+      // In from the left: the referee works the right side of the ring, and
+      // walking the opponent through him is not an entrance.
+      x: cx - walkIn * 560, y: RING.opponentFeet - down * 168 - walkIn * 46,
       unit: OPPONENT_UNIT * (1 - down * 0.12), facing: -1, showFace: true, flash: this.opponent.flash, tell: oppTell,
       tellColor: this.opponent.telegraphColor,
       rage: this.opponent.ragePulse, stun: this.opponent.state === FState.Stunned ? 1 : 0,
       gassed: this.opponent.stamina.gassed ? 1 : clamp01(1 - this.opponent.health.fraction * 1.4),
-      hurt: clamp01(1 - this.opponent.health.fraction), alpha: 1, time: this.animTime,
+      hurt: clamp01(1 - this.opponent.health.fraction), alpha: introAlpha, time: this.animTime,
     });
 
     // The referee works between the two fighters in depth: behind the player,
     // in front of the man he is counting over.
     this.arena.drawReferee(ctx, dw, this.animTime, this.refereeState(),
-      this.ref.phase === FightPhase.Count ? this.ref.timer : 0);
+      ib ? (ib.beat === 'referee' ? ib.t : 0)
+         : this.ref.phase === FightPhase.Count ? this.ref.timer : 0);
 
     this.vfx.drawWorld(ctx);
 
@@ -742,7 +771,27 @@ export class FightScene implements Scene {
   }
 
   /** What the referee should be doing right now. */
-  private refereeState(): 'idle' | 'counting' | 'waveOff' | 'raiseWinner' {
+  /**
+   * The opening sequence, as beats inside the referee's Intro phase.
+   *
+   * ARENA -> OPPONENT -> REFEREE -> (bell). The player never gets dropped
+   * straight into a live round: the sequence establishes where he is, who he
+   * is fighting, and that an official is running it, and each beat gives the
+   * eye one thing at a time. Any button skips the whole thing.
+   */
+  private introBeat(): { beat: 'arena' | 'opponent' | 'referee'; t: number } {
+    const e = this.ref.timer;
+    if (e < INTRO_ARENA) return { beat: 'arena', t: clamp01(e / INTRO_ARENA) };
+    if (e < INTRO_ARENA + INTRO_OPPONENT) {
+      return { beat: 'opponent', t: clamp01((e - INTRO_ARENA) / INTRO_OPPONENT) };
+    }
+    return { beat: 'referee', t: clamp01((e - INTRO_ARENA - INTRO_OPPONENT) / INTRO_REFEREE) };
+  }
+
+  private refereeState(): 'idle' | 'counting' | 'waveOff' | 'raiseWinner' | 'instruct' {
+    if (this.ref.phase === FightPhase.Intro) {
+      return this.introBeat().beat === 'referee' ? 'instruct' : 'idle';
+    }
     if (this.ref.phase === FightPhase.Count) return 'counting';
     if (this.ref.phase === FightPhase.Finished) {
       return this.ref.result?.winner === this.player ? 'raiseWinner' : 'waveOff';

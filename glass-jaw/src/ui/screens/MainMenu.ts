@@ -61,7 +61,7 @@ export class MainMenu extends MenuScreen {
       hint: career.state.active
         ? `Pick the ladder back up. Next up: ${next?.name ?? 'nobody — you hold the belt'}.`
         : 'Four leagues, sixteen opponents, one belt. Earn money between fights and spend it on your own attributes.',
-      run: () => { career.start(); g.push(new CareerScreen(g)); },
+      run: () => { career.start(); g.goPush(new CareerScreen(g)); },
     });
 
     items.push({
@@ -86,34 +86,34 @@ export class MainMenu extends MenuScreen {
       kind: 'action', label: 'ARCADE',
       value: () => `${career.unlockedBoxers().length} unlocked`,
       hint: 'Any opponent you have unlocked, at any difficulty, for a score.',
-      run: () => g.push(new ArcadeScreen(g)),
+      run: () => g.goPush(new ArcadeScreen(g)),
     });
     items.push({
       kind: 'action', label: 'TRAINING',
       hint: 'Seven drills against any unlocked opponent. This is where you actually learn somebody.',
-      run: () => g.push(new TrainingScreen(g)),
+      run: () => g.goPush(new TrainingScreen(g)),
     });
     items.push({
       kind: 'action', label: 'BOXER PROFILES',
       hint: 'Tale of the tape for all sixteen, plus the weak point of everyone you have found one on.',
-      run: () => g.push(new RosterScreen(g)),
+      run: () => g.goPush(new RosterScreen(g)),
     });
 
     items.push({ kind: 'header', label: 'Other' });
     items.push({
       kind: 'action', label: 'STATISTICS',
       hint: 'Lifetime record, accuracy, knockdowns and your best time against every opponent.',
-      run: () => g.push(new StatsScreen(g)),
+      run: () => g.goPush(new StatsScreen(g)),
     });
     items.push({
       kind: 'action', label: 'SETTINGS',
       hint: 'Difficulty, audio, graphics, accessibility and fully remappable controls.',
-      run: () => g.push(new SettingsScreen(g)),
+      run: () => g.goPush(new SettingsScreen(g)),
     });
     items.push({
       kind: 'action', label: 'CREDITS',
       hint: 'Who made this, and what it is and is not built from.',
-      run: () => g.push(new CreditsScreen(g)),
+      run: () => g.goPush(new CreditsScreen(g)),
     });
 
     this.items = items;
@@ -128,7 +128,7 @@ export class MainMenu extends MenuScreen {
     // import, which meant the stack replacement landed several frames later —
     // often after the player had already opened another screen, wiping it.
     this.game.audio.play('uiBack');
-    this.game.replace(new TitleScreen(this.game));
+    this.game.goReplace(new TitleScreen(this.game));
   }
 
   protected override footerHint(): string {

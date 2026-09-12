@@ -101,7 +101,7 @@ try {
   await expectScene(page, 'title', 'boot');
   await shot(page, 'title');
 
-  await key(page, 'Enter', 500);
+  await key(page, 'Enter', 1100);
   await expectScene(page, 'mainmenu', 'title->menu');
   await shot(page, 'mainmenu');
 
@@ -118,7 +118,7 @@ try {
 
   for (const s of screens) {
     await selectRow(page, s.row);
-    await key(page, 'Enter', 600);
+    await key(page, 'Enter', 1100);
     await expectScene(page, s.scene, `open ${s.name}`);
     await shot(page, s.name);
 
@@ -140,17 +140,18 @@ try {
     }
     if (s.name === 'credits') await wait(page, 1400);
 
-    await key(page, 'Escape', 550);
+    await key(page, 'Escape', 1100);
     await expectScene(page, 'mainmenu', `close ${s.name}`);
   }
 
   // -------------------------------------------------------- 3. Full fight ---
   await selectRow(page, 'QUICK FIGHT');
-  await key(page, 'Enter', 900);
+  await key(page, 'Enter', 1400);
   await expectScene(page, 'fight', 'start fight');
   await shot(page, 'fight-intro');
 
-  await key(page, 'Space', 1400);
+  // The opening sequence is six seconds; skip it, then let the round card clear.
+  await key(page, 'Space', 2800);
   await shot(page, 'fight-round');
 
   await key(page, 'Escape', 500);
@@ -200,7 +201,7 @@ try {
   }
   fightResolved = (await scene(page)) === 'result';
   if (!fightResolved) failures.push(`fight never resolved (scene ${await scene(page)})`);
-  else { await wait(page, 2000); await shot(page, 'fight-result'); }
+  else { await wait(page, 2400); await shot(page, 'fight-result'); }
 
   // --------------------------------------------------- 4. Save round-trip ---
   const before = await page.evaluate(() => {
@@ -235,10 +236,10 @@ try {
       p2 = await newPage(w, h, dpr);
       await p2.goto(URL, { waitUntil: 'networkidle' });
       await wait(p2, 700);
-      await key(p2, 'Enter', 350);
+      await key(p2, 'Enter', 1000);
       await selectRow(p2, 'QUICK FIGHT');
-      await key(p2, 'Enter', 1100);
-      await key(p2, 'Space', 900);
+      await key(p2, 'Enter', 1600);
+      await key(p2, 'Space', 2200);
       if ((await scene(p2)) !== 'fight') failures.push(`${label}: fight did not start`);
       await capture(p2, `${OUT}/res-${label}.png`, label);
     } catch (e) {
@@ -254,10 +255,10 @@ try {
     p3 = await newPage();
     await p3.goto(URL, { waitUntil: 'networkidle' });
     await wait(p3, 700);
-    await key(p3, 'Enter', 300);
+    await key(p3, 'Enter', 1000);
     await selectRow(p3, 'QUICK FIGHT');
-    await key(p3, 'Enter', 1100);
-    await key(p3, 'Space', 800);
+    await key(p3, 'Enter', 1600);
+    await key(p3, 'Space', 2200);
     for (const q of ['low', 'medium', 'high', 'ultra']) {
       await p3.evaluate((quality) => window.GLASSJAW.settings.set('quality', quality), q);
       await wait(p3, 1500);

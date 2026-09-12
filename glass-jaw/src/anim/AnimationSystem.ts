@@ -1,5 +1,5 @@
 import { Fighter, FState } from '../combat/Fighter';
-import type { Appearance } from '../data/types';
+import type { Appearance, EntranceStyle } from '../data/types';
 import { clamp01, damp, lerp } from '../core/MathUtil';
 import { clonePose, lerpPoseInto, Pose, stance } from './Pose';
 import * as P from './poses';
@@ -25,6 +25,9 @@ export class AnimationSystem {
 
   /** Small smoothing so state changes never pop. ~2 frames at 60fps. */
   private blendRate = 34;
+
+  /** Which entrance this fighter performs before the bell. */
+  entrance: EntranceStyle = 'hop';
 
   constructor(app: Appearance, private readonly facingCamera: boolean) {
     this.base = stance(app);
@@ -65,7 +68,7 @@ export class AnimationSystem {
 
     switch (f.state) {
       case FState.Intro:
-        P.applyIntro(t, f.progress, time);
+        P.applyIntro(t, f.progress, time, this.entrance);
         break;
 
       case FState.Idle:

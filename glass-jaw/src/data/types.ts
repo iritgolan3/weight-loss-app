@@ -139,6 +139,21 @@ export interface BoxerQuotes {
   hurt: string[];
 }
 
+/** The intro animations a boxer can perform. One per boxer, never shared. */
+export type EntranceStyle =
+  | 'hop'      // bounces on the spot, gloves high
+  | 'raise'    // both arms up to the crowd
+  | 'shadow'   // throws his own combination at the air
+  | 'bow'      // a formal bow, then straight to guard
+  | 'flex'     // arms wide, chest out, slow turn
+  | 'pray'     // gloves together, head down, then up
+  | 'stomp'    // heavy stomps, head low, coming forward
+  | 'spin'     // a showy spin into the stance
+  | 'point'    // points straight down the camera at the player
+  | 'fold'     // arms folded, motionless, unimpressed
+  | 'cross'    // signs a cross, kisses the glove
+  | 'salute';  // a sharp military salute
+
 export interface BoxerDef {
   id: string;
   name: string;
@@ -174,6 +189,15 @@ export interface BoxerDef {
   arena: string;
   /** Voice synthesis character. */
   voice: { pitch: number; grit: number };
+  /**
+   * How this boxer presents himself before the bell.
+   *
+   * Not decoration: the entrance is the first read the player gets on a new
+   * opponent, and it should say something true about him — the showman raises
+   * his arms, the technician shadow-boxes his own combination, the wall just
+   * stands there.
+   */
+  entrance: EntranceStyle;
   /** Prize money for beating them in career mode. */
   purse: number;
   /** Number of distinct phases (informational; the AI uses phaseThresholds). */

@@ -138,6 +138,8 @@ export class ArcadeScreen extends MenuScreen {
       label(ctx, b.archetype, x + w / 2, y + 442, 15, PALETTE.gold, { align: 'center', weight: 900 });
 
       const rows: [string, string][] = [
+        ['LEAGUE', LEAGUE_INFO[b.league].name.toUpperCase()],
+        ['THREAT', threatBar(b)],
         ['AGE', String(b.age)],
         ['HEIGHT', `${b.height} cm`],
         ['WEIGHT', `${b.weight} kg`],
@@ -150,12 +152,24 @@ export class ArcadeScreen extends MenuScreen {
         label(ctx, r[1], x + w - 20, ry, 13, PALETTE.text, { align: 'right', weight: 700 });
       });
 
+      // What the player has actually learned about him — never what he has
+      // not. A weakness is something you find in the ring, not on a menu.
       const rec = this.game.save.data.records[b.id];
       if (rec?.weaknessFound) {
-        label(ctx, 'WEAK POINT KNOWN', x + w / 2, y + h - 22, 14, PALETTE.gold,
-          { align: 'center', weight: 900 });
+        label(ctx, `WEAK POINT KNOWN — ${b.weakness.zone.toUpperCase()}`,
+          x + w / 2, y + h - 22, 14, PALETTE.gold, { align: 'center', weight: 900 });
+      } else {
+        label(ctx, 'WEAK POINT UNDISCOVERED', x + w / 2, y + h - 22, 13, PALETTE.dim,
+          { align: 'center', weight: 800 });
       }
     }
     void FState;
   }
+}
+
+/** A five-step threat rating, from the league and the boxer's place in it. */
+function threatBar(b: BoxerDef): string {
+  const leagueRank = { rookie: 0, pro: 1, world: 2, championship: 3 }[b.league] ?? 0;
+  const n = Math.min(5, 1 + leagueRank + (b.order >= 2 ? 1 : 0));
+  return '\u2588'.repeat(n) + '\u2591'.repeat(5 - n);
 }

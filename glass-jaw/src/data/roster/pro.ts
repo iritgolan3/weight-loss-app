@@ -79,7 +79,7 @@ export const OLGA: BoxerDef = {
     lose: ['...that was well done.', 'I underestimated the pattern. Once.'],
     hurt: ['Tch!', 'Hnn.'],
   },
-  music: 'pro', arena: 'civic', voice: { pitch: 0.95, grit: 0.3 }, purse: 1200, phases: 3,
+  music: 'pro', arena: 'civic', voice: { pitch: 0.95, grit: 0.3 }, entrance: 'bow', purse: 1200, phases: 3,
 };
 
 export const KWAME: BoxerDef = {
@@ -161,7 +161,7 @@ export const KWAME: BoxerDef = {
     lose: ['Haha! You found the beat!', 'Ahh... you changed the song on ME.'],
     hurt: ['Hup!', 'Ho!'],
   },
-  music: 'pro', arena: 'civic', voice: { pitch: 0.98, grit: 0.35 }, purse: 1500, phases: 3,
+  music: 'pro', arena: 'civic', voice: { pitch: 0.98, grit: 0.35 }, entrance: 'spin', purse: 1500, phases: 3,
 };
 
 export const SVEN: BoxerDef = {
@@ -236,7 +236,7 @@ export const SVEN: BoxerDef = {
     lose: ['...the tree fell the wrong way.', 'Hmph. Good swing.'],
     hurt: ['Hrrgh!', 'Nngh!'],
   },
-  music: 'pro', arena: 'civic', voice: { pitch: 0.72, grit: 0.6 }, purse: 1800, phases: 3,
+  music: 'pro', arena: 'civic', voice: { pitch: 0.72, grit: 0.6 }, entrance: 'stomp', purse: 1800, phases: 3,
 };
 
 export const RICO: BoxerDef = {
@@ -316,7 +316,7 @@ export const RICO: BoxerDef = {
     lose: ['You... you waited longer than me.', 'Hah. I taught you that.'],
     hurt: ['Ssss!', 'Agh!'],
   },
-  music: 'pro', arena: 'civic', voice: { pitch: 0.9, grit: 0.4 }, purse: 2200, phases: 3,
+  music: 'pro', arena: 'civic', voice: { pitch: 0.9, grit: 0.4 }, entrance: 'pray', purse: 2200, phases: 3,
 };
 
 export const PRO_LEAGUE: BoxerDef[] = [OLGA, KWAME, SVEN, RICO];
