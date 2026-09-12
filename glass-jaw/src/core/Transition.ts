@@ -29,6 +29,18 @@ export class Transition {
   private action: (() => void) | null = null;
 
   get busy(): boolean { return this.phase !== 'idle'; }
+
+  /**
+   * Whether input should be held while this curtain runs.
+   *
+   * True for a real screen change, so a held button cannot fire again on the
+   * screen behind. FALSE for a plain reveal: the boot fade has no screen
+   * change to protect, and swallowing input during it means the first button
+   * a player presses does nothing — which on a slow machine is most of a
+   * second of an apparently dead title screen.
+   */
+  get blocksInput(): boolean { return this.phase !== 'idle' && this.blocking; }
+  private blocking = false;
   /** True while the screen is fully covered — safe to swap scenes behind it. */
   get covered(): boolean { return this.phase === 'in' && this.t < 0.06; }
 
@@ -42,6 +54,7 @@ export class Transition {
     if (this.phase !== 'idle') return;
     this.kind = kind;
     this.action = action;
+    this.blocking = true;
     this.phase = 'out';
     this.t = 0;
     this.outSeconds = kind === 'ko' ? 0.62 : kind === 'ring' ? 0.4 : 0.26;
@@ -52,6 +65,7 @@ export class Transition {
   reveal(kind: TransitionKind = 'fade'): void {
     this.kind = kind;
     this.action = null;
+    this.blocking = false;
     this.phase = 'in';
     this.t = 0;
     this.inSeconds = 0.36;
@@ -67,6 +81,7 @@ export class Transition {
       this.t = 0;
     } else if (this.phase === 'in' && this.t >= this.inSeconds) {
       this.phase = 'idle';
+      this.blocking = false;
       this.t = 0;
     }
   }

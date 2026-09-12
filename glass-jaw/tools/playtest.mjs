@@ -55,6 +55,22 @@ async function newPage(width = 1600, height = 900, dpr = 1) {
 }
 
 const key = async (p, k, ms = 110) => { await p.keyboard.press(k); await p.waitForTimeout(ms); };
+
+/**
+ * Presses a key until the scene actually changes.
+ *
+ * Software rendering makes the first frames after a load arbitrarily slow, so
+ * a fixed wait is not a reliable way to leave the title screen. Retrying is,
+ * and it still fails loudly if the key genuinely does nothing.
+ */
+async function keyUntil(p, k, expected, label, tries = 12) {
+  for (let i = 0; i < tries; i++) {
+    if ((await scene(p)) === expected) return true;
+    await key(p, k, 420);
+  }
+  failures.push(`${label}: "${k}" never reached "${expected}" (stuck on ${await scene(p)})`);
+  return false;
+}
 const wait = (p, ms) => p.waitForTimeout(ms);
 const scene = (p) => p.evaluate(() => window.GLASSJAW?.current?.name ?? null);
 const shot = (p, name) =>
@@ -101,8 +117,7 @@ try {
   await expectScene(page, 'title', 'boot');
   await shot(page, 'title');
 
-  await key(page, 'Enter', 1100);
-  await expectScene(page, 'mainmenu', 'title->menu');
+  await keyUntil(page, 'Enter', 'mainmenu', 'title->menu');
   await shot(page, 'mainmenu');
 
   // ----------------------------------------------------- 2. Every screen ---
@@ -236,7 +251,7 @@ try {
       p2 = await newPage(w, h, dpr);
       await p2.goto(URL, { waitUntil: 'networkidle' });
       await wait(p2, 700);
-      await key(p2, 'Enter', 1000);
+      await keyUntil(p2, 'Enter', 'mainmenu', `${label} title->menu`);
       await selectRow(p2, 'QUICK FIGHT');
       await key(p2, 'Enter', 1600);
       await key(p2, 'Space', 2200);
@@ -255,7 +270,7 @@ try {
     p3 = await newPage();
     await p3.goto(URL, { waitUntil: 'networkidle' });
     await wait(p3, 700);
-    await key(p3, 'Enter', 1000);
+    await keyUntil(p3, 'Enter', 'mainmenu', 'quality title->menu');
     await selectRow(p3, 'QUICK FIGHT');
     await key(p3, 'Enter', 1600);
     await key(p3, 'Space', 2200);

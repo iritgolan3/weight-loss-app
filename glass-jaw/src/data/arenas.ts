@@ -5,7 +5,14 @@ export interface ArenaDef {
   description: string;
   /** Two-stop backdrop gradient. */
   sky: [string, string];
-  /** Ring canvas colour. */
+  /**
+   * Ring canvas colour.
+   *
+   * Kept dark and low-chroma on purpose. The mat is the single largest area
+   * of the screen, and a saturated one turns the whole frame into that colour
+   * and drags every fighter's palette toward it. The ring should sit back and
+   * let the boxers be the brightest thing in the room.
+   */
   mat: string;
   matAccent: string;
   /** Rope colours, bottom to top. */
@@ -34,7 +41,7 @@ export const ARENAS: Record<string, ArenaDef> = {
     location: 'Hometown',
     description: 'Bare bulbs, a heavy bag with the stuffing showing, and about forty people who have known you since you were nine.',
     sky: ['#2b2418', '#120e08'],
-    mat: '#2f5d8a', matAccent: '#4a86bf',
+    mat: '#2a5279', matAccent: '#3f6f9e',
     ropes: ['#d94f4f', '#e8e8e8', '#4a7fd4'],
     post: '#3a3a44',
     crowd: '#1a1610',
@@ -48,7 +55,7 @@ export const ARENAS: Record<string, ArenaDef> = {
     location: 'Downtown',
     description: 'Sold out, loud, and finally televised. Somebody in the third row has a sign with your name spelled wrong.',
     sky: ['#1b2340', '#080b17'],
-    mat: '#8a3a5d', matAccent: '#c05a85',
+    mat: '#5a2b42', matAccent: '#8a4666',
     ropes: ['#f0f0f0', '#d94f4f', '#f0f0f0'],
     post: '#4a4458',
     crowd: '#141a2c',
@@ -62,7 +69,7 @@ export const ARENAS: Record<string, ArenaDef> = {
     location: 'International',
     description: 'Eighteen thousand people, four languages of booing, and a light rig you can feel on your shoulders.',
     sky: ['#0f1d2e', '#03060d'],
-    mat: '#1f6f6f', matAccent: '#3ba3a3',
+    mat: '#1b5757', matAccent: '#2f8080',
     ropes: ['#4cc9f0', '#f0f0f0', '#4cc9f0'],
     post: '#2a3a4a',
     crowd: '#0a1420',
@@ -76,7 +83,7 @@ export const ARENAS: Record<string, ArenaDef> = {
     location: 'Championship Grounds',
     description: 'The room where the belts live. The lights go out except for one, and the one is on you.',
     sky: ['#2a0f1e', '#0a0308'],
-    mat: '#7a1f2b', matAccent: '#b03040',
+    mat: '#551a22', matAccent: '#8a2837',
     ropes: ['#f4c430', '#f0f0f0', '#f4c430'],
     post: '#5a4020',
     crowd: '#160a10',

@@ -141,9 +141,17 @@ export class ArenaRenderer {
     ctx.save();
     ctx.clip();
 
-    // A darker near band, hard edged, to seat the fighters.
-    ctx.fillStyle = darken(a.mat, 0.86);
-    ctx.fillRect(0, RING.matFar + 300, this.renderer.dw, RING.matNear);
+    // Focused ring lighting, done flat: a bright pool where the opponent
+    // stands, the mat itself a step down, and the near foreground a step down
+    // again. Three hard values, no gradient — that is what a lit ring looks
+    // like in this style, and it puts the eye exactly where the fight is.
+    ctx.fillStyle = lighten(a.mat, 0.13);
+    ctx.beginPath();
+    ctx.ellipse(cx, RING.opponentFeet - 30, 430, 96, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = darken(a.mat, 0.66);
+    ctx.fillRect(0, RING.matFar + 286, this.renderer.dw, RING.matNear);
 
     // Perspective lines: few, flat, deliberate.
     ctx.strokeStyle = a.matAccent;
@@ -336,7 +344,8 @@ export class ArenaRenderer {
       : instruct;
     // He works the right-hand side, and steps toward the middle — but never
     // into it: the centre belongs to the two fighters.
-    const target = state === 'instruct' ? 250 : 340;
+    // He stands BESIDE the man he is counting over, never on top of him.
+    const target = state === 'instruct' ? 250 : state === 'counting' ? 470 : 340;
     const x = lerp(cx + RING.refX, cx + target, inRing);
     const y = lerp(RING.refY, state === 'instruct' ? 840 : 880, inRing);
     const s = lerp(270, 340, inRing);
@@ -348,6 +357,7 @@ export class ArenaRenderer {
     const bob = Math.sin(time * 3) * 3;
     const skin = '#d9a877';
     const shirt = '#f2f0ea';
+    const stripe = '#23232e';
 
     // Legs.
     ctx.strokeStyle = INK;
@@ -364,17 +374,38 @@ export class ArenaRenderer {
     for (const sd of [-1, 1]) {
       ctx.beginPath();
       ctx.moveTo(sd * 9, -52);
-      ctx.lineTo(sd * 13, 0);
+      ctx.lineTo(sd * 13, -6);
       ctx.stroke();
     }
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(sd * 15, -3, 13, 6, 0, 0, Math.PI * 2);
+      ink(ctx, '#15151d', 4);
+    }
 
-    // Torso.
-    ctx.beginPath();
-    ctx.moveTo(-20, -50 + bob * 0.2);
-    ctx.quadraticCurveTo(-22, -100 + bob, 0, -102 + bob);
-    ctx.quadraticCurveTo(22, -100 + bob, 20, -50 + bob * 0.2);
-    ctx.closePath();
-    ink(ctx, shirt, 5);
+    // Torso, in the striped shirt. The stripes are the whole point: they are
+    // the one silhouette in boxing that reads instantly as "official", and
+    // they keep him from being mistaken for a third fighter.
+    const torso = () => {
+      ctx.beginPath();
+      ctx.moveTo(-24, -48 + bob * 0.2);
+      ctx.quadraticCurveTo(-29, -100 + bob, 0, -103 + bob);
+      ctx.quadraticCurveTo(29, -100 + bob, 24, -48 + bob * 0.2);
+      ctx.closePath();
+    };
+    ctx.save();
+    torso();
+    ctx.fillStyle = shirt;
+    ctx.fill();
+    ctx.clip();
+    ctx.fillStyle = stripe;
+    for (let i = -3; i <= 3; i++) ctx.fillRect(i * 13 - 4, -112 + bob, 8, 74);
+    ctx.restore();
+    torso();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
 
     // Bow tie.
     ctx.beginPath();
@@ -396,39 +427,55 @@ export class ArenaRenderer {
     ctx.strokeStyle = INK;
     ctx.lineWidth = 15;
     ctx.beginPath();
-    ctx.moveTo(-18, -88 + bob);
-    ctx.lineTo(-30 - sweep * 22, -70 + bob - armUp * 46);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(18, -88 + bob);
-    ctx.lineTo(30 + sweep * 22, -70 + bob - armUp * 46);
-    ctx.stroke();
-    ctx.strokeStyle = shirt;
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.moveTo(-18, -88 + bob);
-    ctx.lineTo(-30 - sweep * 22, -70 + bob - armUp * 46);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(18, -88 + bob);
-    ctx.lineTo(30 + sweep * 22, -70 + bob - armUp * 46);
-    ctx.stroke();
+    for (const [col, wd] of [[INK, 17], [shirt, 12]] as const) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = wd;
+      for (const sd of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(sd * 23, -90 + bob);
+        ctx.lineTo(sd * (33 + sweep * 22), -66 + bob - armUp * 48);
+        ctx.stroke();
+      }
+    }
 
-    // Head.
+    // Head. Drawn to the same rules as the boxers — flat fill, one hard
+    // shade, black contour — so he sits in the same picture as them.
+    const hy = -122 + bob;
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(0, -122 + bob, 20, 0, Math.PI * 2);
-    ink(ctx, skin, 5);
-    // Hair and a moustache: enough to read as a person.
+    ctx.arc(0, hy, 17.5, 0, Math.PI * 2);
+    ctx.fillStyle = skin;
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = darken(skin, 0.82);
+    ctx.fillRect(5, hy - 22, 22, 44);
+    // Hair, cropped short.
+    ctx.fillStyle = '#3a3038';
     ctx.beginPath();
-    ctx.arc(0, -128 + bob, 20, Math.PI, Math.PI * 2);
-    ink(ctx, '#3a3038', 0);
+    ctx.arc(0, hy - 3, 17.5, Math.PI * 1.04, Math.PI * 1.96);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(0, hy, 17.5, 0, Math.PI * 2);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Eyes, brows and a moustache. Small, but they point where he is looking,
+    // which is how the player reads that he is officiating rather than idle.
+    const look = state === 'counting' || state === 'instruct' ? -0.35 : 0;
     ctx.fillStyle = INK;
-    ctx.fillRect(-7, -118 + bob, 14, 4);
     for (const sd of [-1, 1]) {
       ctx.beginPath();
-      ctx.arc(sd * 7, -124 + bob, 2.6, 0, Math.PI * 2);
+      ctx.ellipse(sd * 6.5 + look * 5, hy - 1, 2.4, 3, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillRect(sd * 10 - 4.5, hy - 9, 9, 2.6);
     }
+    // Moustache, not a letterbox.
+    ctx.fillRect(-5.5, hy + 7, 11, 3);
     ctx.restore();
   }
 }

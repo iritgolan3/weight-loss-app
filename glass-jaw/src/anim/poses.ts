@@ -486,7 +486,10 @@ export function applyKnockdown(out: Pose, t: number, dir: number, time: number):
   // right across the foreground fighter.
   out.rot += d * 1.26 * fall;
   // Re-centre and lift the body so it rests on the mat instead of inside it.
-  out.offset.x -= d * 0.74 * fall;
+  // The lateral drift is small on purpose: a long topple carries the body out
+  // of the lit centre of the ring and behind the referee, and the count is
+  // the one moment the player most needs to see the man on the canvas.
+  out.offset.x -= d * 0.3 * fall;
   out.offset.y -= 0.3 * fall;
   out.scale = lerp(out.scale, 0.94, fall);
 

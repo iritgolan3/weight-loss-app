@@ -574,7 +574,7 @@ export class FightScene implements Scene {
     }
     return {
       x: cx - this.oppAnim.pose.offset.x * OPPONENT_UNIT,
-      y: RING.opponentFeet - this.downAmount(f) * 168,
+      y: RING.opponentFeet + this.downAmount(f) * 22,
     };
   }
 
@@ -727,13 +727,16 @@ export class FightScene implements Scene {
       if (ib.beat === 'arena') { walkIn = 1; introAlpha = clamp01(ib.t * 2 - 1.2); }
       else if (ib.beat === 'opponent') { walkIn = 1 - Ease.cubicOut(clamp01(ib.t * 2.2)); }
     }
-    // A downed fighter lies toward the back of the ring, not into the camera:
-    // raise and shrink them so the sprawl never lands on top of the player.
+    // A downed fighter lies on the canvas at the spot he was standing. The
+    // only concession to depth is a slight shrink: the sprawl is long, and a
+    // full-size one would reach further across the ring than the fighter is
+    // tall. He must never be lifted off the mat — a body floating at head
+    // height is the single most obviously wrong thing a boxing game can draw.
     const down = this.downAmount(this.opponent);
     this.oppArt.draw(ctx, this.oppAnim.pose, {
       // In from the left: the referee works the right side of the ring, and
       // walking the opponent through him is not an entrance.
-      x: cx - walkIn * 560, y: RING.opponentFeet - down * 168 - walkIn * 46,
+      x: cx - walkIn * 560, y: RING.opponentFeet + down * 22 - walkIn * 46,
       unit: OPPONENT_UNIT * (1 - down * 0.12), facing: -1, showFace: true, flash: this.opponent.flash, tell: oppTell,
       tellColor: this.opponent.telegraphColor,
       rage: this.opponent.ragePulse, stun: this.opponent.state === FState.Stunned ? 1 : 0,
@@ -745,7 +748,9 @@ export class FightScene implements Scene {
     // in front of the man he is counting over.
     this.arena.drawReferee(ctx, dw, this.animTime, this.refereeState(),
       ib ? (ib.beat === 'referee' ? ib.t : 0)
-         : this.ref.phase === FightPhase.Count ? this.ref.timer : 0);
+         // ref.timer does not advance during a count; the count itself is the
+         // clock, so the walk-in is driven off how far into it we are.
+         : this.ref.phase === FightPhase.Count ? clamp01(this.ref.count / 2 + 0.35) : 0);
 
     this.vfx.drawWorld(ctx);
 

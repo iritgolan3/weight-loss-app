@@ -19,7 +19,10 @@ const b = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
   args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
 });
-const p = await b.newPage({ viewport: { width: 800, height: 450 } });
+// Small viewport on purpose: software rendering makes a full-size capture
+// of sixteen fights take minutes, and this sheet is for silhouettes,
+// colour and proportion, not for reading the HUD.
+const p = await b.newPage({ viewport: { width: 560, height: 315 } });
 const errors = [];
 p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 p.on('pageerror', (e) => errors.push(String(e.message)));
@@ -31,22 +34,25 @@ const ids = await p.evaluate(() => window.GLASSJAW.roster.map((x) => x.id));
 const frames = [];
 for (const id of ids) {
   await p.evaluate((i) => window.GLASSJAW.startFight(i), id);
-  await p.waitForTimeout(1000);
+  // Past the wipe and into the opponent's own entrance beat.
+  await p.waitForTimeout(1500);
   // Land on the entrance, where the boxer is performing his own animation.
   frames.push({ id, png: (await p.screenshot({ timeout: 60000 })).toString('base64') });
-  await p.evaluate(() => { window.GLASSJAW.current.onQuit?.(); });
-  await p.waitForTimeout(300);
-  // Quitting goes through the pause path in some modes; force the stack back.
+  console.log(`captured ${id}`);
+  // Tear the fight down directly rather than through the quit path, which
+  // would spend another curtain on every boxer. pop() only QUEUES a pop --
+  // current does not change until the next update -- so this counts pops
+  // instead of looping on current, which never terminates.
   await p.evaluate(() => {
     const g = window.GLASSJAW;
-    while (g.current && g.current.name !== 'mainmenu') g.pop();
+    for (let i = 0; i < 6; i++) g.pop();
   });
-  await p.waitForTimeout(400);
+  await p.waitForTimeout(320);
 }
 
 const rows = Math.ceil(frames.length / COLS);
 const sheet = await p.evaluate(async ({ imgs, cols, rows }) => {
-  const W = 800, H = 450, S = 0.62;
+  const W = 560, H = 315, S = 1;
   const c = document.createElement('canvas');
   c.width = cols * W * S; c.height = rows * H * S;
   const x = c.getContext('2d');

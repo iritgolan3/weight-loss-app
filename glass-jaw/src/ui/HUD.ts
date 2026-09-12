@@ -438,14 +438,17 @@ export class HUD {
       });
       label(ctx, 'GET UP', dw / 2, y + 92, 16, PALETTE.dim, { align: 'center', weight: 800 });
     } else {
-      displayText(ctx, `${s.def.name.toUpperCase()} IS DOWN`, dw / 2, dh * 0.6, 44, PALETTE.text, {
+      // Above the canvas, not across it: the body on the mat is the thing
+      // worth looking at during a count.
+      const dy = dh * 0.5;
+      displayText(ctx, `${s.def.name.toUpperCase()} IS DOWN`, dw / 2, dy, 44, PALETTE.text, {
         outlineWidth: 9,
       });
       const bw = 440;
-      bar(ctx, dw / 2 - bw / 2, dh * 0.6 + 42, bw, 20, ref.riseProgress, {
+      bar(ctx, dw / 2 - bw / 2, dy + 42, bw, 20, ref.riseProgress, {
         color: PALETTE.orange, radius: 10,
       });
-      label(ctx, 'RISING', dw / 2, dh * 0.6 + 82, 14, PALETTE.dim, { align: 'center', weight: 800 });
+      label(ctx, 'RISING', dw / 2, dy + 82, 14, PALETTE.dim, { align: 'center', weight: 800 });
     }
     ctx.restore();
   }

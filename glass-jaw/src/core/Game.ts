@@ -199,7 +199,7 @@ export class Game {
     this.flushStack();
     // A scene must not read input through a closed curtain, or a held button
     // fires again on the screen that comes up behind it.
-    if (this.transition.busy) this.input.flush();
+    if (this.transition.blocksInput) this.input.flush();
     this.input.pollPads();
     const top = this.current;
     if (top) top.update(dt, time);
