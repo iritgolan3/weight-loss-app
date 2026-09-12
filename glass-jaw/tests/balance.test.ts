@@ -25,6 +25,7 @@ function avg(boxerId: string, difficulty: Difficulty, skill: BotSkill) {
     seconds: runs.reduce((s, r) => s + r.seconds, 0) / n,
     playerHealth: runs.reduce((s, r) => s + r.playerHealth, 0) / n,
     unavoidable: runs.reduce((s, r) => s + r.unavoidableHits, 0) / n,
+    longestReel: Math.max(...runs.map((r) => r.longestReel)),
     won: runs.filter((r) => r.won).length / n,
   };
 }
@@ -102,8 +103,16 @@ test('opponents land their attacks instead of being mashed out of them', () => {
 test('nobody can chain-stun the player into a loss', () => {
   // "Difficult but fair": being hit while already reeling, with no input
   // possible, has to stay rare. Whiff punishes do not count — those are earned.
+  //
+  // The measure is the longest UNBROKEN run, not the total over the bout. A
+  // handful of hits taken while reeling across three rounds is boxing; a run
+  // the player can never interrupt is the game taking the controller away,
+  // and that is what Fighter's reel break exists to bound.
   for (const b of ALL_BOXERS) {
     const r = avg(b.id, 'normal', 'good');
-    assert.ok(r.unavoidable <= 3, `${b.id} chain-stunned the player ${r.unavoidable.toFixed(1)} times`);
+    assert.ok(r.longestReel <= 3,
+      `${b.id} landed ${r.longestReel} hits on a player who could not act`);
+    assert.ok(r.unavoidable <= 10,
+      `${b.id} chain-stunned the player ${r.unavoidable.toFixed(1)} times`);
   }
 });

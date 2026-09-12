@@ -166,7 +166,7 @@ export const BRUNO: BoxerDef = {
   strengths: ['Colossal damage', 'Barely notices jabs'],
   flaws: ['Slow as weather', 'Lifts both arms before the big one'],
   league: 'rookie', order: 2,
-  stats: { maxHealth: 240, power: 1.35, speed: 0.72, defense: 0.28, poise: 120, getUpHealth: 0.6, knockdownResistance: 1.4 },
+  stats: { maxHealth: 205, power: 1.35, speed: 0.72, defense: 0.28, poise: 120, getUpHealth: 0.6, knockdownResistance: 1.4 },
   weakness: {
     telegraphKinds: ['raiseBoth'],
     zone: 'body',

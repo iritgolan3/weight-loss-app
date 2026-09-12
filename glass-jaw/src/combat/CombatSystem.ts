@@ -203,6 +203,16 @@ export class CombatSystem {
       defender.special.charge = Math.max(0, defender.special.charge - 0.35);
     }
 
+    // A counter that lands buys the defender a moment where they cannot be
+    // countered again, so a good read pays once and has to be earned afresh.
+    if (v.outcome === 'perfectCounter' || v.outcome === 'weakness') {
+      defender.counterLock = 0.95;
+      this.bus.emit('countered', { fighter: defender, perfect: true });
+    } else if (v.outcome === 'counter') {
+      defender.counterLock = 0.5;
+      this.bus.emit('countered', { fighter: defender, perfect: false });
+    }
+
     let reason: TokenReason | null = null;
     if (v.outcome === 'weakness') reason = 'weakness';
     else if (v.outcome === 'perfectCounter') reason = 'perfectCounter';

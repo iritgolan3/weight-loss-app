@@ -365,6 +365,36 @@ export class EnemyAI {
   notifyLanded(): void { this.frustration = 0; }
   notifyMissed(): void { this.frustration += 1; }
 
+  /**
+   * A counter just landed on this fighter.
+   *
+   * He resets: whatever he was doing is abandoned and he takes a real beat
+   * behind the guard before committing to anything again. This is the shape
+   * of the loop the whole game is built on -- read the tell, take the
+   * opening, and then WAIT for the next one. Without it he simply attacked
+   * again immediately, every attack was another opening, and a competent
+   * player could land a counter every two seconds until the referee stopped
+   * it, without ever having to learn his pattern.
+   *
+   * The pause is shorter at higher difficulty: that is one of the things
+   * difficulty is allowed to change.
+   */
+  notifyCountered(perfect: boolean): void {
+    this.routine = null;
+    this.reactAction = null;
+    this.feinting = false;
+    // Scaled by the boxer's own rhythm: a relentless pressure fighter resets
+    // faster than a patient counter-puncher, so the pause reads as character
+    // rather than as a uniform pause button.
+    // idleGap is authored in FRAMES; 40 is the middle of the roster's range,
+    // so this reads as "relative to how patient this boxer normally is".
+    const rhythm = this.def.ai.idleGap[0] / 40;
+    const beat = (perfect ? 1.5 : 0.85) * this.difficulty.tempo * rhythm;
+    this.idleTimer = Math.max(this.idleTimer, beat);
+    this.idleGuardDecided = false;
+    this.idleGuard = true;
+  }
+
   // -- Main tick -------------------------------------------------------------
 
   update(dt: number, player: Fighter): void {

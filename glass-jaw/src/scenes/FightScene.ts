@@ -354,6 +354,10 @@ export class FightScene implements Scene {
       this.ref.onKnockdown(fighter);
     }));
 
+    this.unsub.push(this.bus.on('countered', ({ fighter, perfect }) => {
+      if (!fighter.isPlayer) this.ai.notifyCountered(perfect);
+    }));
+
     this.unsub.push(this.bus.on('countOut', () => {
       if (this.ref.count > 0 && this.ref.count <= 10) audio.count(this.ref.count);
     }));

@@ -95,13 +95,13 @@ export function scaleAttack(a: AttackDef, speed: number, damage: number): Attack
 const jabBase = {
   zone: 'head' as Zone, startup: 4, active: 3, recovery: 10,
   damage: 2.5, stamina: 7, chip: 0.16, stunPower: 4, weight: 1,
-  counterMult: 2.0, parryWindow: 7, perfectDodgeWindow: 7,
+  counterMult: 2.8, parryWindow: 7, perfectDodgeWindow: 7,
 };
 
 const bodyBase = {
   zone: 'body' as Zone, startup: 5, active: 3, recovery: 12,
   damage: 3.2, stamina: 9, chip: 0.22, stunPower: 3, weight: 1.2,
-  counterMult: 2.0, parryWindow: 7, perfectDodgeWindow: 7,
+  counterMult: 2.8, parryWindow: 7, perfectDodgeWindow: 7,
 };
 
 export const PLAYER_ATTACKS: Record<string, AttackDef> = {
@@ -177,3 +177,10 @@ export const HITSTUN = {
   stunned: 150,
   knockdownGetUp: 90,
 } as const;
+
+/**
+ * Frames of shove-clear invulnerability after the third consecutive hit with
+ * no chance to act in between. Short enough that it is not a free escape,
+ * long enough to get the ring back. See Fighter.takeDamage.
+ */
+export const REEL_BREAK = 20;

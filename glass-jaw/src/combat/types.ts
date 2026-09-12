@@ -39,6 +39,8 @@ export interface FightEvents extends Record<string, unknown> {
   block: { fighter: Fighter; correct: boolean };
   parry: { fighter: Fighter };
   guardBreak: { fighter: Fighter };
+  /** A counter landed on this fighter; they should reset rather than swing back. */
+  countered: { fighter: Fighter; perfect: boolean };
   stun: { fighter: Fighter };
   stunRecover: { fighter: Fighter };
   knockdown: { fighter: Fighter; count: number };

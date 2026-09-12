@@ -76,7 +76,15 @@ export function judge(attacker: Fighter, defender: Fighter, attack: AttackDef): 
   }
 
   // --- 6. Clean hit -------------------------------------------------------
-  return { outcome: 'hit', mult: 1, stunBonus: 0 };
+  //
+  // A punch that lands on a fighter who is not winding up, not recovering and
+  // not open is a punch thrown into a set opponent, and it is worth very
+  // little. This is the rule the whole design rests on: the fight is decided
+  // by reading his pattern and hitting the moments it leaves open, not by
+  // out-throwing him. At full value, trading punches beat reading him, and
+  // every opponent in the game could be walked down by a player who never
+  // looked at a single telegraph.
+  return { outcome: 'hit', mult: 0.34, stunBonus: 0 };
 }
 
 /** Impact point in the target's local body space, used to place VFX. */

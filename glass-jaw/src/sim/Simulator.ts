@@ -35,6 +35,15 @@ export interface SimResult {
    * a fair whiff punish, and the player chose to throw it.
    */
   unavoidableHits: number;
+  /**
+   * The longest unbroken run of those.
+   *
+   * This, not the total, is the fairness property: over a three-round fight a
+   * handful of hits taken while reeling is boxing, but a run the player can
+   * never interrupt is the game taking the controller away. The reel break in
+   * Fighter.takeDamage is what bounds it.
+   */
+  longestReel: number;
 }
 
 export type BotSkill = 'perfect' | 'good' | 'sloppy' | 'masher';
@@ -83,7 +92,7 @@ export class Simulator {
   private stats = {
     punchesThrown: 0, punchesLanded: 0, perfectDodges: 0, parries: 0,
     counters: 0, weaknessHits: 0, knockdownsDealt: 0, knockdownsTaken: 0,
-    blocked: 0, unavoidableHits: 0,
+    blocked: 0, unavoidableHits: 0, longestReel: 0, currentReel: 0,
   };
 
   /** Set while the bot has decided to react to the current telegraph. */
@@ -92,6 +101,8 @@ export class Simulator {
   private reactedTo: string | null = null;
   /** The opponent attack that put the player into their current hit reaction. */
   private stunnedBy = -1;
+  /** The player attack already counted as landed. */
+  private landedSeq = -1;
 
   constructor(
     private readonly def: BoxerDef,
@@ -123,6 +134,9 @@ export class Simulator {
     );
 
     this.bus.on('hit', (r) => this.onHit(r));
+    this.bus.on('countered', ({ fighter, perfect }) => {
+      if (!fighter.isPlayer) this.ai.notifyCountered(perfect);
+    });
     this.bus.on('knockdown', ({ fighter }) => {
       if (fighter.isPlayer) this.stats.knockdownsTaken++;
       else this.stats.knockdownsDealt++;
@@ -134,7 +148,13 @@ export class Simulator {
     if (r.attacker.isPlayer) {
       switch (r.outcome) {
         case 'hit': case 'counter': case 'perfectCounter': case 'weakness':
-          this.stats.punchesLanded++;
+          // Once per punch thrown, not once per hit resolved: a multi-hit
+          // combination is one throw, and counting each landing separately
+          // produced accuracy figures above 100%.
+          if (this.player.attackSeq !== this.landedSeq) {
+            this.landedSeq = this.player.attackSeq;
+            this.stats.punchesLanded++;
+          }
           if (r.outcome === 'weakness') this.stats.weaknessHits++;
           if (r.outcome === 'counter' || r.outcome === 'perfectCounter') this.stats.counters++;
           break;
@@ -152,7 +172,11 @@ export class Simulator {
         // a whole combo is the point of throwing one.
         const reeling = this.player.state === FState.HitStun ||
           this.player.state === FState.Stagger || this.player.state === FState.Stunned;
-        if (reeling && this.opponent.attackSeq !== this.stunnedBy) this.stats.unavoidableHits++;
+        if (reeling && this.opponent.attackSeq !== this.stunnedBy) {
+          this.stats.unavoidableHits++;
+          this.stats.currentReel++;
+          this.stats.longestReel = Math.max(this.stats.longestReel, this.stats.currentReel);
+        }
         this.stunnedBy = this.opponent.attackSeq;
       }
     }
@@ -289,6 +313,10 @@ export class Simulator {
       this.player.update(dt);
       this.opponent.update(dt);
       this.profile.update(dt);
+      // The run ends the moment the player can act again, not merely when the
+      // next punch happens to arrive with them on their feet. Resetting only
+      // on the latter counted two separate runs as one.
+      if (this.player.canAct) this.stats.currentReel = 0;
       t += dt;
     }
 

@@ -1,4 +1,4 @@
-import { AttackDef, DEFENSE, FRAME, HITSTUN, Zone } from './Attack';
+import { AttackDef, DEFENSE, FRAME, HITSTUN, REEL_BREAK, Zone } from './Attack';
 import { HealthSystem } from './HealthSystem';
 import { StaminaSystem } from './StaminaSystem';
 import { SpecialSystem } from './SpecialSystem';
@@ -212,9 +212,29 @@ export class Fighter {
    * Committed to an offensive action — wind-up included. Catching someone
    * mid-telegraph is a counter, which is the whole reward for reading a tell.
    */
+  /**
+   * In a read window: winding up, or recovering from something that missed.
+   *
+   * These are the two moments a pattern-based fight is ABOUT — the tell you
+   * saw coming, and the recovery you earned by making him miss. Startup and
+   * active frames are deliberately excluded: trading punches with a fighter
+   * mid-swing is not a counter, it is a trade, and letting it score as one
+   * meant every exchange in the game paid counter damage.
+   */
   get isCommitted(): boolean {
-    return this.isAttacking || this.state === FState.Windup;
+    if (this.counterLock > 0) return false;
+    return this.state === FState.Windup || this.state === FState.Recovery;
   }
+
+  /**
+   * Blocks counter chaining.
+   *
+   * Set whenever a counter lands. Without it a heavy counter staggers them,
+   * a stagger reads as an opening, and the opening pays another heavy
+   * counter -- a loop that let a mediocre player TKO the entire roster
+   * inside one round without ever reading a telegraph.
+   */
+  counterLock = 0;
 
   get isDown(): boolean {
     return this.state === FState.KnockedDown || this.state === FState.GettingUp;
@@ -226,10 +246,15 @@ export class Fighter {
 
   get isInvulnerable(): boolean { return this.invuln > 0; }
 
-  /** Wide open: guaranteed perfect counter for the attacker. */
+  /**
+   * Wide open: guaranteed perfect counter for the attacker.
+   *
+   * Only states the ATTACKER earned. A stagger used to be on this list, which
+   * made every heavy hit its own next opening.
+   */
   get isOpen(): boolean {
-    return this.openTimer > 0 || this.state === FState.Stunned ||
-      this.state === FState.Stagger || this.state === FState.Parry;
+    if (this.counterLock > 0) return false;
+    return this.openTimer > 0 || this.state === FState.Stunned;
   }
 
   /** 0..1 progress through the current state. */
@@ -392,6 +417,42 @@ export class Fighter {
 
     if (this.health.isDown) { this.knockDown(); return true; }
 
+    // --- Reel break ---------------------------------------------------------
+    //
+    // Count hits taken without ever getting back to neutral in between. On the
+    // third, the fighter is shoved clear with a short window of invulnerability
+    // instead of being pinned in place.
+    //
+    // "Difficult but fair" has to mean something mechanical, and this is it:
+    // however badly you are losing, you always get the ring back and a chance
+    // to do something about it. Without it the reeling states feed each other
+    // -- a stunned fighter is wide open, a hit on a wide-open fighter is a
+    // counter, a counter stuns -- and a bad moment becomes a fight you never
+    // touch a button in again.
+    //
+    // Counted here, above the stun and armour branches, because a hit that
+    // stuns is still a hit the fighter could not answer; leaving it out let a
+    // run reach four.
+    const willReact = this.stunMeter >= this.stats.poise || !this.hasArmor || breakArmor;
+    if (willReact) {
+      const reeling = this.state === FState.HitStun || this.state === FState.Stagger ||
+        this.state === FState.Stunned;
+      this.reelCount = reeling ? this.reelCount + 1 : 1;
+      if (this.reelCount >= 3) {
+        this.reelCount = 0;
+        this.stunMeter = 0;
+        // Clear the dodge direction with it. A tracking attack is allowed to
+        // follow a predictable DODGE through its i-frames, but the reel break
+        // is not a dodge — it is the guarantee that the fighter gets the ring
+        // back, and a stale dodgeDir was letting tracking attacks through it.
+        this.dodgeDir = 0;
+        this.invuln = REEL_BREAK * FRAME;
+        this.interrupt();
+        this.setState(FState.HitStun, REEL_BREAK);
+        return false;
+      }
+    }
+
     if (this.stunMeter >= this.stats.poise) {
       this.stunMeter = 0;
       this.interrupt();
@@ -408,6 +469,9 @@ export class Fighter {
     this.setState(heavy ? FState.Stagger : FState.HitStun, heavy ? HITSTUN.heavy : HITSTUN.light);
     return false;
   }
+
+  /** Consecutive hits taken without returning to neutral. See takeDamage. */
+  reelCount = 0;
 
   knockDown(): void {
     this.interrupt();
@@ -453,6 +517,9 @@ export class Fighter {
 
     // Fast enough to read as an impact frame rather than a glow.
     this.flash = Math.max(0, this.flash - dt * 13);
+    this.counterLock = Math.max(0, this.counterLock - dt);
+    // Back on their feet and able to act: the reel is over.
+    if (this.state === FState.Idle || this.state === FState.Block) this.reelCount = 0;
     this.recoil = damp(this.recoil, 0, 9, dt);
     this.bob += dt;
 
