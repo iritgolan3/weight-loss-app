@@ -38,9 +38,11 @@ await page.keyboard.press('Enter'); await wait(900);
 await page.keyboard.press('Space'); await wait(1200); // through the intro
 
 /**
- * A bot that plays the way a person does: watches for the telegraph, defends,
- * and punishes the recovery. Random mashing tells you nothing about whether
- * the timing reads.
+ * A bot that plays the way a person does.
+ *
+ * It watches for the telegraph, gets out of the way, and punishes the opening
+ * that buys. Random mashing is worthless by design, so a mashing bot tells you
+ * nothing about whether the fight actually works.
  */
 async function act() {
   const s = await page.evaluate(() => {
@@ -48,20 +50,25 @@ async function act() {
     const o = sc.opponent, p = sc.player;
     if (!o || !p) return null;
     return {
-      tell: o.tellGlow ?? 0, oState: o.state, pState: p.state,
+      tell: o.tellGlow ?? 0, oState: o.state, pState: p.state, open: o.isOpen,
       stamina: p.stamina?.fraction ?? 1, stars: p.special?.tokens ?? 0,
       oHealth: o.health?.fraction ?? 1, pHealth: p.health?.fraction ?? 1,
-      phase: sc.ref?.phase,
+      phase: sc.ref?.phase, kd: o.totalKnockdowns, canAct: p.canAct,
     };
   }).catch(() => null);
-  if (!s) return s;
-  if (s.tell > 0.4) {
+  if (!s || !s.canAct) return s;
+
+  if (s.tell > 0.35 && Math.random() < 0.6) {
     await page.keyboard.press(Math.random() < 0.5 ? 'KeyQ' : 'KeyE');
-  } else if (s.oState === 'Recover' || s.oState === 'Stunned') {
+  } else if (s.open) {
+    // The window a dodge or a parry just bought.
     await page.keyboard.press(Math.random() < 0.5 ? 'KeyA' : 'KeyD');
-  } else if (s.stars >= 1 && Math.random() < 0.25) {
+  } else if (s.oState === 'Recovery' || s.oState === 'Windup') {
+    await page.keyboard.press('KeyW');
+    await page.keyboard.press(Math.random() < 0.5 ? 'KeyA' : 'KeyD');
+  } else if (s.stars >= 2 && Math.random() < 0.4) {
     await page.keyboard.press('ShiftLeft');
-  } else if (Math.random() < 0.35) {
+  } else if (Math.random() < 0.2) {
     await page.keyboard.press('Space');
   }
   return s;
@@ -77,7 +84,7 @@ for (let i = 0; i < N; i++) {
   if (!buf) break;
   frames.push(buf.toString('base64'));
   const s = await act();
-  log.push(s && { p: +s.pHealth.toFixed(2), o: +s.oHealth.toFixed(2), st: +s.stamina.toFixed(2), stars: s.stars, phase: s.phase });
+  log.push(s && { p: +s.pHealth.toFixed(2), o: +s.oHealth.toFixed(2), st: +s.stamina.toFixed(2), stars: s.stars, kd: s.kd, phase: s.phase });
 }
 
 // Tile client-side; there is no image library in this container.

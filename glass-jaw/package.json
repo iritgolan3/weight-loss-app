@@ -11,7 +11,12 @@
     "typecheck": "tsc --noEmit",
     "test": "node tools/run-tests.mjs",
     "playtest": "node tools/playtest.mjs",
-    "standalone": "node tools/build-standalone.mjs && node tools/verify-standalone.mjs"
+    "standalone": "node tools/build-standalone.mjs && node tools/verify-standalone.mjs",
+    "balance": "node tools/run-balance.mjs",
+    "filmstrip": "node tools/filmstrip.mjs",
+    "roster": "node tools/roster-sheet.mjs",
+    "intro": "node tools/intro-strip.mjs",
+    "knockdown": "node tools/kd-strip.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
