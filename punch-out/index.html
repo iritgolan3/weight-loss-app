@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Punch-Out!!">
+<meta name="description" content="A hand-built replica of the NES boxing classic: 14 fights, 12 opponents, stars, hearts and the Dream Fight.">
+<title>Punch-Out!!</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥊</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='.9em' x='.05em' font-size='85'>🥊</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="shell">
+  <div id="stage"><canvas id="screen" width="256" height="224"></canvas></div>
+
+  <div id="touch">
+    <div class="cluster dpad">
+      <div class="pad-btn up"    data-btn="up">▲</div>
+      <div class="pad-btn left"  data-btn="left">◀</div>
+      <div class="pad-btn right" data-btn="right">▶</div>
+      <div class="pad-btn down"  data-btn="down">▼</div>
+      <div class="pad-hub"></div>
+    </div>
+
+    <div class="cluster middle">
+      <div class="sys-btn" data-btn="select">SELECT</div>
+      <div class="sys-btn" data-btn="start">START</div>
+    </div>
+
+    <div class="cluster face">
+      <div class="face-btn b" data-btn="b">B</div>
+      <div class="face-btn a" data-btn="a">A</div>
+    </div>
+  </div>
+
+  <p id="help">
+    <b>Keyboard</b> — Arrows dodge &amp; duck · <b>Up</b>+punch goes to the head ·
+    <b>X</b> right hook · <b>Z</b> left hook · <b>Enter</b> star punch · <b>Q</b> second wind.
+    <b>Touch</b> — use the pad, or swipe the screen to dodge and tap to punch.
+  </p>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/art.js"></script>
+<script src="js/roster.js"></script>
+<script src="js/fight.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

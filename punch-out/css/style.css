@@ -1,0 +1,103 @@
+:root{
+  --bezel:#181818;
+  --pad:#2b2b2f;
+  --pad-hi:#3d3d44;
+  --red:#c8102e;
+  --ink:#e8e8e8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:#0b0b0d;
+  color:var(--ink);
+  font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;justify-content:center;align-items:center;
+  overscroll-behavior:none;
+  touch-action:none;
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+#shell{
+  display:flex;flex-direction:column;align-items:center;
+  gap:14px;width:100%;height:100%;padding:12px;
+}
+#stage{
+  flex:1 1 auto;min-height:0;width:100%;
+  display:flex;align-items:center;justify-content:center;
+}
+#screen{
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  background:#000;
+  border:3px solid var(--bezel);
+  border-radius:4px;
+  box-shadow:0 0 0 2px #000,0 12px 40px rgba(0,0,0,.8);
+  display:block;
+}
+
+/* ---------- touch pad ---------- */
+#touch{display:none;}
+.cluster{display:flex;align-items:center;justify-content:center;}
+
+.dpad{position:relative;width:132px;height:132px;flex:0 0 auto;}
+.pad-btn{
+  position:absolute;background:var(--pad);color:#9a9aa2;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;line-height:1;border-radius:6px;
+  border:1px solid #000;
+}
+.pad-btn.up   {left:44px;top:0;    width:44px;height:48px;}
+.pad-btn.down {left:44px;bottom:0; width:44px;height:48px;}
+.pad-btn.left {left:0;   top:44px; width:48px;height:44px;}
+.pad-btn.right{right:0;  top:44px; width:48px;height:44px;}
+.pad-hub{position:absolute;left:44px;top:44px;width:44px;height:44px;background:var(--pad);border:1px solid #000;}
+.pad-btn.on{background:var(--pad-hi);color:#fff;}
+
+.middle{flex-direction:column;gap:10px;flex:1 1 auto;}
+.sys-btn{
+  background:var(--pad);color:#c9c9d0;border:1px solid #000;
+  border-radius:14px;padding:9px 18px;font-size:11px;letter-spacing:.14em;
+  font-weight:600;
+}
+.sys-btn.on{background:var(--pad-hi);color:#fff;}
+
+.face{gap:16px;flex:0 0 auto;transform:rotate(-18deg);}
+.face-btn{
+  width:64px;height:64px;border-radius:50%;
+  background:var(--red);color:#fff;border:1px solid #000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:700;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.35);
+}
+.face-btn.on{background:#e8384f;box-shadow:inset 0 3px 6px rgba(0,0,0,.45);}
+
+#help{
+  max-width:680px;text-align:center;color:#8d8d96;font-size:12.5px;
+  line-height:1.6;padding:0 6px;
+}
+#help b{color:#d8d8de;font-weight:600;}
+
+/* show the pad on anything touch-first, and on short/narrow screens */
+@media (pointer:coarse){
+  #touch{
+    display:flex;width:100%;max-width:520px;gap:6px;
+    align-items:center;justify-content:space-between;
+    padding:0 4px;flex:0 0 auto;
+  }
+  #help{display:none;}
+  #shell{gap:8px;padding:6px 4px;justify-content:space-between;}
+  #stage{flex:1 1 auto;}
+  .dpad{width:120px;height:120px;}
+  .pad-btn.up   {left:40px;top:0;    width:40px;height:44px;}
+  .pad-btn.down {left:40px;bottom:0; width:40px;height:44px;}
+  .pad-btn.left {left:0;   top:40px; width:44px;height:40px;}
+  .pad-btn.right{right:0;  top:40px; width:44px;height:40px;}
+  .pad-hub{left:40px;top:40px;width:40px;height:40px;}
+  .face{gap:12px;}
+  .face-btn{width:58px;height:58px;font-size:20px;}
+  .sys-btn{padding:8px 14px;font-size:10px;}
+}
+@media (max-height:620px) and (pointer:fine){
+  #help{display:none;}
+}
