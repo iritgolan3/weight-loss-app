@@ -2,7 +2,7 @@
 var CACHE = 'punchout-v1';
 var ASSETS = [
   './', './index.html', './manifest.json', './css/style.css',
-  './js/core.js', './js/audio.js', './js/art.js', './js/roster.js',
+  './js/core.js', './js/audio.js', './js/art.js', './js/roster.js', './js/looks.js',
   './js/fight.js', './js/scenes.js', './js/game.js'
 ];
 

@@ -62,6 +62,7 @@ js/core.js        256×224 framebuffer, NES palette, 8×8 font, input
 js/audio.js       2A03-style synth: two pulses, triangle, noise, sequencer
 js/art.js         fighter construction, ring, crowd, HUD
 js/roster.js      the twelve boxers, their stats and move scripts
+js/looks.js       how each boxer looks: palettes, proportions, faces
 js/fight.js       fight state machines, damage, knockdowns
 js/scenes.js      title, VS cards, results, championships, ending, passwords
 js/game.js        boot, fixed 60fps loop, touch and swipe handling
@@ -82,9 +83,12 @@ to any screen.
 
 ## A note on the assets
 
-Everything here is built from scratch. The sprites are drawn in code from
-hand-authored pixel masks and a parameterised body rig, the music is written in
-the NES march idiom rather than transcribed from the cartridge, and no ROM data,
+Everything here is built from scratch. Each boxer is a body rig — wide sloped
+shoulders over a narrow waist, elbows flared out, gloves tucked in front of the
+chest — carrying a face assembled from shape parameters and a hand-authored hair
+or headgear mask. Proportions, palettes and stances were matched by eye against
+the original's in-ring sprites and title-card portraits. The music is written in
+the NES march idiom rather than transcribed from the cartridge. No ROM data,
 sprite rips or audio from the original game are used. The layouts, HUD and screen
 text follow the original closely, because that's the point of a replica.
 Punch-Out!! and its characters are trademarks of Nintendo; this is a fan

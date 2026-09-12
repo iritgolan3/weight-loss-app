@@ -5,16 +5,6 @@
   'use strict';
   var PO = window.PO, C = PO.C, Art = PO.Art;
 
-  /* shared build presets ------------------------------------------------- */
-  function build(o) {
-    var b = {
-      legLen: 34, torsoH: 32, shoulderW: 40, waistW: 24, belly: 0, spread: 12,
-      legW: 12, bootW: 14, bootH: 10, trunkH: 18, armW: 10, elbow: 10, gloveR: 8
-    };
-    for (var k in o) b[k] = o[k];
-    return b;
-  }
-
   /* shared move templates ------------------------------------------------ */
   function jab(o) {
     var m = {
@@ -32,17 +22,7 @@
   R.glassjoe = {
     id: 'glassjoe', name: 'GLASS JOE', short: 'JOE',
     record: '1- 99  1KO', home: 'PARIS,\n  FRANCE', age: 38, weight: 110,
-    quote: '"I HAVE NEVER\n  BEEN HIT!"',
-    ring: C.ringBlue, portraitBg: C.blueL,
-    skin: C.skin, skinD: C.skinD, skinL: C.skinL,
-    trunk: C.white, trunkD: C.grey, trunkL: C.white, belt: C.blueL,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.grey3, bootD: C.black,
-    head: { hairKey: 'glassjoe', hair: C.orange, hairL: C.tan, hairD: C.orangeD,
-            skin: C.skin, skinD: C.skinD, skinL: C.skinL, hw: 10, chin: 27,
-            jaw: 'round', brow: 'plain', nose: 5, eyeDX: 5, mouthW: 3, mouth: 'frown' },
-    build: build({ shoulderW: 34, waistW: 22, armW: 8, gloveR: 7, legW: 11 }),
-    hp: 60, guardBreak: 1, getUp: [4, 6, 9], maxDowns: 3, decisionPoints: 3000,
+    quote: '"I HAVE NEVER\n  BEEN HIT!"',    hp: 60, guardBreak: 1, getUp: [4, 6, 9], maxDowns: 3, decisionPoints: 3000,
     gap: [50, 80], gapR: [0, -8, -14],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 34, dmg: 2 }),
@@ -59,17 +39,7 @@
   R.vonkaiser = {
     id: 'vonkaiser', name: 'VON KAISER', short: 'KAISER',
     record: '23- 13 10KO', home: 'BERLIN,\n  GERMANY', age: 42, weight: 144,
-    quote: '"I AM THE\n  BEST TEACHER!"',
-    ring: C.ringBlue, portraitBg: C.blueL,
-    skin: C.skin, skinD: C.skinD, skinL: C.skinL,
-    trunk: C.purple, trunkD: C.purpleD, belt: C.white,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.black, bootD: C.grey3,
-    head: { hairKey: 'vonkaiser', facialKey: 'vonkaiser', hair: C.brown, hairL: C.brownL, hairD: C.brownD,
-            skin: C.skin, skinD: C.skinD, skinL: C.skinL, hw: 10, chin: 27,
-            jaw: 'square', brow: 'angry', nose: 4, eyeDX: 5, mouthW: 3 },
-    build: build({ shoulderW: 38, waistW: 25, armW: 9, gloveR: 7 }),
-    hp: 78, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 4000,
+    quote: '"I AM THE\n  BEST TEACHER!"',    hp: 78, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 4000,
     gap: [40, 66], gapR: [0, -6, -12],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 26, dmg: 3 }),
@@ -88,18 +58,7 @@
   R.pistonhonda = {
     id: 'pistonhonda', name: 'PISTON HONDA', short: 'HONDA',
     record: '26- 1  12KO', home: 'TOKYO,\n  JAPAN', age: 28, weight: 170,
-    quote: '"SUSHI, KARATE,\n  BANZAI!"',
-    ring: C.ringBlue, portraitBg: C.blueL,
-    skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold,
-    trunk: C.black, trunkD: C.grey3, belt: C.white,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.black, bootD: C.grey3,
-    head: { hairKey: 'pistonhonda', hair: C.black, hairL: C.grey3, hairD: C.black,
-            skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold, hw: 10, chin: 27,
-            jaw: 'square', brow: 'angry', nose: 4, eyeDX: 5, mouthW: 3,
-            acc: { a: C.white, b: C.red } },
-    build: build({ shoulderW: 42, waistW: 27, armW: 10, gloveR: 8 }),
-    hp: 92, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 5000,
+    quote: '"SUSHI, KARATE,\n  BANZAI!"',    hp: 92, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 5000,
     gap: [34, 58], gapR: [0, -6, -12],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 20, strike: 6, dmg: 4, counter: { from: 4, to: 17, target: 'any', dmg: 8 } }),
@@ -119,17 +78,7 @@
   R.donflamenco = {
     id: 'donflamenco', name: 'DON FLAMENCO', short: 'FLAMENCO',
     record: '9- 0   9KO', home: 'MADRID,\n  SPAIN', age: 23, weight: 176,
-    quote: '"I AM THE\n  MATADOR!"',
-    ring: C.ringGreen, portraitBg: C.greenM,
-    skin: C.skin, skinD: C.skinD, skinL: C.skinL,
-    trunk: C.pink, trunkD: C.pinkD, belt: C.yellow,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.black, bootD: C.grey3,
-    head: { hairKey: 'donflamenco', hair: C.black, hairL: C.grey3, hairD: C.black,
-            skin: C.skin, skinD: C.skinD, skinL: C.skinL, hw: 10, chin: 27,
-            jaw: 'round', brow: 'plain', nose: 4, eyeDX: 5, mouthW: 2, mouth: 'grin' },
-    build: build({ shoulderW: 40, waistW: 25, armW: 10, gloveR: 8 }),
-    hp: 88, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 5000,
+    quote: '"I AM THE\n  MATADOR!"',    hp: 88, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 5000,
     gap: [40, 64], gapR: [0, -6, -12],
     moves: [
       { id: 'pose', kind: 'guard', wind: 80, dmg: 0, guard: true },
@@ -148,19 +97,7 @@
   R.kinghippo = {
     id: 'kinghippo', name: 'KING HIPPO', short: 'HIPPO',
     record: '18- 9  18KO', home: 'HIPPO ISLAND,\n  SOUTH PACIFIC', age: '??', weight: '???',
-    quote: '"I NEVER\n  GO DOWN!"',
-    ring: C.ringGreen, portraitBg: C.violet,
-    skin: C.orange, skinD: C.orangeD, skinL: C.tan,
-    trunk: C.maroon, trunkD: C.brownD, belt: C.yellow,
-    glove: C.purple, gloveD: C.purpleD, gloveL: C.violet,
-    boot: C.brownD, bootD: C.black,
-    head: { hairKey: 'kinghippo', hair: C.orange, hairL: C.tan, hairD: C.orangeD,
-            skin: C.orange, skinD: C.orangeD, skinL: C.tan, hw: 12, chin: 28,
-            jaw: 'round', brow: 'heavy', nose: 3, noseWide: true, eyeDX: 6, mouthW: 5,
-            acc: { a: C.yellow, b: C.blueL, c: C.orangeD } },
-    build: build({ shoulderW: 54, waistW: 46, belly: 15, legLen: 26, torsoH: 40,
-                   armW: 13, gloveR: 10, spread: 16, legW: 16, bootW: 18, bootH: 10, trunkH: 20, elbow: 16 }),
-    hp: 130, getUp: [99], maxDowns: 1, decisionPoints: 6000, neverGetsUp: true,
+    quote: '"I NEVER\n  GO DOWN!"',    hp: 130, getUp: [99], maxDowns: 1, decisionPoints: 6000, neverGetsUp: true,
     invulnerable: true,   /* until the belly is exposed */
     gap: [50, 78], gapR: [0, -8, -14],
     moves: [
@@ -180,18 +117,7 @@
   R.greattiger = {
     id: 'greattiger', name: 'GREAT TIGER', short: 'TIGER',
     record: '24- 5  20KO', home: 'BOMBAY,\n  INDIA', age: 29, weight: 165,
-    quote: '"I READ YOUR\n  MIND!"',
-    ring: C.ringGreen, portraitBg: C.orange,
-    skin: C.darkSkinL, skinD: C.darkSkin, skinL: C.tanSkin,
-    trunk: C.teal, trunkD: C.cyanD, belt: C.yellow,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.brownD, bootD: C.black,
-    head: { hairKey: 'greattiger', facialKey: 'greattiger', hair: C.black, hairL: C.grey3, hairD: C.black,
-            skin: C.darkSkinL, skinD: C.darkSkin, skinL: C.tanSkin, hw: 10, chin: 27,
-            jaw: 'round', brow: 'angry', nose: 4, eyeDX: 5, mouthW: 3,
-            acc: { a: C.white, b: C.red, c: C.yellow } },
-    build: build({ shoulderW: 40, waistW: 26, armW: 10, gloveR: 8 }),
-    hp: 100, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 6000,
+    quote: '"I READ YOUR\n  MIND!"',    hp: 100, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 6000,
     gap: [36, 58], gapR: [0, -6, -12],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 20, dmg: 5, counter: { from: 4, to: 17, target: 'any', dmg: 9 } }),
@@ -210,17 +136,7 @@
   R.baldbull = {
     id: 'baldbull', name: 'BALD BULL', short: 'BULL',
     record: '35- 8  32KO', home: 'ISTANBUL,\n  TURKEY', age: 36, weight: 298,
-    quote: '"NOBODY STOPS\n  THE CHARGE!"',
-    ring: C.ringBlue, portraitBg: C.orange,
-    skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold,
-    trunk: C.red, trunkD: C.redD, belt: C.white,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.black, bootD: C.grey3,
-    head: { hairKey: 'baldbull', facialKey: 'baldbull', hair: C.brownD, hairL: C.brown, hairD: C.black,
-            skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold, hw: 11, chin: 27,
-            jaw: 'square', brow: 'heavy', nose: 5, noseWide: true, eyeDX: 5, mouthW: 3 },
-    build: build({ shoulderW: 48, waistW: 32, armW: 12, gloveR: 9, spread: 14, legW: 14, bootW: 16, torsoH: 36 }),
-    hp: 115, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 7000,
+    quote: '"NOBODY STOPS\n  THE CHARGE!"',    hp: 115, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 7000,
     gap: [36, 58], gapR: [0, -6, -12],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 22, dmg: 6, counter: { from: 4, to: 18, target: 'any', dmg: 10 } }),
@@ -240,17 +156,7 @@
   R.sodapopinski = {
     id: 'sodapopinski', name: 'SODA POPINSKI', short: 'POPINSKI',
     record: '28- 3  25KO', home: 'MOSCOW,\n  U.S.S.R.', age: 35, weight: 237,
-    quote: '"I DRINK TO\n  YOUR HEALTH!"',
-    ring: C.ringBlue, portraitBg: C.pinkL,
-    skin: C.skin, skinD: C.skinD, skinL: C.skinL,
-    trunk: C.pink, trunkD: C.pinkD, belt: C.white,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.red, bootD: C.redD,
-    head: { hairKey: 'sodapopinski', facialKey: 'sodapopinski', hair: C.brownD, hairL: C.brown, hairD: C.black,
-            skin: C.skin, skinD: C.skinD, skinL: C.skinL, hw: 11, chin: 27,
-            jaw: 'square', brow: 'heavy', nose: 4, noseWide: true, eyeDX: 5, mouthW: 3, mouth: 'grin' },
-    build: build({ shoulderW: 46, waistW: 30, armW: 11, gloveR: 9, spread: 13, torsoH: 35 }),
-    hp: 125, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 8000,
+    quote: '"I DRINK TO\n  YOUR HEALTH!"',    hp: 125, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 8000,
     gap: [32, 52], gapR: [0, -6, -12],
     moves: [
       jab({ id: 'upperL', glove: 'L', wind: 20, dmg: 7, counter: { from: 4, to: 16, target: 'any', dmg: 11 } }),
@@ -268,17 +174,7 @@
   R.mrsandman = {
     id: 'mrsandman', name: 'MR. SANDMAN', short: 'SANDMAN',
     record: '27- 2  27KO', home: 'PHILADELPHIA,\n  PA.', age: 31, weight: 284,
-    quote: '"BED TIME,\n  KID!"',
-    ring: C.ringBlue, portraitBg: C.brownL,
-    skin: C.darkSkin, skinD: C.darkSkinD, skinL: C.darkSkinL,
-    trunk: C.white, trunkD: C.grey, belt: C.red,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.black, bootD: C.grey3,
-    head: { hairKey: 'mrsandman', facialKey: 'mrsandman', hair: C.black, hairL: C.grey3, hairD: C.black,
-            skin: C.darkSkin, skinD: C.darkSkinD, skinL: C.darkSkinL, hw: 11, chin: 27,
-            jaw: 'square', brow: 'angry', nose: 4, noseWide: true, eyeDX: 5, mouthW: 3 },
-    build: build({ shoulderW: 48, waistW: 30, armW: 12, gloveR: 9, legLen: 33, torsoH: 36, spread: 14 }),
-    hp: 145, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 9000,
+    quote: '"BED TIME,\n  KID!"',    hp: 145, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 9000,
     gap: [26, 44], gapR: [0, -5, -10],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 17, strike: 5, dmg: 8, counter: { from: 3, to: 14, target: 'any', dmg: 12 } }),
@@ -297,18 +193,7 @@
   R.machoman = {
     id: 'machoman', name: 'SUPER MACHO MAN', short: 'MACHO MAN',
     record: '30- 0  30KO', home: 'HOLLYWOOD,\n  CALIFORNIA', age: 27, weight: 242,
-    quote: '"I AM THE\n  SUPERSTAR!"',
-    ring: C.ringBlue, portraitBg: C.pinkL,
-    skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold,
-    trunk: C.grey, trunkD: C.grey2, belt: C.blueL,
-    glove: C.red, gloveD: C.redD, gloveL: C.redL,
-    boot: C.white, bootD: C.grey,
-    chestHair: C.brownD,
-    head: { hairKey: 'machoman', facialKey: 'machoman', hair: C.brownD, hairL: C.brown, hairD: C.black,
-            skin: C.tanSkin, skinD: C.tanSkinD, skinL: C.gold, hw: 11, chin: 27,
-            jaw: 'square', brow: 'angry', nose: 4, eyeDX: 5, mouthW: 3, mouth: 'grin' },
-    build: build({ shoulderW: 48, waistW: 28, armW: 12, gloveR: 9, torsoH: 36, spread: 13 }),
-    hp: 155, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 10000,
+    quote: '"I AM THE\n  SUPERSTAR!"',    hp: 155, getUp: [5, 7, 9], maxDowns: 3, decisionPoints: 10000,
     gap: [26, 44], gapR: [0, -5, -10],
     moves: [
       jab({ id: 'jabL', glove: 'L', wind: 17, strike: 5, dmg: 8, counter: { from: 3, to: 14, target: 'any', dmg: 12 } }),
@@ -329,15 +214,6 @@
     return {
       id: id, name: name, short: name,
       record: record, home: home, age: age, weight: weight, quote: quote,
-      ring: C.ringTeal, portraitBg: C.blueL,
-      skin: C.darkSkin, skinD: C.darkSkinD, skinL: C.darkSkinL,
-      trunk: C.black, trunkD: C.grey3, belt: C.white,
-      glove: C.black, gloveD: C.grey3, gloveL: C.grey2,
-      boot: C.black, bootD: C.grey3,
-      head: { hairKey: id === 'tyson' ? 'tyson' : 'mrdream', hair: hairCol, hairL: C.grey3, hairD: C.black,
-              skin: C.darkSkin, skinD: C.darkSkinD, skinL: C.darkSkinL, hw: 11, chin: 27,
-              jaw: 'square', brow: 'heavy', nose: 4, noseWide: true, eyeDX: 5, mouthW: 4 },
-      build: build({ shoulderW: 48, waistW: 31, armW: 12, gloveR: 9, torsoH: 35, spread: 13 }),
       hp: hp, getUp: [6, 8, 9], maxDowns: 3, decisionPoints: 0, surviveToWin: true,
       gap: [22, 38], gapR: [0, -4, -8],
       moves: [
@@ -361,9 +237,6 @@
   R.mrdream = dreamFighter('mrdream', 'MR. DREAM', '99- 0  99KO', 'LAS VEGAS,\n  NEVADA', 28, 230,
     '"NOBODY HAS\n  BEATEN ME."', C.brownD, 190);
   R.mrdream.nick = 'THE LEGENDARY';
-  R.mrdream.skin = C.tanSkinD; R.mrdream.skinD = C.darkSkinD; R.mrdream.skinL = C.tanSkin;
-  R.mrdream.head.skin = C.tanSkinD; R.mrdream.head.skinD = C.darkSkinD; R.mrdream.head.skinL = C.tanSkin;
-  R.mrdream.ring = C.ringPurple;
 
   /* ===================================================================== */
   /* Rematches — same boxer, meaner numbers                                 */
@@ -399,7 +272,7 @@
   R.donflamenco2 = rematch(R.donflamenco, {
     id: 'donflamenco2', hp: 140, record: '12- 1  10KO', decisionPoints: 9000,
     quote: '"MY ROSE IS\n  BROKEN!"', trunk: C.purple, trunkD: C.purpleD,
-    ring: C.ringBlue, weights: [1, 4, 3, 3, 3]
+    weights: [1, 4, 3, 3, 3]
   });
 
   /* ---------------------------------------------------------------------

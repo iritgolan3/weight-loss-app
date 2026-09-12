@@ -692,8 +692,9 @@
 
     if (o.state === 'down') { drawDownedOpponent(st, cx, base); return; }
 
-    var guardY = b.legLen + Math.round(b.torsoH * 0.42);
-    var guardX = Math.round(b.shoulderW * 0.42);
+    /* gloves rest tucked in front of the chest, elbows flared out */
+    var guardY = b.guardY;
+    var guardX = Math.max(9, Math.round(b.waistW * 0.42));
     var bob = Math.round(Math.sin(st.tick * 0.09) * 1.5);
 
     var pose = {
@@ -705,9 +706,9 @@
     var mv = o.move, side = o.side;
     if (o.state === 'wind' && mv) {
       var p = Math.min(1, o.t / Math.max(1, o.windLen || mv.wind));
-      var pull = Math.round(10 * p);
-      if (side === 'L') { pose.lgx = -guardX - pull; pose.lgy = guardY + (mv.target === 'body' ? -4 : 8) + pull; }
-      else { pose.rgx = guardX + pull; pose.rgy = guardY + (mv.target === 'body' ? -4 : 8) + pull; }
+      var pull = Math.round(11 * p);
+      if (side === 'L') { pose.lgx = -guardX - pull; pose.lgy = guardY + (mv.target === 'body' ? -3 : 7) + pull; }
+      else { pose.rgx = guardX + pull; pose.rgy = guardY + (mv.target === 'body' ? -3 : 7) + pull; }
       pose.lean = -Math.round(3 * p);
       if (mv.special === 'spin') {
         var ang = o.t * 0.35;
@@ -718,10 +719,10 @@
       if (mv.special === 'drink') { pose.rgx = 4; pose.rgy = guardY + 20; }
     } else if (o.state === 'strike' && mv) {
       var k = Math.min(1, o.t / Math.max(1, mv.strike));
-      var ext = Math.round(30 * k);
-      var ty = mv.target === 'head' ? guardY - 22 : guardY - 34;
-      if (side === 'L') { pose.lgx = -guardX + ext; pose.lgy = ty; }
-      else { pose.rgx = guardX - ext; pose.rgy = ty; }
+      var ty = Math.round(guardY - (mv.target === 'head' ? 20 : 30) * k);
+      var tx = Math.round(guardX - (guardX - 5) * k);
+      if (side === 'L') { pose.lgx = -tx; pose.lgy = ty; pose.lgr = b.gloveR + Math.round(3 * k); }
+      else { pose.rgx = tx; pose.rgy = ty; pose.rgr = b.gloveR + Math.round(3 * k); }
       pose.lean = Math.round(4 * k);
       pose.expr = 'tell';
     } else if (o.state === 'whiff') {
@@ -760,12 +761,12 @@
       PO.vline(cx - 2, base - guardY - 13, 6, C.green);
     }
     if (d.invulnerable && o.exposed) {
-      var by = base - b.legLen - Math.round(b.torsoH * 0.25);
+      var by = base - b.hipY - Math.round((b.shY - b.hipY) * 0.34);
       PO.fillRect(cx - 10, by, 20, 6, C.white);
       PO.fillRect(cx - 10, by + 2, 20, 2, C.red);
     }
     if (mv && mv.special === 'teleport' && o.state === 'wind' && o.t < mv.wind * 0.45) {
-      var jy = base - b.legLen - b.torsoH - 26;
+      var jy = base - b.shY - 30;
       var on = (st.tick >> 2) % 2 === 0;
       PO.ellipse(cx, jy, 3, 3, on ? C.white : C.red);
     }
@@ -825,11 +826,11 @@
       return;
     }
 
-    pose.lgx = -16; pose.lgy = 33 + bob; pose.rgx = 16; pose.rgy = 33 + bob;
+    pose.lgx = -14; pose.lgy = 36 + bob; pose.rgx = 14; pose.rgy = 36 + bob;
 
     switch (m.state) {
       case 'duck':
-        pose.crouch = 14; pose.lgy = 30; pose.rgy = 30; pose.lgx = -10; pose.rgx = 10;
+        pose.crouch = 15; pose.lgy = 32; pose.rgy = 32; pose.lgx = -10; pose.rgx = 10;
         break;
       case 'dodgeL': {
         var p = dodgeCurve(m.t);
@@ -845,7 +846,7 @@
         var pu = m.punch;
         var k = m.t <= pu.active ? m.t / pu.active : Math.max(0, 1 - (m.t - pu.active) / (pu.total - pu.active));
         var reach = pu.star ? 78 : (pu.target === 'head' ? 62 : 46);
-        var gx = pu.hand === 'L' ? -16 : 16;
+        var gx = pu.hand === 'L' ? -14 : 14;
         var tgx = pu.hand === 'L' ? -8 : 8;
         var nx = Math.round(gx + (tgx - gx) * k);
         var ny = Math.round(34 + (reach - 34) * k);
