@@ -13,20 +13,22 @@
      ======================================================================= */
   var HAIR = {
     glassjoe: [
-      '..........oooooooo..............',
-      '.......ooooHHHHHHoooo...........',
-      '.....ooHHHHHHHHHHHHHHoo.........',
-      '....oHHHHHHHHHHHHHHHHHHo........',
-      '...oHHHHHHHHHHHHHHHHHHHHo.......',
-      '..oHHHHHHHHHHHHHHHHHHHHHHo......',
-      '..oHHHHHHHHHHHHHHHHHHHHHHHo.....',
-      '.oHHHHHHHHHHHHHHHHHHHHHHHHHo....',
-      '.oHHHHHHHHHHHHHHHHHHHHHHHHHHo...',
-      '.oHHHHHHhhhhhhhhhhhhHHHHHHHHHo..',
-      '.oHHHHhh............hhhHHHHHHHo.',
-      '.oHHhh.................hhHHHHHo.',
-      '.ohh......................hHHHo.',
-      '..o........................hhho.'
+      '..............oooooo............',
+      '...........oooHHHHHHooo.........',
+      '.........ooHHHHHHHHHHHHoo.......',
+      '........oHHHHHHHHHHHHHHHHo......',
+      '.......oHHHHHHHHHHHHHHHHHHo.....',
+      '......oHHHHHHHHHHHHHHHHHHHHo....',
+      '.....oHHHHHHHHHHHHHHHHHHHHHHo...',
+      '....oHHHHHHHHHHHHHHHHHHHHHHHHo..',
+      '...oHHHHHHHHHHHHHHHHHHHHHHHHHHo.',
+      '...oHHHHHHHHHHHHHHHHHHHHHHHHHHo.',
+      '...oHHHHHHhhhhhhhhhhhhHHHHHHHHo.',
+      '...oHHHhhh............hhhHHHHHo.',
+      '...oHHhh................hhHHHHo.',
+      '...oHhh...................hHHHo.',
+      '...ohh.....................hHHo.',
+      '....o.......................hho.'
     ],
     vonkaiser: [
       '..........oooooooo..............',
@@ -81,20 +83,20 @@
       '....sssssssssssssssssss.........'
     ],
     greattiger: [
-      '..........oooooooo..............',
-      '.......ooo11111111ooo...........',
-      '.....oo111111111111111oo........',
-      '....o11111111111111111111o......',
-      '...o1111111111111111111111o.....',
-      '..o111111111111111111111111o....',
-      '..o111111111133111111111111o....',
-      '..o112222222233222222221111o....',
-      '..o112222222233222222221111o....',
-      '..o111111111133111111111111o....',
-      '..o111111111111111111111111o....',
-      '...o11111111111111111111111o....',
-      '....oo11111111111111111oo.......',
-      '......oooooooooooooooooo........'
+      '...........oooooo...............',
+      '.........oo111111oo.............',
+      '.......oo1111111111oo...........',
+      '......o11111111111111o..........',
+      '.....o1111111111111111o.........',
+      '....o111111111111111111o........',
+      '....o111111111111111111o........',
+      '...o11111111113311111111o.......',
+      '...o11222222223322222211o.......',
+      '...o11222222223322222211o.......',
+      '...o11111111113311111111o.......',
+      '....o111111111111111111o........',
+      '.....oo11111111111111oo.........',
+      '.......oooooooooooooo...........'
     ],
     baldbull: [
       '..........oooooooo..............',
@@ -170,33 +172,151 @@
     ]
   };
 
-  /* facial hair, painted over the lower face. `y` is the top row. */
+  /* Facial hair, positioned relative to the mouth (`dy` rows above it) so it
+     stays put however long the face turns out. */
   var FACIAL = {
-    /* Von Kaiser's wide military moustache */
-    vonkaiser: { y: 22, rows: [
-      '.......ohhhhhhhhhhhhho..........',
-      '......ohhhhhhhhhhhhhhho.........',
-      '......ohhhho.....ohhhho.........'] },
-    /* Bald Bull's handlebar */
-    baldbull: { y: 21, rows: [
-      '.....ohhhho.......ohhhho........',
-      '....ohhhhhho.....ohhhhhho.......',
-      '....ohhhhhhho...ohhhhhhho.......',
-      '.....ohhhhho.....ohhhhho........',
-      '......ohhho.......ohhho.........'] },
-    /* Mr. Sandman's beard */
-    mrsandman: { y: 22, rows: [
-      '......ohhhhhhhhhhhhhho..........',
-      '......ohhhhhhhhhhhhhho..........',
-      '.......ohhhhhhhhhhhho...........',
-      '........ohhhhhhhhhho............'] },
-    sodapopinski: { y: 23, rows: [
-      '.......ohhhhhhhhhhhho...........',
-      '........ohhhhhhhhhho............'] },
-    greattiger: { y: 24, rows: [
-      '.......ohhhhhhhhhhhho...........'] },
-    machoman: { y: 24, rows: [
-      '........ohhhhhhhhhho............'] }
+    vonkaiser: { dy: -4, rows: [
+      '.......hhhhhhhhhhhhhhhh.........',
+      '......hhhhhhhhhhhhhhhhhh........',
+      '......hhhhhh......hhhhhh........',
+      '.......hhhh........hhhh.........'] },
+    baldbull: { dy: -5, rows: [
+      '.....hhhhhh......hhhhhh.........',
+      '....hhhhhhhh....hhhhhhhh........',
+      '....hhhhhhhhhhhhhhhhhhhh........',
+      '....hhhhhhhhhhhhhhhhhhhh........',
+      '.....hhhhh........hhhhh.........',
+      '.....hhhh..........hhhh.........'] },
+    mrsandman: { dy: -2, rows: [
+      '.....hhhh..........hhhh.........',
+      '.....hhhhhhhhhhhhhhhhhh.........',
+      '......hhhhhhhhhhhhhhhh..........',
+      '......hhhhhhhhhhhhhhhh..........',
+      '.......hhhhhhhhhhhhhh...........',
+      '........hhhhhhhhhhhh............',
+      '.........hhhhhhhhhh.............'] },
+    sodapopinski: { dy: -3, rows: [
+      '......hhhhhhhhhhhhhhhh..........',
+      '......hhhhhhhhhhhhhhhh..........',
+      '.......hhhh......hhhh...........'] },
+    greattiger: { dy: -3, rows: [
+      '.......hhhhhhhhhhhhhh...........',
+      '........hhhhhhhhhhhh............'] },
+    machoman: { dy: -3, rows: [
+      '........hhhhhhhhhhhh............'] }
+  };
+
+  /* =======================================================================
+     Hand-drawn facial features. Eyes are drawn once for the right eye with
+     column 0 as the inner (nose-side) edge, then mirrored for the left, so a
+     face can never come out lopsided. Noses and mouths are centred plates.
+     ======================================================================= */
+  var EYE = {
+    /* big, round, heavy drooping lids — Glass Joe's permanent apology */
+    sad: [
+      '..oooo..',
+      '.odddo..',
+      'owwwwwo.',
+      'owweewo.',
+      'owweewo.',
+      'owwwwwo.',
+      '.ooooo..'
+    ],
+    /* narrow slit, lid slanting down toward the nose */
+    angry: [
+      '....oooo',
+      '..ooowwo',
+      '.oowwwwo',
+      '.oweewwo',
+      '.owwwwwo',
+      '..oooooo'
+    ],
+    /* small and mean, set in a big face */
+    beady: [
+      '........',
+      '..oooo..',
+      '.owwwwo.',
+      '.oweewo.',
+      '.owwwwo.',
+      '..oooo..'
+    ],
+    /* plain and open */
+    wide: [
+      '..oooo..',
+      '.owwwwo.',
+      'owwwwwwo',
+      'owweewwo',
+      'owwwwwwo',
+      '.oooooo.'
+    ],
+    shut: [
+      '........',
+      '........',
+      '.oooooo.',
+      'oo....oo',
+      '........'
+    ],
+    dizzy: [
+      '..oooo..',
+      '.o....o.',
+      '.o.oo.o.',
+      '.o.o..o.',
+      '.o.oooo.',
+      '..oooo..'
+    ],
+    /* wide open — the moment before he throws */
+    startled: [
+      '..oooo..',
+      '.owwwwo.',
+      'owwwwwwo',
+      'owweewwo',
+      'owweewwo',
+      'owwwwwwo',
+      '.oooooo.'
+    ]
+  };
+
+  var NOSE = {
+    long:  ['...o...', '..do...', '..do...', '..do...', '..ddo..', '.oddo..', '..ooo..'],
+    bulb:  ['...o...', '..do...', '..ddo..', '.oddo..', '.oddo..', '..ooo..'],
+    flat:  ['..do...', '.oddo..', '.oddo..', '..ooo..'],
+    hook:  ['...o...', '..do...', '..doo..', '..dddo.', '.oddo..', '..ooo..'],
+    snout: ['.ooooo.', 'oddddo.', 'od.odo.', '.ooooo.']
+  };
+
+  var MOUTH = {
+    frown: [
+      '...oooooooo...',
+      '..oo......oo..'
+    ],
+    flat: [
+      '...oooooooo...'
+    ],
+    grin: [
+      '.o..........o.',
+      '.oo........oo.',
+      '..oooooooooo..'
+    ],
+    snarl: [
+      '...oooooooo...',
+      '...owwwwwwo...',
+      '...owowowwo...',
+      '...ommmmmmo...',
+      '...oooooooo...'
+    ],
+    wide: [
+      '.oooooooooooo.',
+      '.ommmmmmmmmmo.',
+      '.ommmmmmmmmmo.',
+      '.oooooooooooo.'
+    ],
+    open: [
+      '...oooooooo...',
+      '..owwwwwwwwo..',
+      '..ommmmmmmmo..',
+      '..ommmmmmmmo..',
+      '...oooooooo...'
+    ]
   };
 
   /* =======================================================================
@@ -228,10 +348,29 @@
     var skin = cfg.skin, skinD = cfg.skinD, skinL = cfg.skinL, out = C.black;
     var hairRows = HAIR[cfg.hairKey] || [];
     var faceTop = Math.max(2, hairRows.length - 5);
-    var len = cfg.len || 25;
-    var chin = faceTop + len;
-    var hw = cfg.hw || 11;
     var acc = cfg.acc || {};
+
+    /* pick the plates for this expression */
+    var eyeStyle = cfg.eyes || 'wide';
+    if (expr === 'hurt' || expr === 'ko') eyeStyle = 'shut';
+    else if (expr === 'dizzy') eyeStyle = 'dizzy';
+    else if (expr === 'tell') eyeStyle = (eyeStyle === 'beady' ? 'beady' : 'startled');
+    var eyePlate = EYE[eyeStyle] || EYE.wide;
+    var nosePlate = NOSE[cfg.nose || 'bulb'] || NOSE.bulb;
+    var mouthStyle = cfg.mouth || 'flat';
+    if (expr === 'hurt' || expr === 'ko' || expr === 'tell') mouthStyle = 'open';
+    var mouthPlate = MOUTH[mouthStyle] || MOUTH.flat;
+
+    /* lay them out, then make the face exactly long enough to hold them */
+    var eyeGap = cfg.eyeGap || 2;
+    var browY = faceTop + (cfg.browOffset === undefined ? 7 : cfg.browOffset);
+    var eyeY = browY + 2;
+    var noseY = eyeY + (cfg.noseDrop === undefined ? 2 : cfg.noseDrop);
+    var mouthY = noseY + nosePlate.length + (cfg.mouthGap === undefined ? 1 : cfg.mouthGap);
+    var chin = mouthY + mouthPlate.length + (cfg.chinPad === undefined ? 4 : cfg.chinPad);
+    if (chin > HH - 3) chin = HH - 3;
+    var len = Math.max(10, chin - faceTop);
+    var hw = cfg.hw || 11;
 
     /* --- skull, jaw, shading --- */
     for (var y = faceTop; y <= chin; y++) {
@@ -261,89 +400,63 @@
     }
 
     /* --- brow --- */
-    var browY = faceTop + Math.round(len * 0.28);
-    var eyeDX = cfg.eyeDX || 6;
-    var browCol = cfg.hairD || cfg.hair || out;
+    var browCol = cfg.browCol || cfg.hairD || cfg.hair || out;
     if (cfg.brow && cfg.brow !== 'none') {
-      for (var s = -1; s <= 1; s += 2) {
-        for (var i = 0; i < 6; i++) {
-          var bx = cx + s * (2 + i);
-          var by = browY;
-          if (cfg.brow === 'angry') by = browY + (i < 3 ? 1 : 0) - (i > 4 ? 1 : 0);
+      var bw = cfg.brow === 'heavy' ? 9 : 7;
+      for (var bs = -1; bs <= 1; bs += 2) {
+        for (var bi = 0; bi < bw; bi++) {
+          var bx = cx + bs * (eyeGap + bi);
+          var by = browY + (cfg.brow === 'angry' ? (bi < 3 ? 1 : 0) - (bi > 5 ? 1 : 0) : 0);
           hp(data, bx, by, browCol);
           if (cfg.brow === 'heavy') { hp(data, bx, by + 1, browCol); hp(data, bx, by - 1, browCol); }
         }
       }
     }
 
-    /* --- eyes --- */
-    var eyeY = browY + 3;
-    var shut = expr === 'ko' || expr === 'hurt';
-    var wide = expr === 'tell';
-    for (var s2 = -1; s2 <= 1; s2 += 2) {
-      var ex = cx + s2 * eyeDX;
-      if (expr === 'dizzy') {
-        hp(data, ex, eyeY, out);
-        hp(data, ex - 1, eyeY - 1, out); hp(data, ex + 1, eyeY - 1, out);
-        hp(data, ex - 1, eyeY + 1, out); hp(data, ex + 1, eyeY + 1, out);
-        hp(data, ex - 2, eyeY, out); hp(data, ex + 2, eyeY, out);
-        continue;
-      }
-      if (shut) { hrow(data, ex - 2, ex + 2, eyeY, out); hp(data, ex, eyeY + 1, out); continue; }
-      var ht = wide ? 2 : (cfg.eyes === 'squint' ? 0 : 1);
-      for (var dy = -ht; dy <= ht; dy++) hrow(data, ex - 2, ex + 2, eyeY + dy, C.white);
-      hrow(data, ex - 3, ex + 3, eyeY - ht - 1, out);
-      hrow(data, ex - 3, ex + 3, eyeY + ht + 1, out);
-      hp(data, ex - 3, eyeY, out); hp(data, ex + 3, eyeY, out);
-      /* pupil */
-      var px2 = ex + (cfg.eyes === 'angry' ? -s2 : 0);
-      hp(data, px2, eyeY, out); hp(data, px2 + 1, eyeY, out);
-      if (ht > 0) { hp(data, px2, eyeY + 1, out); hp(data, px2 + 1, eyeY + 1, out); }
-      /* droopy lids sit low over the eye, angry ones cut across the top */
-      if (cfg.eyes === 'droopy') hrow(data, ex - 3, ex + 3, eyeY - ht, skinD);
-      if (cfg.eyes === 'angry') hrow(data, ex - 3 + (s2 < 0 ? 0 : 1), ex + 2, eyeY - ht, skinD);
-    }
+    /* --- eyes, nose, mouth --- */
+    plate(data, eyePlate, cx + eyeGap, eyeY, false, cfg, skin, skinL, skinD);
+    plate(data, eyePlate, cx - eyeGap - eyePlate[0].length + 1, eyeY, true, cfg, skin, skinL, skinD);
+    plate(data, nosePlate, cx - 3, noseY, false, cfg, skin, skinL, skinD);
 
-    /* --- nose --- */
-    var n = cfg.nose || {};
-    var noseTop = eyeY + 2, noseLen = n.len || 5;
-    for (var k = 0; k < noseLen; k++) {
-      hp(data, cx - 1, noseTop + k, skinD);
-      hp(data, cx, noseTop + k, k > noseLen - 3 ? skin : skinD);
-      if (n.hook && k > noseLen - 3) hp(data, cx + 1, noseTop + k, skinD);
-    }
-    var nb = noseTop + noseLen - 1;
-    var nwide = n.wide ? 3 : 2;
-    hrow(data, cx - nwide, cx + nwide - 1, nb, skinD);
-    hp(data, cx - nwide - 1, nb, out); hp(data, cx + nwide, nb, out);
-    hp(data, cx - nwide + 1, nb + 1, out); hp(data, cx + nwide - 2, nb + 1, out);
-
-    /* --- mouth --- */
-    var mouthY = nb + (cfg.mouthGap || 4);
-    var mw = cfg.mouthW || 4;
-    if (expr === 'hurt' || expr === 'ko' || expr === 'tell' || cfg.mouth === 'teeth') {
-      hrow(data, cx - mw, cx + mw, mouthY - 1, out);
-      hrow(data, cx - mw, cx + mw, mouthY, C.white);
-      hrow(data, cx - mw + 1, cx + mw - 1, mouthY + 1, C.maroon);
-      hrow(data, cx - mw + 1, cx + mw - 1, mouthY + 2, out);
-      for (var tx = cx - mw + 1; tx <= cx + mw - 1; tx += 2) hp(data, tx, mouthY, out);
-      if (cfg.goldTooth) { hp(data, cx - 1, mouthY, C.tan); hp(data, cx, mouthY, C.tan); }
-    } else {
-      hrow(data, cx - mw, cx + mw, mouthY, out);
-      if (cfg.mouth === 'grin') { hp(data, cx - mw - 1, mouthY - 1, out); hp(data, cx + mw + 1, mouthY - 1, out); }
-      if (cfg.mouth === 'frown') { hp(data, cx - mw - 1, mouthY + 1, out); hp(data, cx + mw + 1, mouthY + 1, out); }
-      if (cfg.mouth === 'wide') { hrow(data, cx - mw - 2, cx + mw + 2, mouthY, out); hrow(data, cx - mw, cx + mw, mouthY + 1, C.maroon); }
-      hrow(data, cx - 2, cx + 2, mouthY - 2, skinD);
-    }
-
-    /* --- facial hair --- */
+    /* --- moustache / beard, under the mouth so the mouth still reads --- */
     var fh = FACIAL[cfg.facialKey];
-    if (fh) paint(data, fh.rows, fh.y, cfg, acc, skin, skinL, skinD);
+    if (fh) {
+      var fcol = cfg.facialCol || cfg.hair;
+      for (var fy = 0; fy < fh.rows.length; fy++) {
+        var fr = fh.rows[fy];
+        for (var fx = 0; fx < fr.length; fx++) {
+          if (fr.charAt(fx) === 'h') hp(data, fx, mouthY + fh.dy + fy, fcol);
+        }
+      }
+    }
+
+    plate(data, mouthPlate, cx - 7, mouthY, false, cfg, skin, skinL, skinD);
 
     /* --- hair / headgear last, over the crown --- */
     paint(data, hairRows, 0, cfg, acc, skin, skinL, skinD);
 
     return { w: HW, h: HH, data: data, chin: chin, faceTop: faceTop, hw: hw };
+  }
+
+  function plate(data, rows, x0, y0, mirror, cfg, skin, skinL, skinD) {
+    for (var y = 0; y < rows.length; y++) {
+      var r = rows[y], w = r.length;
+      for (var x = 0; x < w; x++) {
+        var ch = r.charAt(mirror ? (w - 1 - x) : x), col = 0;
+        switch (ch) {
+          case '.': continue;
+          case 'o': case 'e': col = C.black; break;
+          case 'w': col = C.white; break;
+          case 'm': col = C.maroon; break;
+          case 's': col = skin; break;
+          case 'l': col = skinL; break;
+          case 'd': col = skinD; break;
+          case 'h': col = cfg.hair; break;
+          default: continue;
+        }
+        hp(data, x0 + x, y0 + y, col);
+      }
+    }
   }
 
   function paint(data, rows, y0, cfg, acc, skin, skinL, skinD) {

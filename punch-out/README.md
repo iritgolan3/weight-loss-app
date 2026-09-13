@@ -85,8 +85,11 @@ to any screen.
 
 Everything here is built from scratch. Each boxer is a body rig — wide sloped
 shoulders over a narrow waist, elbows flared out, gloves tucked in front of the
-chest — carrying a face assembled from shape parameters and a hand-authored hair
-or headgear mask. Proportions, palettes and stances were matched by eye against
+chest — carrying a face built from hand-drawn pixel plates: a set of eyes, a
+nose and a mouth chosen per boxer, under a hand-authored hair or headgear mask
+and a moustache or beard anchored to the mouth. Eyes are drawn once and mirrored
+so no face comes out lopsided, and the skull is sized to fit whatever features
+it is given, so a long-nosed boxer gets a long face. Proportions, palettes and stances were matched by eye against
 the original's in-ring sprites and title-card portraits. The music is written in
 the NES march idiom rather than transcribed from the cartridge. No ROM data,
 sprite rips or audio from the original game are used. The layouts, HUD and screen
