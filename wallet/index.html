@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>DailyWallet</title>
+<meta name="description" content="A banking wallet: balance, transactions and metal card ordering, with a passcode lock.">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DailyWallet">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+
+<link rel="preload" href="assets/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/poppins-500.woff2" as="font" type="font/woff2" crossorigin>
+
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+  <main id="device">
+    <div id="screens"></div>
+    <div id="hero-layer" aria-hidden="true"></div>
+  </main>
+
+  <noscript>
+    <p style="color:#fff;padding:24px;text-align:center">
+      DailyWallet needs JavaScript to run.
+    </p>
+  </noscript>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

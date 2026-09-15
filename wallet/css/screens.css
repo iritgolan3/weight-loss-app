@@ -1,0 +1,322 @@
+/* ==========================================================================
+   Screen layouts
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Splash
+   -------------------------------------------------------------------------- */
+
+.sc-splash {
+  background: var(--bg-dark);
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-splash__mark {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  color: #FFF;
+  animation: mark-in 900ms var(--e-out) both;
+}
+
+.sc-splash__dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  margin: 18px auto 0;
+  animation: mark-in 900ms var(--e-out) 120ms both;
+}
+
+@keyframes mark-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Auth
+   -------------------------------------------------------------------------- */
+
+.sc-auth .screen__body { padding-inline: var(--gutter); }
+.sc-auth__head  { margin: 18px 0 30px; }
+.sc-auth__swap  { margin-top: 20px; text-align: center; font-size: 14px; color: var(--muted); }
+.sc-auth__swap b { color: var(--ink); font-weight: 600; cursor: pointer; }
+.sc-auth__foot  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.sc-auth__hint  {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12px; color: var(--muted); margin-top: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Passcode
+   -------------------------------------------------------------------------- */
+
+.sc-pass .screen__body { padding-inline: var(--gutter); align-items: center; }
+.sc-pass__head { text-align: center; margin-top: 28px; }
+.sc-pass__pad  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 100%; }
+
+/* --------------------------------------------------------------------------
+   Home
+   -------------------------------------------------------------------------- */
+
+.sc-home { background: var(--bg-dark); }
+
+.sc-home__top {
+  /* +20px so the greeting clears the status bar exactly as in the design. */
+  padding: 20px var(--gutter) 0;
+  flex: none;
+  color: #FFF;
+}
+
+.sc-home__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+}
+
+.sc-home__hello {
+  flex: 1;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.85px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-home__label   { font-size: 13px; color: #8C8C8C; margin-top: 26px; letter-spacing: -0.1px; }
+.sc-home__balance { font-size: 40px; font-weight: 600; letter-spacing: -1.6px; line-height: 1.1; margin-top: 2px; }
+.sc-home__card    { margin-top: 18px; }
+
+/* The white sheet rides up over the black. */
+.sc-home__sheet {
+  flex: 1;
+  min-height: 0;
+  margin-top: 30px;
+  background: var(--surface);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-home__sheethead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 22px var(--gutter) 10px;
+  flex: none;
+}
+
+.sc-home__sheettitle { font-size: 17px; font-weight: 600; letter-spacing: -0.4px; }
+.sc-home__seeall     { font-size: 14px; color: var(--muted); }
+.sc-home__list       { flex: 1; min-height: 0; padding-bottom: 104px; }
+
+/* Cross-fade target: everything except the flying card dims out on exit. */
+.sc-home__fade,
+.sc-home .sc-home__sheet,
+.sc-home .navpill { transition: opacity 260ms linear; }
+
+.sc-home.is-flying { background: var(--bg); }
+.sc-home.is-flying .sc-home__fade,
+.sc-home.is-flying .sc-home__sheet,
+.sc-home.is-flying .navpill { opacity: 0; }
+
+/* --------------------------------------------------------------------------
+   Card picker
+   -------------------------------------------------------------------------- */
+
+.sc-pick .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+.sc-pick__nav   { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
+
+.sc-pick__head  { text-align: center; flex: none; padding-top: 22px; height: 102px; }
+.sc-pick__name  { font-size: 30px; font-weight: 600; letter-spacing: -1px; }
+.sc-pick__price { font-size: 15px; margin-top: 2px; }
+.sc-pick__price b { font-weight: 600; letter-spacing: -0.3px; }
+.sc-pick__price span { color: var(--muted); }
+
+/* Name and price swap with a short cross-fade as the carousel settles. */
+.sc-pick__head.is-swapping .sc-pick__name,
+.sc-pick__head.is-swapping .sc-pick__price { opacity: 0; }
+.sc-pick__name, .sc-pick__price { transition: opacity 160ms linear; }
+
+.carousel {
+  /* An inline-size container so the cells can be sized against the
+     carousel's own width; a percentage would resolve against the
+     shrink-to-fit track instead and blow the cell out. */
+  container-type: inline-size;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel::-webkit-scrollbar { display: none; }
+
+.carousel__track {
+  display: flex;
+  align-items: center;
+  padding-inline: calc(50cqw - var(--cell) * 0.5cqw);
+}
+
+.carousel__cell {
+  flex: none;
+  width: calc(var(--cell) * 1cqw);
+  display: grid;
+  place-items: center;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+/* Portrait footprint of a card that has been turned a quarter turn. */
+.carousel__inner {
+  position: relative;
+  width: var(--pc-w);
+  height: var(--pc-h);
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+
+/* Pre-rotation width: the card is authored horizontally, then turned.
+   Taken out of flow so its wider unrotated box cannot size the cell. */
+.carousel__inner .card-fit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--pc-h);
+  transform: translate(-50%, -50%);
+}
+
+.sc-pick__dots { flex: none; margin-bottom: 18px; }
+.sc-pick__foot { flex: none; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+
+.sc-pick {
+  --cell: 71;                          /* cqw; leaves the neighbour peeking */
+  --pc-h: 448px;                       /* card width before the turn */
+  --pc-w: calc(var(--pc-h) / 1.586);   /* becomes the portrait width */
+}
+
+@media (max-height: 860px) { .sc-pick { --pc-h: 386px; } }
+@media (max-height: 740px) { .sc-pick { --pc-h: 318px; } }
+
+/* --------------------------------------------------------------------------
+   Confirm order
+   -------------------------------------------------------------------------- */
+
+.sc-confirm .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+.sc-confirm__nav  { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
+.sc-confirm__head { padding: 8px var(--gutter) 0; flex: none; }
+.sc-confirm__card { padding: 26px var(--gutter) 0; flex: none; }
+.sc-confirm__box  { padding: 26px var(--gutter) 0; flex: none; }
+.sc-confirm__foot { margin-top: auto; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+
+.sc-confirm__secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 13px;
+  min-height: 18px;
+  transition: opacity 160ms linear;
+}
+
+/* --------------------------------------------------------------------------
+   Order placed
+   -------------------------------------------------------------------------- */
+
+.sc-done .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 24px); }
+
+.sc-done__art {
+  flex: none;
+  height: 440px;
+  display: grid;
+  place-items: center;
+  padding-inline: var(--gutter);
+}
+
+.sc-done__head { text-align: center; padding-inline: var(--gutter); flex: none; }
+.sc-done__head .title { font-size: 30px; }
+.sc-done__sub  { font-size: 14px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+.sc-done__box  { padding: 24px var(--gutter) 0; flex: none; }
+.sc-done__foot { margin-top: auto; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+
+/* --------------------------------------------------------------------------
+   Profile
+   -------------------------------------------------------------------------- */
+
+.sc-profile .screen__body { padding-inline: var(--gutter); }
+.sc-profile__head { margin: 14px 0 22px; }
+
+.sc-profile__id {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 22px;
+}
+
+.sc-profile__avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--ink); color: #FFF;
+  display: grid; place-items: center;
+  font-size: 20px; font-weight: 600;
+  flex: none;
+}
+
+.sc-profile__email { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; }
+.sc-profile__since { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.rowbtn {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; height: 58px; padding-inline: 18px;
+  background: var(--surface); border-radius: 16px;
+  margin-bottom: 10px;
+  font-size: 15px; font-weight: 500; letter-spacing: -0.2px;
+  box-shadow: var(--sh-box);
+  transition: transform var(--t-fast) var(--e-out);
+}
+
+.rowbtn:active   { transform: scale(0.985); }
+.rowbtn__chev    { margin-left: auto; color: var(--muted-dim); }
+.rowbtn--danger  { color: var(--danger); }
+
+/* --------------------------------------------------------------------------
+   Amount entry sheet
+   -------------------------------------------------------------------------- */
+
+.amount {
+  text-align: center;
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: -1.8px;
+  margin: 10px 0 4px;
+  min-height: 60px;
+}
+
+.amount--dim { color: var(--muted-dim); }
+.amount__note { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 14px; }
+
+/* --------------------------------------------------------------------------
+   Staggered entrance
+   -------------------------------------------------------------------------- */
+
+.stagger > * {
+  opacity: 0;
+  animation: rise 520ms var(--e-out) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fade-in { animation: fade 420ms linear both; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* The terminal illustration fills its art block. */
+.sc-done__art .term { width: 100%; max-width: 404px; height: auto; display: block; }

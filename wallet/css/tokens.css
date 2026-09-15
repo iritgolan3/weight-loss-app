@@ -1,0 +1,64 @@
+/* ==========================================================================
+   Design tokens — sampled directly from the reference design.
+   ========================================================================== */
+
+:root {
+  /* --- Surfaces & ink ------------------------------------------------- */
+  --ink:          #0B0B0B;   /* primary text, black buttons, nav pill      */
+  --ink-soft:     #202020;   /* ghost buttons on the dark header           */
+  --bg-dark:      #000000;   /* home screen upper section                  */
+  --bg:           #F4F2F0;   /* light page background (warm off-white)     */
+  --surface:      #FFFFFF;   /* sheets, summary cards                      */
+  --muted:        #9A9A9E;   /* secondary text                             */
+  --muted-dim:    #B9B7B4;   /* tertiary text, inactive dots               */
+  --hairline:     #ECEAE8;   /* dividers, input borders                    */
+  --hairline-dk:  #1C1C1C;   /* dividers on dark                           */
+
+  /* --- Accents --------------------------------------------------------- */
+  --green:        #2BC96B;   /* credits, success                           */
+  --green-deep:   #12994C;
+  --danger:       #E5484D;
+
+  /* --- Card faces ------------------------------------------------------ */
+  --platinum-1:   #D5D4CF;
+  --platinum-2:   #B0AEA8;
+  --platinum-3:   #8E8B85;
+
+  --silver-1:     #C9C7C0;
+  --silver-2:     #A7A59D;
+  --silver-3:     #827E78;
+
+  --gold-1:       #D8C89C;
+  --gold-2:       #C0AA79;
+  --gold-3:       #9A8863;
+
+  /* --- Geometry -------------------------------------------------------- */
+  --gutter:       24px;
+  --r-card:       20px;      /* credit card corner                         */
+  --r-sheet:      28px;      /* white sheet / modal top corners            */
+  --r-box:        20px;      /* summary cards                              */
+  --r-pill:       999px;
+  --card-ratio:   1.586;     /* ISO/IEC 7810 ID-1                          */
+
+  /* --- Motion ---------------------------------------------------------- */
+  --e-out:        cubic-bezier(0.22, 1, 0.36, 1);      /* entrances        */
+  --e-in-out:     cubic-bezier(0.65, 0, 0.35, 1);      /* morphs           */
+  --e-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);   /* overshoot        */
+  --t-fast:       180ms;
+  --t-base:       320ms;
+  --t-slow:       560ms;
+
+  /* --- Elevation ------------------------------------------------------- */
+  --sh-card:      0 18px 40px -12px rgba(0, 0, 0, 0.38);
+  --sh-nav:       0 12px 32px -8px rgba(0, 0, 0, 0.45);
+  --sh-box:       0 2px 12px -4px rgba(0, 0, 0, 0.06);
+  --sh-device:    0 40px 120px -20px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 1ms;
+    --t-base: 1ms;
+    --t-slow: 1ms;
+  }
+}

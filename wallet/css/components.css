@@ -1,0 +1,480 @@
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Credit card
+   The card is always authored horizontally (ISO ratio 1.586). The picker
+   simply rotates the whole thing 90deg clockwise, which is what makes the
+   hero flight between screens read as a physical turn.
+   -------------------------------------------------------------------------- */
+
+.card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--card-ratio);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  flex: none;
+  color: #2A2519;
+  box-shadow: var(--sh-card);
+  transform-origin: 50% 50%;
+  background: linear-gradient(135deg, var(--c1) 0%, var(--c2) 48%, var(--c3) 100%);
+  --c1: var(--platinum-1);
+  --c2: var(--platinum-2);
+  --c3: var(--platinum-3);
+}
+
+.card--platinum { --c1: var(--platinum-1); --c2: var(--platinum-2); --c3: var(--platinum-3); }
+.card--silver   { --c1: var(--silver-1);   --c2: var(--silver-2);   --c3: var(--silver-3);   }
+.card--gold     { --c1: var(--gold-1);     --c2: var(--gold-2);     --c3: var(--gold-3);     }
+
+/* Brushed-metal sheen: a soft diagonal highlight plus a fine grain. */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg,
+      rgba(255,255,255,0.00) 22%,
+      rgba(255,255,255,0.20) 44%,
+      rgba(255,255,255,0.06) 54%,
+      rgba(255,255,255,0.00) 70%),
+    repeating-linear-gradient(115deg,
+      rgba(255,255,255,0.028) 0px,
+      rgba(255,255,255,0.028) 1px,
+      rgba(0,0,0,0.014)       1px,
+      rgba(0,0,0,0.014)       4px);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+/* Inner bevel so the edge catches light like metal. */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,0.45),
+    inset 0 -1px 2px rgba(0,0,0,0.16);
+  pointer-events: none;
+}
+
+.card__wave {
+  position: absolute;
+  top: 8.5%;
+  right: 6.4%;
+  width: 8.4%;
+  opacity: 0.72;
+  transform: rotate(-40deg);
+  transform-origin: 70% 50%;
+}
+
+.card__brand {
+  position: absolute;
+  left: 6.6%;
+  bottom: 9.5%;
+  font-size: clamp(9px, 3.35cqw, 13px);
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  opacity: 0.85;
+}
+
+.card__mark {
+  position: absolute;
+  right: 6.6%;
+  bottom: 8%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.card__visa {
+  font-size: clamp(17px, 6.6cqw, 27px);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  opacity: 0.92;
+  transform: skewX(-4deg);
+}
+
+.card__tier {
+  font-size: clamp(7px, 2.5cqw, 10px);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  opacity: 0.7;
+}
+
+/* Container queries let the card's typography scale with its own width,
+   so the same markup works at home size, picker size and hero-flight size. */
+.card-fit { container-type: inline-size; }
+
+/* Rotated presentation used by the card picker. */
+.card--turned { transform: rotate(90deg); }
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  padding-inline: 28px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: #FFF;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  transition: transform var(--t-fast) var(--e-out), opacity var(--t-fast) linear;
+  user-select: none;
+}
+
+.btn:active   { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+
+.btn--block { display: flex; width: 100%; }
+.btn--ghost { background: transparent; color: var(--ink); }
+.btn--quiet { background: #E8E5E2; color: var(--ink); }
+
+/* Morph-to-spinner: the pill collapses to a lozenge and three dots bounce. */
+.btn--morph {
+  position: relative;
+  overflow: hidden;
+  transition:
+    width 380ms var(--e-in-out),
+    transform var(--t-fast) var(--e-out);
+}
+
+.btn__label {
+  transition: opacity 140ms linear;
+  white-space: nowrap;
+}
+
+.btn.is-busy               { width: 84px; padding-inline: 0; pointer-events: none; align-self: center; }
+.btn.is-busy .btn__label   { opacity: 0; }
+.btn.is-busy .btn__dots    { opacity: 1; }
+
+.btn__dots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 160ms linear 120ms;
+}
+
+.btn__dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #FFF;
+  animation: dot-bounce 1000ms var(--e-in-out) infinite;
+}
+
+.btn__dots i:nth-child(2) { animation-delay: 140ms; }
+.btn__dots i:nth-child(3) { animation-delay: 280ms; }
+
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0);     opacity: 0.45; }
+  30%           { transform: translateY(-6px);  opacity: 1;    }
+}
+
+/* Circular icon button (search / plus on the dark header). */
+.iconbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink-soft);
+  color: #FFF;
+  flex: none;
+  transition: transform var(--t-fast) var(--e-out), background var(--t-fast) linear;
+}
+
+.iconbtn:active   { transform: scale(0.9); }
+.iconbtn--bare    { background: transparent; color: var(--ink); width: 40px; height: 40px; margin-left: -8px; }
+
+/* --------------------------------------------------------------------------
+   Page title block
+   -------------------------------------------------------------------------- */
+
+.title    { font-size: 32px; font-weight: 600; letter-spacing: -1.1px; line-height: 1.12; }
+.title--s { font-size: 28px; letter-spacing: -0.9px; }
+.subtitle { font-size: 14px; color: var(--muted); letter-spacing: -0.1px; margin-top: 6px; }
+
+/* --------------------------------------------------------------------------
+   Summary box (Confirm order / Order placed)
+   -------------------------------------------------------------------------- */
+
+.box {
+  background: var(--surface);
+  border-radius: var(--r-box);
+  box-shadow: var(--sh-box);
+  overflow: hidden;
+}
+
+.box__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 56px;
+  padding-inline: 20px;
+}
+
+.box__row + .box__row { box-shadow: inset 0 1px 0 var(--hairline); }
+.box__k      { font-size: 14px; color: var(--muted); letter-spacing: -0.1px; }
+.box__v      { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.box__row--total .box__k { color: var(--ink); font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   Transaction row
+   -------------------------------------------------------------------------- */
+
+.txn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 72px;
+  padding-inline: var(--gutter);
+  position: relative;
+}
+
+.txn + .txn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--gutter) + 58px);
+  right: var(--gutter);
+  height: 1px;
+  background: var(--hairline);
+}
+
+.txn__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  flex: none;
+}
+
+.txn__body  { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.txn__title { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; line-height: 1.25; }
+.txn__time  { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.txn__amt   { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; white-space: nowrap; }
+.txn__amt--in { color: var(--green); }
+
+/* --------------------------------------------------------------------------
+   Floating bottom navigation
+   -------------------------------------------------------------------------- */
+
+.navpill {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 248px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+  height: 60px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  box-shadow: var(--sh-nav);
+  display: flex;
+  align-items: center;
+  z-index: 60;
+}
+
+.navpill__thumb {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #FFF;
+  transition: transform 400ms var(--e-out);
+}
+
+.navpill__item {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #8A8A8A;
+  transition: color 240ms linear;
+}
+
+.navpill__item.is-active { color: var(--ink); }
+
+/* --------------------------------------------------------------------------
+   Page indicator
+   -------------------------------------------------------------------------- */
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 20px;
+}
+
+.dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--muted-dim);
+  transition: width 300ms var(--e-out), background 300ms linear;
+}
+
+.dots i.is-active { width: 22px; background: var(--ink); }
+
+/* --------------------------------------------------------------------------
+   Form fields
+   -------------------------------------------------------------------------- */
+
+.field { margin-bottom: 14px; }
+
+.field__box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 58px;
+  padding-inline: 18px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  transition: border-color var(--t-fast) linear, box-shadow var(--t-fast) linear;
+}
+
+.field__box:focus-within  { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(11,11,11,0.06); }
+.field__box.is-bad        { border-color: var(--danger); }
+.field__box input         { flex: 1; min-width: 0; font-size: 15px; letter-spacing: -0.2px; }
+.field__box input::placeholder { color: var(--muted-dim); }
+.field__err               { font-size: 12px; color: var(--danger); margin-top: 6px; padding-left: 4px; }
+
+/* --------------------------------------------------------------------------
+   Passcode
+   -------------------------------------------------------------------------- */
+
+.pcode__dots {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 32px 0 8px;
+}
+
+.pcode__dots i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted-dim);
+  transition: transform 260ms var(--e-spring), background 200ms linear, border-color 200ms linear;
+}
+
+.pcode__dots i.is-on { background: var(--ink); border-color: var(--ink); transform: scale(1.18); }
+.pcode__dots.is-bad  { animation: shake 520ms var(--e-in-out); }
+
+@keyframes shake {
+  0%, 100%      { transform: translateX(0); }
+  15%           { transform: translateX(-10px); }
+  30%           { transform: translateX(9px); }
+  45%           { transform: translateX(-6px); }
+  60%           { transform: translateX(4px); }
+  80%           { transform: translateX(-2px); }
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 24px;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.keypad button {
+  height: 68px;
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  display: grid;
+  place-items: center;
+  transition: background var(--t-fast) linear, transform var(--t-fast) var(--e-out);
+}
+
+.keypad button:active { background: rgba(11,11,11,0.07); transform: scale(0.93); }
+.keypad button.is-bare:active { background: transparent; }
+
+/* --------------------------------------------------------------------------
+   Modal sheet
+   -------------------------------------------------------------------------- */
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.42);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity var(--t-base) linear;
+}
+
+.scrim.is-open { opacity: 1; }
+
+.sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 210;
+  background: var(--bg);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  padding: 10px var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 24px);
+  transform: translateY(100%);
+  transition: transform 440ms var(--e-out);
+  max-height: 88%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet.is-open   { transform: translateY(0); }
+.sheet__grip {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: #D8D5D2; margin: 0 auto 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Toast
+   -------------------------------------------------------------------------- */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 110px;
+  transform: translate(-50%, 14px);
+  z-index: 400;
+  max-width: calc(100% - 48px);
+  padding: 13px 20px;
+  border-radius: var(--r-pill);
+  background: rgba(11,11,11,0.94);
+  color: #FFF;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms linear, transform 240ms var(--e-out);
+}
+
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }

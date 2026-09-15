@@ -1,0 +1,155 @@
+/* ==========================================================================
+   Reset, device frame, screen stack
+   ========================================================================== */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #111113;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+input  { border: 0; outline: 0; background: none; }
+ul     { list-style: none; }
+
+/* --- The device ---------------------------------------------------------
+   On a phone the app is full-bleed. On a desktop it sits inside a phone
+   shell so the proportions stay true to the design.
+   ---------------------------------------------------------------------- */
+
+#device {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  isolation: isolate;
+}
+
+/* The reference device is a 440 x 956pt phone; matching it on desktop keeps
+   every proportion identical to the design. */
+@media (min-width: 660px) and (min-height: 700px) {
+  body { padding: 24px; }
+
+  #device {
+    width: 440px;
+    height: 956px;
+    max-height: calc(100vh - 48px);
+    border-radius: 54px;
+    box-shadow:
+      var(--sh-device),
+      0 0 0 11px #1B1B1D,
+      0 0 0 13px #303034;
+  }
+
+  /* Dynamic Island */
+  #device::after {
+    content: '';
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 118px;
+    height: 34px;
+    border-radius: var(--r-pill);
+    background: #000;
+    z-index: 900;
+    pointer-events: none;
+  }
+}
+
+/* --- Screen stack ------------------------------------------------------ */
+
+#screens {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  will-change: opacity, transform;
+}
+
+.screen--dark { background: var(--bg-dark); }
+
+/* Safe areas: the status bar strip is baked in so the layout matches the
+   reference on desktop as well as on a notched phone. */
+.screen__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 54px);
+}
+
+.screen--flush .screen__body { padding-top: 0; }
+
+/* --- Status bar -------------------------------------------------------- */
+
+.statusbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 54px);
+  padding: 0 32px;
+  padding-top: env(safe-area-inset-top, 0px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  z-index: 800;
+  pointer-events: none;
+  color: var(--ink);
+}
+
+.statusbar--light { color: #FFF; }
+.statusbar__icons { display: flex; align-items: center; gap: 6px; }
+
+/* --- Hero flight layer ------------------------------------------------- */
+
+#hero-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* --- Utility ----------------------------------------------------------- */
+
+.u-gutter    { padding-inline: var(--gutter); }
+.u-grow      { flex: 1; min-height: 0; }
+.u-hidden    { visibility: hidden; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Scroll areas keep momentum but hide their bars, as on iOS. */
+.u-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.u-scroll::-webkit-scrollbar { display: none; }
