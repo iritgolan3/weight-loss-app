@@ -54,11 +54,11 @@ export function settingsScreen({ onBack, onChangePasscode, onCards, onSync, onSt
     if (!items.length) {
       return `<div class="setup setup--done">
           <span class="setup__icon">${icon('check', 18)}</span>
-          <span>Everything a payment app needs is switched on.</span>
+          <span>Security is all set.</span>
         </div>`;
     }
     return `<div class="setup">
-        <p class="setup__title">${items.length} thing${items.length > 1 ? 's' : ''} still to set up</p>
+        <p class="setup__title">${items.length} thing${items.length > 1 ? 's' : ''} left to set up</p>
         <ul class="setup__list">
           ${items.map(i => `<li><button data-fix="${i.key}">${i.text}
             <span>${icon('chevronR', 15)}</span></button></li>`).join('')}
@@ -85,41 +85,42 @@ export function settingsScreen({ onBack, onChangePasscode, onCards, onSync, onSt
           glyph: 'convert',
           value: `${CURRENCIES[s.currency].symbol} ${s.currency}`,
         }),
-      ].join(''), 'Spending limits and payment controls live on each card.')}
+      ].join(''), 'Limits and controls are set per card.')}
 
       ${group('Security', [
         navRow('passcode', 'Change passcode', { glyph: 'key' }),
-        navRow('bio', canBio ? `${cap(biometricLabel())}` : 'Biometric unlock', {
+        navRow('bio', cap(biometricLabel()), {
           glyph: biometricGlyph(),
-          value: !canBio ? 'Unavailable' : auth.hasBiometric ? 'On' : 'Off',
+          sub: canBio ? '' : auth.constructor.unavailableReason(),
+          value: !canBio ? 'Off' : auth.hasBiometric ? 'On' : 'Off',
           disabled: !canBio,
         }),
         navRow('autolock', 'Auto-lock', { glyph: 'lock', value: autoLockLabel(s.autoLockMinutes) }),
         toggleRow('hideBalance', 'Hide balance', s.hideBalance,
-          { glyph: 'person', sub: 'Blurs it on the home screen until you tap.' }),
+          { glyph: 'person', sub: 'Tap it to show.' }),
         navRow('lock', 'Lock now', { glyph: 'logout' }),
-      ].join(''), 'A passcode and a biometric check are what a payment app uses to confirm it is really you.')}
+      ].join(''), 'Two ways to prove it is you, as any bank would ask for.')}
 
       ${group('Notifications', [
         toggleRow('alerts.payments', 'Payment alerts', s.alerts.payments,
-          { glyph: 'bell', sub: 'Tells you the moment money moves.' }),
+          { glyph: 'bell', sub: 'Every payment, as it happens.' }),
         toggleRow('alerts.lowBalance', 'Low balance alert', s.alerts.lowBalance, { glyph: 'bell' }),
-        navRow('lowAt', 'Warn me below', { glyph: 'plus', value: money(s.alerts.lowBalanceAt, { cents: false }) }),
+        navRow('lowAt', 'Tell me below', { glyph: 'plus', value: money(s.alerts.lowBalanceAt, { cents: false }) }),
         toggleRow('alerts.news', 'Product news', s.alerts.news,
-          { glyph: 'bell', sub: 'Off unless you ask for it.' }),
+          { glyph: 'bell', sub: 'Off by default.' }),
       ].join(''))}
 
       ${group('Accessibility', [
         toggleRow('reducedMotion', 'Reduce motion', s.reducedMotion,
-          { glyph: 'home', sub: 'Turns off the card flights and cascades.' }),
+          { glyph: 'home', sub: 'Fewer moving parts.' }),
       ].join(''))}
 
       ${group('Privacy & data', [
-        navRow('export', 'Export my data', { glyph: 'back', sub: 'Everything this app holds about you.' }),
+        navRow('export', 'Export my data', { glyph: 'back', sub: 'Everything we hold, as JSON.' }),
         navRow('erase', 'Erase everything on this device', {
-          glyph: 'logout', danger: true, sub: 'Wallet, cards, passcode. Cannot be undone.',
+          glyph: 'logout', danger: true, sub: 'Wallet, cards, passcode. No undo.',
         }),
-      ].join(''), 'Nothing is collected, tracked or sent anywhere. Your wallet stays on this device unless you turn on syncing.')}
+      ].join(''), 'No analytics, no tracking, no server. Your wallet is encrypted on this device and stays there unless you switch on syncing.')}
 
       ${auth.canSync ? group('Account', (auth.isSynced
         ? navRow('stopsync', 'Stop syncing', { glyph: 'logout', value: auth.email })
@@ -186,7 +187,7 @@ export function settingsScreen({ onBack, onChangePasscode, onCards, onSync, onSt
 
     async lowAt() {
       const picked = await optionSheet({
-        title: 'Warn me below',
+        title: 'Tell me below',
         options: LOW_BALANCE.map(v => ({ value: String(v), label: money(v, { cents: false }) })),
         selected: String(store.settings.alerts.lowBalanceAt),
       });
@@ -197,14 +198,14 @@ export function settingsScreen({ onBack, onChangePasscode, onCards, onSync, onSt
 
     export: () => textSheet({
       title: 'Your data',
-      body: 'Everything this app holds, on this device.',
+      body: 'Copy it, keep it, delete it. Your call.',
       text: store.exportJSON(),
     }),
 
     async erase() {
       const yes = await confirmSheet({
         title: 'Erase everything?',
-        body: 'Your wallet, cards and passcode are deleted from this device. This cannot be undone.',
+        body: 'Wallet, cards and passcode, gone from this phone. There is no undo.',
         confirm: 'Erase everything',
         danger: true,
       });
@@ -216,7 +217,7 @@ export function settingsScreen({ onBack, onChangePasscode, onCards, onSync, onSt
 
     about: () => textSheet({
       title: 'About DailyWallet',
-      body: 'Worth knowing before you rely on it.',
+      body: 'Read this before you trust it with anything.',
       text:
 `DailyWallet is a demonstration app.
 

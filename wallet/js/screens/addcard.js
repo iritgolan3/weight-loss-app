@@ -77,7 +77,7 @@ export function addCardScreen({ onBack, onOrder, onAdded }) {
           <button class="srow" data-order>
             <span class="srow__icon">${icon('card', 20)}</span>
             <span class="srow__body"><span class="srow__name">Order a DailyWallet card</span>
-              <span class="srow__sub">Platinum, Silver or Gold metal.</span></span>
+              <span class="srow__sub">Metal. Platinum, Silver or Gold.</span></span>
             <span class="srow__chev">${icon('chevronR', 18)}</span>
           </button>
         </div>
@@ -87,10 +87,10 @@ export function addCardScreen({ onBack, onOrder, onAdded }) {
 
       <div class="sc-addcard__note">
         <span>${icon('lock', 16)}</span>
-        <span><b>This is a demo wallet — please don't enter a real card.</b>
-          Only the brand, last four digits and expiry are kept, on this device.
-          The number and security code are discarded on submit and nothing is
-          ever sent anywhere. Tap “Use a test number” below.</span>
+        <span><b>Demo wallet — don't use a real card.</b>
+          We keep the brand, last four and expiry, encrypted on this phone.
+          The number and CVC are dropped the moment you submit, and nothing
+          leaves the device. There's a test number below.</span>
       </div>
 
       <form novalidate>
@@ -123,7 +123,7 @@ export function addCardScreen({ onBack, onOrder, onAdded }) {
         <div class="field">
           <label class="field__box">
             <span class="sr-only">Card name</span>
-            <input name="label" autocomplete="off" placeholder="Name this card (optional)" maxlength="22">
+            <input name="label" autocomplete="off" placeholder="Name it (optional)" maxlength="22">
           </label>
           <p class="field__err" data-err hidden></p>
         </div>

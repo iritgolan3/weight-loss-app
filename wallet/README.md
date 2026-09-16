@@ -41,7 +41,7 @@ domain root.
 | **Confirm order** | Order summary; the pay button morphs into a spinner |
 | **Order placed** | Animated card terminal, receipt and tick, then back to home |
 | **Settings** | Setup checklist, cards, currency, security, alerts, data, about |
-| **Cards** | Every card, which is default, which are frozen |
+| **Cards** | The stack: tap to open, drag to reorder, magnifier to add or remove |
 | **Add card** | Order a DailyWallet card, or add one you already have |
 | **Card** | Freeze, default, spending limits, payment controls, remove |
 | **Sync** | Optional email sign-in, shown only when a backend is configured |
@@ -143,6 +143,23 @@ full number and the security code are discarded at submit and never written
 to storage — asserted by a test that reads localStorage back and checks the
 number is absent.
 
+## The card stack
+
+Cards overlap like a real wallet, each showing its top strip with the name and
+last four — the only part of a covered card you can see, so that is where the
+identity lives. Tapping one opens it, and the face itself flies through to the
+detail screen as the same element rather than a screen sliding over. Press and
+drag reorders the stack; the others slide out of the way and the order sticks.
+
+The magnifier turns on manage mode: a search field across name, brand, last
+four and tier, a remove control on each card, and a row to add another.
+
+The faces are lightly three-dimensional. Each sits on a perspective plane and
+leans towards the finger, with a specular highlight tracking the same point.
+The lean is written to custom properties rather than the transform, so the
+quarter turn in the card picker and the hero flight keep control of their own
+transforms and nothing fights.
+
 ## The animations
 
 The card is a single element that travels between screens rather than two
@@ -191,6 +208,45 @@ the entry path.
 The passcode is never stored. It gets a random 16-byte salt and a
 PBKDF2-SHA256 derivation at 210,000 iterations (`js/auth.js`), and unlocking
 compares derivations rather than secrets, in constant time.
+
+### Everything stays on the phone
+
+The wallet — balance, ledger, cards, settings — is sealed with AES-GCM under
+a key derived from the passcode (PBKDF2-SHA256, 310,000 iterations). The key
+is held in memory and never written anywhere, so a closed app leaves nothing
+readable behind: no card, no last four, no balance, no merchant. A test dumps
+localStorage and asserts none of it is legible, that a wrong passcode does not
+open it, and that tampered ciphertext is refused rather than trusted.
+
+Card numbers are never stored at all. The add-card form keeps the brand, the
+last four and the expiry; the full number and the CVC are dropped at submit.
+Nothing is transmitted — there is no server unless you configure syncing
+yourself.
+
+Biometric unlock gets its own path through the **WebAuthn PRF extension**,
+which lets the authenticator return a stable secret after a scan. Where PRF
+is supported the data key is wrapped under that secret, so a face or finger
+opens a cold start. Where it is not, the passcode is what decrypts, and the
+lock screen says so instead of failing without explanation.
+
+### Why Face ID may say it cannot run
+
+If biometrics seem broken, this is almost always why: **a cross-origin frame
+cannot use WebAuthn unless the page embedding it delegates
+`publickey-credentials-create` and `publickey-credentials-get` through
+Permissions-Policy.** An embedded preview usually does not.
+
+The trap is that the capability check lies. In that situation
+`isUserVerifyingPlatformAuthenticatorAvailable()` still answers `true`, so an
+app offers the button, and only the real call fails — with `NotAllowedError`,
+the same error name a user gets for dismissing the prompt. Reported as "you
+cancelled", it looks like a bug in the app.
+
+So the app now reads the policy up front with
+`document.featurePolicy.allowsFeature(...)`, treats a frame that may not ask
+as *unavailable* with the reason shown, and separates that case from a real
+dismissal. **Open the app in its own tab or from the home screen and
+biometrics work normally.**
 
 ### Face and fingerprint
 

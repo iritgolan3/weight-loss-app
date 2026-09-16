@@ -475,6 +475,101 @@
 .sc-card__head,
 .sc-addcard__head { padding: 0.875rem var(--gutter) 1rem; flex: none; }
 
+.sc-cards__titlerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+}
+
+.sc-cards__search { padding: 0 var(--gutter) 0.875rem; flex: none; }
+.sc-cards__search .field__box { height: 3rem; }
+
+.sc-cards__hint  { font-size: 0.75rem; color: var(--muted); text-align: center; padding: 1rem 0 0; }
+.sc-cards__empty { font-size: 0.875rem; color: var(--muted); text-align: center; padding: 2rem 0; }
+
+.srow--add { border-radius: var(--r-box); background: var(--surface); box-shadow: var(--sh-box); margin-bottom: 1.25rem; }
+
+/* --- The stack ---------------------------------------------------------
+   Cards overlap so the whole wallet is visible at once; only the held one
+   leaves the flow while it is being dragged.
+   --------------------------------------------------------------------- */
+
+.stack { position: relative; }
+
+.stack__item {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  touch-action: pan-x;          /* vertical drag belongs to the reorder */
+  cursor: grab;
+  transition: transform 340ms var(--e-out);
+  will-change: transform;
+}
+
+.stack.is-reordering .stack__item { transition: transform 200ms var(--e-out); }
+
+.stack__item.is-dragging {
+  transition: none;
+  z-index: 40;
+  cursor: grabbing;
+}
+
+.stack__item.is-dragging .card { box-shadow: 0 2rem 3.5rem -0.75rem rgba(0,0,0,0.5); }
+
+/* The only part of a covered card you can see is its top strip, so the
+   name has to live there rather than down on the face. */
+.stack__tags {
+  position: absolute;
+  top: 0.8125rem;
+  left: 1.0625rem;
+  right: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.stack__name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.0125rem;
+  color: #2A2519;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack__name b { font-weight: 500; opacity: 0.6; }
+.stack__name--light { color: #EDEDF0; }
+
+.stack__remove {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(11,11,11,0.72);
+  color: #FFF;
+  backdrop-filter: blur(0.5rem);
+  transition: transform var(--t-fast) var(--e-out);
+}
+
+.stack__remove:active { transform: scale(0.88); }
+
+.iconbtn--soft {
+  background: rgba(11,11,11,0.06);
+  color: var(--ink);
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.iconbtn--soft.is-on { background: var(--ink); color: #FFF; }
+
 .sc-cards__body,
 .sc-card__body,
 .sc-addcard__body {

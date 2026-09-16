@@ -1,7 +1,8 @@
 import { screenEl, tap, toast } from '../dom.js';
 import { icon } from '../icons.js';
 import { store, money, Declined, CONTROL_NAMES } from '../store.js';
-import { cardMarkup } from '../ui/card.js';
+import { cardFace } from '../ui/card.js';
+import { attachTilt } from '../ui/tilt.js';
 import { group, navRow, toggleRow, optionSheet, confirmSheet } from '../ui/controls.js';
 import { stagger } from '../hero.js';
 
@@ -29,12 +30,7 @@ export function cardDetailScreen({ cardId, onBack }) {
     title.textContent = c.label || `${c.brand} card`;
 
     body.innerHTML = `
-      <div class="sc-card__hero">
-        ${c.kind === 'linked'
-          ? `<div class="cardrow__face cardrow__face--linked"
-                  style="width:100%;border-radius:var(--r-card)"></div>`
-          : cardMarkup(c.tier)}
-      </div>
+      <div class="sc-card__hero">${cardFace(c, { hero: true })}</div>
 
       ${group('', [
         `<div class="srow">
@@ -50,29 +46,29 @@ export function cardDetailScreen({ cardId, onBack }) {
 
       ${group('This card', [
         toggleRow('frozen', 'Freeze card', c.frozen,
-          { glyph: 'lock', sub: 'Blocks every payment until you turn it back on.' }),
+          { glyph: 'lock', sub: 'Nothing goes out until you switch it back.' }),
         isDefault
           ? `<div class="srow"><span class="srow__icon">${icon('check', 20)}</span>
                <span class="srow__body"><span class="srow__name">Default card</span>
-                 <span class="srow__sub">Payments come out of this one.</span></span></div>`
+                 <span class="srow__sub">Everything goes out of this card.</span></span></div>`
           : navRow('makeDefault', 'Make this the default', { glyph: 'card' }),
       ].join(''))}
 
       ${group('Spending limits', [
         navRow('perTxn', 'Per payment', { glyph: 'plus', value: money(c.limits.perTxn, { cents: false }) }),
         navRow('daily', 'Per day', { glyph: 'plus', value: money(c.limits.daily, { cents: false }) }),
-      ].join(''), 'Payments above a limit are refused before any money moves.')}
+      ].join(''), 'Anything over is turned down before it leaves.')}
 
       ${group('Payment controls', Object.entries(CONTROL_NAMES).map(([key, name]) =>
         toggleRow(`controls.${key}`, name, c.controls[key], { glyph: 'convert' })).join(''),
-        'Switch off anything you are not using. Transfers count as online payments.')}
+        'Switch off what you never use. Transfers count as online.')}
 
       ${group('Privacy', [
         `<div class="srow">
           <span class="srow__icon">${icon('lock', 20)}</span>
           <span class="srow__body"><span class="srow__name">Full card number</span>
-            <span class="srow__sub">Never stored. Only the brand, last four digits
-              and expiry are kept, on this device.</span></span>
+            <span class="srow__sub">Never kept. Only the brand, last four and
+              expiry, encrypted on this phone.</span></span>
         </div>`,
       ].join(''))}
 
@@ -108,7 +104,7 @@ export function cardDetailScreen({ cardId, onBack }) {
       const c = card();
       const yes = await confirmSheet({
         title: 'Remove this card?',
-        body: `${c.label || c.brand} •••• ${c.last4} is taken out of your wallet.`,
+        body: `${c.label || c.brand} •••• ${c.last4} comes out of your wallet.`,
         confirm: 'Remove card',
         danger: true,
       });
@@ -146,13 +142,24 @@ export function cardDetailScreen({ cardId, onBack }) {
     if (row) { tap(); return ACTIONS[row.dataset.row]?.(); }
   });
 
-  const onChange = () => render();
+  let detachTilt = () => {};
+  const onChange = () => {
+    detachTilt();
+    render();
+    detachTilt = attachTilt(body.querySelector('.card-fit'));
+  };
   store.addEventListener('change', onChange);
   render();
 
   return {
     el: node,
-    enter()   { stagger(body, { step: 55, start: 100 }); },
-    destroy() { store.removeEventListener('change', onChange); },
+    enter() {
+      stagger(body, { step: 55, start: 140 });
+      detachTilt = attachTilt(body.querySelector('.card-fit'));
+    },
+    destroy() {
+      detachTilt();
+      store.removeEventListener('change', onChange);
+    },
   };
 }

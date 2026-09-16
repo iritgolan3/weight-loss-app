@@ -12,6 +12,11 @@
    development. */
 
 import { remote } from './backend.js';
+import { keyFromPasscode, keyFromBytes, wrapKey, unwrapKey, toB64, randomBytes } from './crypto.js';
+
+/* A fixed label the authenticator hashes with its own secret to produce the
+   PRF output. It is not a secret itself. */
+const PRF_SALT = new TextEncoder().encode('dailywallet/datakey/v1');
 
 const PROFILE = 'dw:profile';
 const SESSION = 'dw:session';
@@ -90,12 +95,38 @@ export function biometricGlyph() {
   return platformKind() === 'ios' ? 'faceid' : 'finger';
 }
 
+/**
+ * Whether WebAuthn is reachable from this document at all.
+ *
+ * A cross-origin frame — an embedded preview, for instance — only gets
+ * WebAuthn if the embedder delegates `publickey-credentials-create/get`
+ * through Permissions-Policy. When it does not, the capability check still
+ * answers `true` and only the real call fails, which reads as "biometrics
+ * are broken" rather than "this frame is not allowed to ask". Checking the
+ * policy up front is what tells those two apart.
+ */
+export function biometricBlockedByFrame() {
+  if (window.self === window.top) return false;
+  const policy = document.featurePolicy || document.permissionsPolicy;
+  if (!policy?.allowsFeature) return false;   // cannot tell; let the call decide
+  try {
+    return !(policy.allowsFeature('publickey-credentials-get') &&
+             policy.allowsFeature('publickey-credentials-create'));
+  } catch { return false; }
+}
+
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
 /** Turns a WebAuthn DOMException into something worth showing a person. */
 function biometricError(err, action) {
   const name = err?.name || '';
   const what = biometricLabel();
 
   if (name === 'NotAllowedError') {
+    // The same error name covers "user said no" and "this frame may not ask".
+    if (biometricBlockedByFrame() || /not enabled in this document/i.test(err?.message || '')) {
+      return `${cap(what)} cannot run inside an embedded preview. Open the app in its own tab, or add it to your home screen, and it will work.`;
+    }
     return action === 'enrol'
       ? `Setup was dismissed. Tap again and confirm with ${what}.`
       : `Not recognised, or the prompt was dismissed. Try again, or use your passcode.`;
@@ -108,9 +139,10 @@ function biometricError(err, action) {
 }
 
 class Auth extends EventTarget {
-  #profile = null;   // { id, createdAt, email, passcode, webauthn }
+  #profile = null;   // { id, createdAt, email, passcode, webauthn, dataSalt }
   #locked = true;
   #session = null;   // cloud tokens, only when syncing
+  #dataKey = null;   // AES key for the wallet; memory only, never written
 
   /** Load or create the device profile. The lock re-arms on every load. */
   boot() {
@@ -120,7 +152,9 @@ class Auth extends EventTarget {
       email: null,
       passcode: null,
       webauthn: null,
+      dataSalt: toB64(randomBytes(16)),
     };
+    if (!this.#profile.dataSalt) this.#profile.dataSalt = toB64(randomBytes(16));
     write(this.#profile);
 
     try {
@@ -139,6 +173,9 @@ class Auth extends EventTarget {
   get hasPasscode() { return Boolean(this.#profile?.passcode); }
   get isLocked()    { return this.#locked; }
   get session()     { return this.#session; }
+
+  /** The key the wallet is sealed with. Null until the passcode is entered. */
+  get dataKey()     { return this.#dataKey; }
   get canSync()     { return remote.enabled; }
 
   /** What the home screen greets the user with. */
@@ -156,6 +193,9 @@ class Auth extends EventTarget {
   async setPasscode(code) {
     const salt = randomSalt();
     this.#profile.passcode = { salt, hash: await derive(code, salt) };
+    this.#dataKey = await keyFromPasscode(code, this.#profile.dataSalt);
+    // A new passcode invalidates any biometric wrapping of the old key.
+    if (this.#profile.webauthn) this.#profile.webauthn.wrapped = null;
     this.#locked = false;
     this.#save();
   }
@@ -164,11 +204,19 @@ class Auth extends EventTarget {
     const p = this.#profile?.passcode;
     if (!p) return false;
     const ok = same(await derive(code, p.salt), p.hash);
-    if (ok) { this.#locked = false; this.dispatchEvent(new CustomEvent('change')); }
+    if (ok) {
+      this.#dataKey = await keyFromPasscode(code, this.#profile.dataSalt);
+      this.#locked = false;
+      this.dispatchEvent(new CustomEvent('change'));
+    }
     return ok;
   }
 
+  /** Locking keeps the key: re-entry within a session need not re-derive. */
   lock() { this.#locked = true; this.dispatchEvent(new CustomEvent('change')); }
+
+  /** True when a face or finger alone can open a cold start. */
+  get biometricUnlocksData() { return Boolean(this.#profile?.webauthn?.wrapped); }
 
   /* --- Optional cloud sync --------------------------------------------- */
 
@@ -221,10 +269,19 @@ class Auth extends EventTarget {
      the biometric check mandatory rather than mere presence. */
 
   static async biometricAvailable() {
+    if (biometricBlockedByFrame()) return false;
     try {
       return !!window.PublicKeyCredential &&
         await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     } catch { return false; }
+  }
+
+  /** Why the sensor is unavailable, when it is, so the UI can say so. */
+  static unavailableReason() {
+    if (biometricBlockedByFrame()) {
+      return 'Not available in an embedded preview — open the app in its own tab.';
+    }
+    return `This device does not offer ${biometricLabel()}.`;
   }
 
   get hasBiometric() { return Boolean(this.#profile?.webauthn); }
@@ -257,6 +314,7 @@ class Auth extends EventTarget {
             : [],
           timeout: 60_000,
           attestation: 'none',
+          extensions: { prf: { eval: { first: PRF_SALT } } },
         },
       });
     } catch (err) {
@@ -264,9 +322,24 @@ class Auth extends EventTarget {
     }
 
     if (!cred) throw new Error('Biometric setup did not complete.');
-    this.#profile.webauthn = { id: b64(cred.rawId) };
+    this.#profile.webauthn = { id: b64(cred.rawId), wrapped: null };
+
+    // PRF is only reported as *enabled* at creation; the secret itself comes
+    // from an assertion, so the wrapping happens on the first unlock.
+    const ext = cred.getClientExtensionResults?.() || {};
+    this.#profile.webauthn.prf = Boolean(ext.prf?.enabled);
     this.#save();
     return true;
+  }
+
+  /** Wrap the data key under the authenticator's PRF secret, if we have both. */
+  async #wrapDataKey(prfFirst) {
+    if (!prfFirst || !this.#dataKey) return;
+    try {
+      const prfKey = await keyFromBytes(new Uint8Array(prfFirst), ['encrypt', 'decrypt']);
+      this.#profile.webauthn.wrapped = await wrapKey(prfKey, this.#dataKey);
+      this.#save();
+    } catch { /* wrapping is a convenience; the passcode always works */ }
   }
 
   /** Call only from a tap handler. Throws a readable Error on failure. */
@@ -284,6 +357,7 @@ class Auth extends EventTarget {
           allowCredentials: [{ type: 'public-key', id: unb64(w.id), transports: ['internal'] }],
           userVerification: 'required',
           timeout: 60_000,
+          extensions: { prf: { eval: { first: PRF_SALT } } },
         },
       });
     } catch (err) {
@@ -291,6 +365,26 @@ class Auth extends EventTarget {
     }
 
     if (!got) throw new Error('Biometric unlock did not complete.');
+
+    const prfFirst = got.getClientExtensionResults?.()?.prf?.results?.first;
+
+    if (!this.#dataKey) {
+      // Cold start: only the wrapped key can open the wallet.
+      if (!w.wrapped || !prfFirst) {
+        throw new Error('Enter your passcode once to unlock the wallet on this device. '
+          + `${cap(biometricLabel())} works on its own after that.`);
+      }
+      try {
+        const prfKey = await keyFromBytes(new Uint8Array(prfFirst), ['encrypt', 'decrypt']);
+        this.#dataKey = await unwrapKey(prfKey, w.wrapped);
+      } catch {
+        throw new Error('That did not unlock the wallet. Use your passcode.');
+      }
+    } else if (!w.wrapped && prfFirst) {
+      // First scan after enrolment, with the key already in memory.
+      await this.#wrapDataKey(prfFirst);
+    }
+
     this.#locked = false;
     this.dispatchEvent(new CustomEvent('change'));
     return true;
@@ -298,6 +392,7 @@ class Auth extends EventTarget {
 
   /** Right-to-erasure: drop the device profile, passcode and credential. */
   eraseProfile() {
+    this.#dataKey = null;
     try { localStorage.removeItem(PROFILE); } catch { /* private mode */ }
     try { sessionStorage.removeItem(SESSION); } catch { /* private mode */ }
     this.#profile = null;

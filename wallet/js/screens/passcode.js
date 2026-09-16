@@ -47,9 +47,9 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
   const bioCta = node.querySelector('[data-bio-cta]');
 
   const COPY = {
-    unlock:  ['Enter your passcode', 'Six digits to unlock your wallet.'],
-    choose:  ['Choose a passcode',   'Six digits. You will use it each time you open the app.'],
-    confirm: ['Confirm your passcode', 'Enter the same six digits once more.'],
+    unlock:  ['Enter your passcode', 'Six digits.'],
+    choose:  ['Choose a passcode',   'Six digits, every time you open the app.'],
+    confirm: ['Confirm your passcode', 'Once more, to be sure.'],
   };
 
   function render() {
@@ -78,7 +78,7 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
   async function submit() {
     if (stage === 'unlock') {
       if (await auth.verifyPasscode(buf)) { tap(); return onDone(); }
-      return reject('That passcode did not match.');
+      return reject('Wrong passcode.');
     }
 
     if (stage === 'choose') {
@@ -92,7 +92,7 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
     if (buf !== first) {
       stage = 'choose';
       first = '';
-      return reject('Those did not match. Start again.');
+      return reject('Those did not match. Again.');
     }
 
     await auth.setPasscode(buf);

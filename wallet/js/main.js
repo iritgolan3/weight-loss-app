@@ -23,10 +23,11 @@ const router = new Router(
 
 /* --- Navigation intents ------------------------------------------------ */
 
-const goHome = (mode = 'fade') => {
+const goHome = async (mode = 'fade') => {
   // Namespaced by the device profile, so attaching an email later never
-  // looks like the wallet reset itself.
-  store.use(auth.profileId);
+  // looks like the wallet reset itself. The key comes from the passcode, so
+  // this only ever runs after the lock screen.
+  await store.use(auth.profileId, auth.dataKey);
   applyReducedMotion(store.settings.reducedMotion);
   syncDown();                       // no-op unless a backend is configured
   return router.go('home', {}, { mode });
@@ -121,7 +122,11 @@ router
   .register('cards',   () => cardsScreen({
     onBack: () => router.back(),
     onAdd:  () => router.go('addcard', {}, { mode: 'push' }),
-    onCard: id => router.go('carddetail', { cardId: id }, { mode: 'push' }),
+    onCard: id => {
+      // Mark the tapped face so the flight picks up that card, not the stack.
+      router.current?.markHero?.(id);
+      router.go('carddetail', { cardId: id }, { mode: 'hero' });
+    },
   }))
 
   .register('addcard', () => addCardScreen({
@@ -132,7 +137,7 @@ router
 
   .register('carddetail', params => cardDetailScreen({
     cardId: params.cardId,
-    onBack: () => router.back(),
+    onBack: () => router.back({ hero: true }),
   }));
 
 /* --- Boot -------------------------------------------------------------- */
@@ -163,7 +168,8 @@ document.addEventListener('visibilitychange', () => {
 history.replaceState({ depth: 1 }, '');
 window.addEventListener('popstate', () => {
   if (router.depth > 1) {
-    router.back({ hero: router.current?.name === 'pick' || router.current?.name === 'confirm' });
+    const flying = ['pick', 'confirm', 'carddetail'];
+    router.back({ hero: flying.includes(router.current?.name) });
   }
   history.pushState({ depth: router.depth }, '');
 });

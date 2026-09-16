@@ -3,7 +3,8 @@ import { icon } from '../icons.js';
 import { store, money, Declined } from '../store.js';
 import { auth } from '../auth.js';
 import { cardMarkup } from '../ui/card.js';
-import { amountSheet } from '../ui/sheet.js';
+import { amountSheet, txnSheet } from '../ui/sheet.js';
+import { attachTilt } from '../ui/tilt.js';
 
 const NAV = [
   { id: 'home',    glyph: 'home',    label: 'Home'     },
@@ -16,7 +17,7 @@ function txnRow(t) {
   const credit = t.amount > 0;
   const glyph = t.type === 'card' ? 'card' : (t.type === 'topup' ? 'plus' : t.type);
   return `
-    <li class="txn">
+    <li class="txn" data-txn="${t.id}">
       <span class="txn__icon">${icon(glyph, 19)}</span>
       <span class="txn__body">
         <span class="txn__title">${t.title}</span>
@@ -92,6 +93,7 @@ export function homeScreen({ onPickCard, onProfile }) {
   let revealed = false;    // tap-to-reveal, when the balance is set to hide
 
   slot.innerHTML = cardMarkup(store.card, { hero: true });
+  let detachTilt = attachTilt(slot.querySelector('.card-fit'));
 
   function renderList() {
     const q = query.trim().toLowerCase();
@@ -117,7 +119,7 @@ export function homeScreen({ onPickCard, onProfile }) {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (shown === null || reduced || shown === value) {
       shown = value;
-      balanceEl.textContent = money(value, { cents: false });
+      balanceEl.textContent = money(value);
       return;
     }
 
@@ -127,7 +129,7 @@ export function homeScreen({ onPickCard, onProfile }) {
 
     const frame = now => {
       const t = Math.min(1, (now - t0) / 620);
-      balanceEl.textContent = money(Math.round(from + delta * ease(t)), { cents: false });
+      balanceEl.textContent = money(from + delta * ease(t));
       if (t < 1) requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
@@ -139,6 +141,7 @@ export function homeScreen({ onPickCard, onProfile }) {
     const fit = slot.querySelector('.card-fit');
     if (fit && !fit.querySelector(`.card--${store.card}`)) {
       slot.innerHTML = cardMarkup(store.card, { hero: true });
+  let detachTilt = attachTilt(slot.querySelector('.card-fit'));
     }
     renderList();
   }
@@ -171,6 +174,14 @@ export function homeScreen({ onPickCard, onProfile }) {
     cardSlot.addEventListener(e, unpress));
 
   node.addEventListener('click', async event => {
+    const row = event.target.closest('[data-txn]');
+    if (row) {
+      tap();
+      const t = store.txns.find(x => x.id === row.dataset.txn);
+      if (t) txnSheet(t);
+      return;
+    }
+
     if (event.target.closest('[data-balance]')) {
       if (!store.settings.hideBalance) return;
       tap();
@@ -242,6 +253,7 @@ export function homeScreen({ onPickCard, onProfile }) {
     },
     onResume() { setNav(0); render(); },
     destroy()  {
+      detachTilt();
       clearTimeout(enterTimer);
       store.removeEventListener('change', onChange);
       window.removeEventListener('resize', onResize);

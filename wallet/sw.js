@@ -1,6 +1,6 @@
 /* Offline shell. Bump CACHE whenever the asset list below changes. */
 
-const CACHE = 'dailywallet-v7';
+const CACHE = 'dailywallet-v9';
 
 const SHELL = [
   './',
@@ -15,12 +15,14 @@ const SHELL = [
   './js/router.js',
   './js/hero.js',
   './js/store.js',
+  './js/crypto.js',
   './js/auth.js',
   './js/backend.js',
   './js/config.js',
   './js/dom.js',
   './js/icons.js',
   './js/ui/card.js',
+  './js/ui/tilt.js',
   './js/ui/controls.js',
   './js/ui/sheet.js',
   './js/ui/terminal.js',

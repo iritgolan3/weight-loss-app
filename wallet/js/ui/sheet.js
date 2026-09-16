@@ -1,6 +1,6 @@
-import { el, tap } from '../dom.js';
+import { el, tap, toast } from '../dom.js';
 import { icon } from '../icons.js';
-import { money } from '../store.js';
+import { money, store } from '../store.js';
 
 /**
  * Bottom sheet with a numeric amount pad. Resolves to the entered amount,
@@ -77,4 +77,63 @@ export function amountSheet({ title, note = '', cta, max = Infinity }) {
 
     render();
   });
+}
+
+
+/** What a single line on the statement actually was. */
+export function txnSheet(txn) {
+  const host = document.getElementById('device');
+  const credit = txn.amount > 0;
+  const card = store.defaultCard;
+  const when = new Date(txn.at || Date.now());
+
+  const KIND = {
+    card: 'Card payment', transfer: 'Transfer', topup: 'Money in', convert: 'Currency exchange',
+  };
+
+  const scrim = el('<div class="scrim"></div>');
+  const sheet = el(`
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${txn.title}">
+      <div class="sheet__grip"></div>
+      <p class="txnsheet__amount${credit ? ' txnsheet__amount--in' : ''}">
+        ${credit ? '+' : '−'}${money(txn.amount)}
+      </p>
+      <p class="txnsheet__who">${txn.title}</p>
+      <p class="txnsheet__when">
+        ${when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+        at ${when.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}
+      </p>
+
+      <div class="group__box" style="margin-top:1.25rem">
+        <div class="srow"><span class="srow__body"><span class="srow__name">Type</span></span>
+          <span class="srow__val">${KIND[txn.type] || 'Payment'}</span></div>
+        <div class="srow"><span class="srow__body"><span class="srow__name">Status</span></span>
+          <span class="srow__val" style="color:var(--green-deep)">Completed</span></div>
+        ${card ? `<div class="srow"><span class="srow__body"><span class="srow__name">Card</span></span>
+          <span class="srow__val">${card.label || card.brand} •••• ${card.last4}</span></div>` : ''}
+        <div class="srow"><span class="srow__body"><span class="srow__name">Reference</span></span>
+          <span class="srow__val">${String(txn.id).toUpperCase().slice(-10)}</span></div>
+      </div>
+
+      <button class="btn btn--block btn--quiet" data-dispute style="margin-top:1.25rem">
+        Something wrong with this?
+      </button>
+    </div>`);
+
+  host.append(scrim, sheet);
+  requestAnimationFrame(() => { scrim.classList.add('is-open'); sheet.classList.add('is-open'); });
+
+  const close = () => {
+    scrim.classList.remove('is-open');
+    sheet.classList.remove('is-open');
+    setTimeout(() => { scrim.remove(); sheet.remove(); }, 440);
+  };
+
+  sheet.addEventListener('click', event => {
+    if (!event.target.closest('[data-dispute]')) return;
+    tap();
+    // Disputes need a card issuer behind them. Say so rather than pretend.
+    toast('Raising a dispute needs a real issuer — this wallet has none.');
+  });
+  scrim.addEventListener('click', close);
 }

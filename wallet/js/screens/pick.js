@@ -2,6 +2,7 @@ import { screenEl, tap } from '../dom.js';
 import { icon } from '../icons.js';
 import { TIERS, cardMarkup } from '../ui/card.js';
 import { money } from '../store.js';
+import { attachTilt } from '../ui/tilt.js';
 
 /**
  * Card picker. A snapping carousel of turned cards; the focused card is the
@@ -119,6 +120,8 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
     }
   });
 
+  const detachers = [...node.querySelectorAll('.card-fit')].map(attachTilt);
+
   const onResize = () => scrollTo(index);
   window.addEventListener('resize', onResize);
 
@@ -134,6 +137,9 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
       paint();
       renderHead();
     },
-    destroy() { window.removeEventListener('resize', onResize); },
+    destroy() {
+      detachers.forEach(d => d());
+      window.removeEventListener('resize', onResize);
+    },
   };
 }

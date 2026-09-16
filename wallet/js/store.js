@@ -1,21 +1,38 @@
 /* Wallet state: balance, transactions, the cards on file and the settings
    that govern them. Everything persists to localStorage, namespaced per
-   device profile.
+   device profile, and sealed with AES-GCM under a key derived from the
+   passcode — so a closed app leaves no readable card data behind.
 
    Settings here are not decoration: card freezes, spending limits and
    payment controls are enforced by `spend()` before any transaction is
    committed, and the alert preferences decide what the UI announces. */
 
+import { seal, open as unseal } from './crypto.js';
+
 const KEY = ns => `dw:wallet:${ns}`;
 
-const SEED_TXNS = () => ([
-  { id: 't1', title: 'Transfer',   time: '4:07pm',  amount: -1050, type: 'transfer' },
-  { id: 't2', title: 'Top up',     time: '12:07pm', amount:  2400, type: 'topup'    },
-  { id: 't3', title: 'Conversion', time: '4:07pm',  amount:  -950, type: 'convert'  },
-  { id: 't4', title: 'Transfer',   time: '4:07pm',  amount: -1050, type: 'transfer' },
-  { id: 't5', title: 'Top up',     time: '9:15am',  amount:  1200, type: 'topup'    },
-  { id: 't6', title: 'Conversion', time: '2:41pm',  amount:  -470, type: 'convert'  },
-]);
+/* A week of plausible activity: small card payments most days, a salary in,
+   rent out, one refund. Amounts and merchants are the sort a real statement
+   shows, so the list does not read as filler. Hours are offsets back from
+   now, which keeps the ledger sensible whenever the app is first opened. */
+const SEED_TXNS = () => {
+  const rows = [
+    ['Pret A Manger',       -6.40,    2, 'card'],
+    ['Uber',               -18.75,    6, 'card'],
+    ['Spotify',             -11.99,  23, 'card'],
+    ['Whole Foods Market',  -84.12,  27, 'card'],
+    ['Rent — 44 Hanbury St', -1850,  49, 'transfer'],
+    ['Salary — Northgate',   4210,   52, 'topup'],
+    ['Shell',               -62.30,  74, 'card'],
+    ['Refund — ASOS',        39.99,  96, 'topup'],
+    ['EUR 250 bought',      -271.40, 121, 'convert'],
+    ['Apple',                -0.99, 144, 'card'],
+  ];
+  return rows.map(([title, amount, hoursAgo, type], i) => {
+    const at = Date.now() - hoursAgo * 3_600_000;
+    return { id: `s${i}`, title, amount, type, at, time: stampLabel(at) };
+  });
+};
 
 /** A card the wallet can spend from. */
 export const newCard = (over = {}) => ({
@@ -44,7 +61,7 @@ const SEED_SETTINGS = () => ({
 const fresh = () => {
   const card = newCard({ tier: 'platinum', label: 'Everyday' });
   return {
-    balance: 22000,
+    balance: 8412.65,
     txns: SEED_TXNS(),
     cards: [card],
     defaultCardId: card.id,
@@ -78,15 +95,48 @@ export class Declined extends Error {}
 class Store extends EventTarget {
   #ns = 'guest';
   #s = fresh();
+  #key = null;        // AES key; absent means this device has nothing sealed yet
+  #writing = null;    // serialises saves so two encrypts cannot interleave
+  #loadedFor = null;  // profile currently open, so we do not re-read on every nav
 
-  use(ns) {
-    this.#ns = ns || 'guest';
+  /**
+   * Point the store at a profile and open its wallet.
+   * @param {string} ns    profile id
+   * @param {CryptoKey} key  from the passcode; without it nothing can be read
+   */
+  async use(ns, key = null) {
+    ns = ns || 'guest';
+
+    // Re-reading on every trip home would race the queued write that a just
+    // -committed payment is still flushing. Load once per unlocked profile.
+    if (this.#loadedFor === ns && this.#key === key) {
+      this.#emit();
+      return;
+    }
+
+    await this.flush();
+    this.#ns = ns;
+    this.#key = key;
+    this.#loadedFor = ns;
+
+    let loaded = null;
     try {
       const raw = localStorage.getItem(KEY(this.#ns));
-      this.#s = migrate(raw ? { ...fresh(), ...JSON.parse(raw) } : fresh());
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.v === 2) {
+          // Sealed. Without the key there is nothing to show.
+          loaded = key ? JSON.parse(await unseal(key, parsed)) : null;
+        } else {
+          loaded = parsed;          // written before encryption existed
+        }
+      }
     } catch {
-      this.#s = fresh();
+      loaded = null;                // wrong key, or corrupt: start clean
     }
+
+    this.#s = migrate(loaded ? { ...fresh(), ...loaded } : fresh());
+    if (key) await this.#save();     // seals a legacy plaintext wallet in place
     this.#emit();
   }
 
@@ -96,6 +146,9 @@ class Store extends EventTarget {
     this.#save();
     this.#emit();
   }
+
+  /** Whether this wallet is sealed on disk. */
+  get isEncrypted() { return Boolean(this.#key); }
 
   get state()    { return this.#s; }
   get balance()  { return this.#s.balance; }
@@ -112,9 +165,21 @@ class Store extends EventTarget {
 
   cardById(id) { return this.#s.cards.find(c => c.id === id) || null; }
 
+  /** Seal and write. Chained so concurrent edits cannot clobber each other. */
   #save() {
-    try { localStorage.setItem(KEY(this.#ns), JSON.stringify(this.#s)); } catch { /* private mode */ }
+    const run = async () => {
+      try {
+        const text = JSON.stringify(this.#s);
+        const body = this.#key ? JSON.stringify(await seal(this.#key, text)) : text;
+        localStorage.setItem(KEY(this.#ns), body);
+      } catch { /* private mode, or quota */ }
+    };
+    this.#writing = (this.#writing || Promise.resolve()).then(run, run);
+    return this.#writing;
   }
+
+  /** Resolves once every queued write has landed. For tests and teardown. */
+  flush() { return this.#writing || Promise.resolve(); }
 
   #emit(detail) { this.dispatchEvent(new CustomEvent('change', { detail })); }
 
@@ -149,7 +214,8 @@ class Store extends EventTarget {
   }
 
   #commit(txn) {
-    this.#s.txns.unshift({ id: `t${Date.now()}`, time: clockLabel(), at: Date.now(), ...txn });
+    const at = Date.now();
+    this.#s.txns.unshift({ id: `t${at}`, at, time: stampLabel(at), ...txn });
     this.#s.balance += txn.amount;
     this.#save();
     this.#emit({ txn });
@@ -157,21 +223,21 @@ class Store extends EventTarget {
 
   /* --- Money --------------------------------------------------------- */
 
-  transfer(amount) {
+  transfer(amount, to = 'Transfer') {
     const v = Math.abs(amount);
     this.#authorise(v, { control: 'online' });
-    this.#commit({ title: 'Transfer', amount: -v, type: 'transfer' });
+    this.#commit({ title: to, amount: -v, type: 'transfer' });
   }
 
-  convert(amount) {
+  convert(amount, label) {
     const v = Math.abs(amount);
     this.#authorise(v);
-    this.#commit({ title: 'Conversion', amount: -v, type: 'convert' });
+    this.#commit({ title: label || 'Currency exchange', amount: -v, type: 'convert' });
   }
 
   /** Money in is never blocked by a spending control. */
   topUp(amount) {
-    this.#commit({ title: 'Top up', amount: Math.abs(amount), type: 'topup' });
+    this.#commit({ title: 'Money added', amount: Math.abs(amount), type: 'topup' });
   }
 
   buyCard(tier, fee) {
@@ -180,7 +246,7 @@ class Store extends EventTarget {
     const card = newCard({ tier: tier.id, label: tier.name });
     this.#s.cards.push(card);
     this.#s.defaultCardId = card.id;
-    this.#commit({ title: `${tier.name} card`, amount: -v, type: 'card' });
+    this.#commit({ title: `DailyWallet ${tier.name} card`, amount: -v, type: 'card' });
     return card;
   }
 
@@ -219,6 +285,16 @@ class Store extends EventTarget {
     this.#emit();
   }
 
+  /** Persist a new order for the stack. Unknown ids are ignored. */
+  reorderCards(ids) {
+    const byId = new Map(this.#s.cards.map(c => [c.id, c]));
+    const next = ids.map(id => byId.get(id)).filter(Boolean);
+    for (const c of this.#s.cards) if (!next.includes(c)) next.push(c);
+    this.#s.cards = next;
+    this.#save();
+    this.#emit();
+  }
+
   setDefaultCard(id) {
     if (!this.cardById(id)) return;
     this.#s.defaultCardId = id;
@@ -245,6 +321,8 @@ class Store extends EventTarget {
   /** Right-to-erasure: drop the wallet entirely. */
   erase() {
     try { localStorage.removeItem(KEY(this.#ns)); } catch { /* private mode */ }
+    this.#key = null;
+    this.#loadedFor = null;
     this.#s = fresh();
     this.#emit();
   }
@@ -256,6 +334,9 @@ export const CONTROL_NAMES = {
   atm: 'Cash withdrawals',
   international: 'Payments abroad',
 };
+
+/** Added cards get a graphite face, distinct from the issued metals. */
+export const LINKED_GRADIENT = ['#4A4A52', '#2E2E36', '#1B1B21'];
 
 export const CURRENCIES = {
   USD: { symbol: '$', locale: 'en-US', name: 'US dollar' },
@@ -271,6 +352,16 @@ export function clockLabel(d = new Date()) {
   const ap = h >= 12 ? 'pm' : 'am';
   h = h % 12 || 12;
   return `${h}:${m}${ap}`;
+}
+
+/** Time for today, a weekday this week, then a date. Same column, better data. */
+export function stampLabel(at) {
+  const d = new Date(at);
+  const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days <= 0) return clockLabel(d);
+  if (days === 1) return 'Yesterday';
+  if (days < 7)  return d.toLocaleDateString('en-GB', { weekday: 'long' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 /** `1050` -> `$1,050.00`, in whichever currency is selected. */
