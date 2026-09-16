@@ -48,12 +48,16 @@ domain root.
 
 ## Sizing
 
+There is no device mock-up. The app fills whatever it is given, up to 480px,
+and the page carries the active screen's own background out to the window
+edge — so a wide window shows the app, not a picture of a phone sitting on a
+desk.
+
 Every length is authored in `rem` against a **440 x 956pt reference phone**,
 and `html`'s font size scales with viewport width
-(`clamp(0.8125rem, 3.6364vw, 1.0625rem)`). A 375pt iPhone SE therefore gets
-the same design at 85%, rather than 440pt-sized type crammed onto a smaller
-screen. On desktop the shell is pinned to the reference width, so the scale
-is exactly 1.
+(`clamp(0.8125rem, 3.6364vw, 1.0906rem)`). A 375pt iPhone SE gets the same
+design at 85%; the cap matches what a 480px-wide app wants (16 x 480/440),
+so the proportions hold at every width without a breakpoint.
 
 Width scaling alone is not enough, because a short phone is not just a
 narrow one — an SE is 1.78:1 against the reference's 2.17:1. Two things

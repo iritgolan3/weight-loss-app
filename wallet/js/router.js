@@ -46,6 +46,9 @@ export class Router {
       const next = Object.assign(factory(params) || {}, { name, params });
 
       this.#host.appendChild(next.el);
+      // Lets the page ground follow the screen, so a wide window shows no
+      // band of the wrong colour beside a dark screen.
+      document.body.dataset.screen = name;
       await next.enter?.();
 
       if (prev && mode !== 'none') await this.#transition(prev, next, mode);
@@ -78,6 +81,7 @@ export class Router {
 
       prev.el.style.visibility = '';
       prev.el.removeAttribute('aria-hidden');
+      document.body.dataset.screen = prev.name;
       prev.onResume?.();
 
       if (hero) {
