@@ -296,6 +296,16 @@ class Auth extends EventTarget {
     return true;
   }
 
+  /** Right-to-erasure: drop the device profile, passcode and credential. */
+  eraseProfile() {
+    try { localStorage.removeItem(PROFILE); } catch { /* private mode */ }
+    try { sessionStorage.removeItem(SESSION); } catch { /* private mode */ }
+    this.#profile = null;
+    this.#session = null;
+    this.#locked = true;
+    this.dispatchEvent(new CustomEvent('change'));
+  }
+
   /** Forget the enrolled credential; the passcode still works. */
   forgetBiometric() {
     if (!this.#profile) return;

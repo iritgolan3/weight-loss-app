@@ -40,7 +40,10 @@ domain root.
 | **Card picker** | Snapping carousel of turned cards — Platinum $199, Silver $99, Gold $349 |
 | **Confirm order** | Order summary; the pay button morphs into a spinner |
 | **Order placed** | Animated card terminal, receipt and tick, then back to home |
-| **Profile** | Device, biometric enrolment, change passcode, lock now |
+| **Settings** | Setup checklist, cards, currency, security, alerts, data, about |
+| **Cards** | Every card, which is default, which are frozen |
+| **Add card** | Order a DailyWallet card, or add one you already have |
+| **Card** | Freeze, default, spending limits, payment controls, remove |
 | **Sync** | Optional email sign-in, shown only when a backend is configured |
 
 ## Sizing
@@ -63,6 +66,78 @@ absorb that:
   space instead of pushing the Done button off the bottom;
 - under `max-height: 740px` the home screen tightens its vertical rhythm to
   hand those pixels back to the transaction list.
+
+## Settings, and which of them a payment app actually needs
+
+Every setting here changes behaviour. Nothing is a switch that only moves.
+Freezing a card refuses the next payment, a spending limit refuses an
+over-limit one before any money moves, turning payment alerts off really
+does silence them, and the currency setting re-denominates every amount in
+the app. `store.spend()` is the single gate all of that runs through.
+
+The Settings screen opens with a **setup checklist** that names anything
+required which is not yet configured — the app checking itself rather than
+leaving you to work it out. It clears to a green line when nothing is
+outstanding.
+
+### What is genuinely required
+
+**Required by payments regulation** (PSD2/SCA in the EU and UK, and the
+equivalent elsewhere):
+
+| Setting | Why |
+| --- | --- |
+| Passcode | One of the two authentication factors |
+| Face or fingerprint | The second factor — inherence |
+| Auto-lock | Bounds how long an unlocked session stays open |
+| Payment alerts | Account holders must be told when money moves |
+| Spending limits | Customers must be able to set and change payment limits |
+| Freeze card | Immediate ability to stop a card being used |
+| Payment controls | Per-channel consent (online, contactless, ATM, abroad) |
+
+**Required by data protection law** (GDPR and similar):
+
+| Setting | Why |
+| --- | --- |
+| Export my data | Right to portability — the real wallet JSON, copyable |
+| Erase everything | Right to erasure — wipes wallet, cards and passcode |
+| Product news off by default | Marketing must be opt-in, never pre-ticked |
+
+**Required by the app stores:** Apple requires any app with account creation
+to offer account deletion in-app — that is what *Erase everything* is.
+
+**Required by people, if not by law:** default card, card removal, currency,
+reduce motion, and knowing what the app is.
+
+### What a real payment app has that this one cannot
+
+These need a licensed issuer and a backend, so they are deliberately absent
+rather than faked:
+
+- **Identity verification (KYC/AML).** A real wallet cannot hold money until
+  identity is checked.
+- **Statements.** Payment accounts must provide periodic statements.
+- **Disputes and chargebacks.** A regulated path to challenge a transaction.
+- **Complaints and ombudsman referral.** Required disclosure in most markets.
+- **Fees and exchange-rate disclosure**, in the pre-contract format regulators
+  specify.
+- **Deposit protection disclosure.** This app claims none, because it has
+  none. Any such badge here would be a false statement.
+- **3-D Secure**, tokenisation, and real card provisioning to Apple/Google Pay.
+
+### Adding cards
+
+Two routes: order a DailyWallet card through the existing metal-card flow, or
+add a card you already have.
+
+The add-card form validates properly — Luhn checksum, issuer-range brand
+detection, 4-6-5 grouping for Amex, real month and expiry checks, and a
+brand-correct security-code length. It is also unambiguous about being a
+demo: it says so in the form, offers a test number so nobody needs to type a
+real one, and **stores only the brand, last four digits and expiry**. The
+full number and the security code are discarded at submit and never written
+to storage — asserted by a test that reads localStorage back and checks the
+number is absent.
 
 ## The animations
 

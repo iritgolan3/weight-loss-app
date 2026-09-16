@@ -1,6 +1,6 @@
 /* Offline shell. Bump CACHE whenever the asset list below changes. */
 
-const CACHE = 'dailywallet-v5';
+const CACHE = 'dailywallet-v6';
 
 const SHELL = [
   './',
@@ -21,6 +21,7 @@ const SHELL = [
   './js/dom.js',
   './js/icons.js',
   './js/ui/card.js',
+  './js/ui/controls.js',
   './js/ui/sheet.js',
   './js/ui/terminal.js',
   './js/screens/splash.js',
@@ -30,7 +31,10 @@ const SHELL = [
   './js/screens/pick.js',
   './js/screens/confirm.js',
   './js/screens/done.js',
-  './js/screens/profile.js',
+  './js/screens/settings.js',
+  './js/screens/cards.js',
+  './js/screens/addcard.js',
+  './js/screens/carddetail.js',
   './assets/fonts/poppins-400.woff2',
   './assets/fonts/poppins-500.woff2',
   './assets/fonts/poppins-600.woff2',

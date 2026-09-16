@@ -1,6 +1,6 @@
 import { Router } from './router.js';
 import { auth } from './auth.js';
-import { store } from './store.js';
+import { store, Declined } from './store.js';
 import { remote } from './backend.js';
 import { toast } from './dom.js';
 
@@ -11,7 +11,10 @@ import { homeScreen }    from './screens/home.js';
 import { pickScreen }    from './screens/pick.js';
 import { confirmScreen } from './screens/confirm.js';
 import { doneScreen }    from './screens/done.js';
-import { profileScreen } from './screens/profile.js';
+import { settingsScreen, applyReducedMotion } from './screens/settings.js';
+import { cardsScreen }      from './screens/cards.js';
+import { addCardScreen }    from './screens/addcard.js';
+import { cardDetailScreen } from './screens/carddetail.js';
 
 const router = new Router(
   document.getElementById('screens'),
@@ -24,6 +27,7 @@ const goHome = (mode = 'fade') => {
   // Namespaced by the device profile, so attaching an email later never
   // looks like the wallet reset itself.
   store.use(auth.profileId);
+  applyReducedMotion(store.settings.reducedMotion);
   syncDown();                       // no-op unless a backend is configured
   return router.go('home', {}, { mode });
 };
@@ -66,12 +70,14 @@ router
 
   .register('passcode', params => passcodeScreen({
     mode: params.mode,
-    onDone: () => (params.returnTo === 'profile' ? router.go('profile', {}, { mode: 'fade' }) : goHome()),
+    onDone: () => (params.returnTo
+      ? router.go(params.returnTo, {}, { mode: 'fade' })
+      : goHome()),
   }))
 
   .register('home',    () => homeScreen({
     onPickCard: () => router.go('pick', { start: store.card }, { mode: 'hero' }),
-    onProfile:  () => router.go('profile', {}, { mode: 'push' }),
+    onProfile:  () => router.go('settings', {}, { mode: 'push' }),
   }))
 
   .register('pick',    params => pickScreen({
@@ -89,19 +95,44 @@ router
   .register('done',    params => doneScreen({
     tier: params.tier,
     onDone: () => {
-      store.buyCard(params.tier, params.tier.price);
-      goHome();
-      toast(`${params.tier.name} card added`);
+      try {
+        store.buyCard(params.tier, params.tier.price);
+        goHome();
+        if (store.settings.alerts.payments) toast(`${params.tier.name} card added`);
+      } catch (err) {
+        goHome();
+        toast(err instanceof Declined ? err.message : 'That order could not be completed.');
+      }
     },
   }))
 
-  .register('profile', () => profileScreen({
+  .register('settings', () => settingsScreen({
     onBack: () => router.back(),
     onChangePasscode: () =>
-      router.go('passcode', { mode: 'set', returnTo: 'profile' }, { mode: 'push' }),
+      router.go('passcode', { mode: 'set', returnTo: 'settings' }, { mode: 'push' }),
+    onCards: () => router.go('cards', {}, { mode: 'push' }),
     onSync: () => router.go('auth', {}, { mode: 'push' }),
-    onStopSync: () => { auth.stopSync(); router.go('profile', {}, { mode: 'fade' }); },
+    onStopSync: () => { auth.stopSync(); router.go('settings', {}, { mode: 'fade' }); },
     onLock: () => { auth.lock(); goPasscode('unlock'); },
+    // Erasing removes the passcode too, so the app starts over from setup.
+    onErased: () => { toast('Everything on this device was erased'); boot(); },
+  }))
+
+  .register('cards',   () => cardsScreen({
+    onBack: () => router.back(),
+    onAdd:  () => router.go('addcard', {}, { mode: 'push' }),
+    onCard: id => router.go('carddetail', { cardId: id }, { mode: 'push' }),
+  }))
+
+  .register('addcard', () => addCardScreen({
+    onBack:  () => router.back(),
+    onAdded: () => router.back(),
+    onOrder: () => router.go('pick', { start: store.card }, { mode: 'push' }),
+  }))
+
+  .register('carddetail', params => cardDetailScreen({
+    cardId: params.cardId,
+    onBack: () => router.back(),
   }));
 
 /* --- Boot -------------------------------------------------------------- */
@@ -121,7 +152,8 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   const away = Date.now() - hiddenAt;
-  if (hiddenAt && away > 60_000 && auth.hasPasscode && !auth.isLocked && !router.busy) {
+  const after = (store.settings?.autoLockMinutes ?? 1) * 60_000;
+  if (hiddenAt && away >= after && auth.hasPasscode && !auth.isLocked && !router.busy) {
     auth.lock();
     goPasscode('unlock');
   }
@@ -130,7 +162,9 @@ document.addEventListener('visibilitychange', () => {
 /* Browser back maps to the in-app back stack. */
 history.replaceState({ depth: 1 }, '');
 window.addEventListener('popstate', () => {
-  if (router.depth > 1) { router.back({ hero: router.current?.name !== 'profile' }); }
+  if (router.depth > 1) {
+    router.back({ hero: router.current?.name === 'pick' || router.current?.name === 'confirm' });
+  }
   history.pushState({ depth: router.depth }, '');
 });
 

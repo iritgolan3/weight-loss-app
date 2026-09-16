@@ -1,6 +1,6 @@
 import { screenEl, el, tap, toast } from '../dom.js';
 import { icon } from '../icons.js';
-import { store, money } from '../store.js';
+import { store, money, Declined } from '../store.js';
 import { auth } from '../auth.js';
 import { cardMarkup } from '../ui/card.js';
 import { amountSheet } from '../ui/sheet.js';
@@ -26,6 +26,21 @@ function txnRow(t) {
     </li>`;
 }
 
+/** Runs a payment, reporting refusals and honouring the alert settings. */
+async function pay(run, announce) {
+  try {
+    run();
+  } catch (err) {
+    if (err instanceof Declined) return toast(err.message);
+    throw err;
+  }
+  const alerts = store.settings.alerts;
+  if (alerts.payments) toast(announce);
+  if (alerts.lowBalance && store.balance < alerts.lowBalanceAt) {
+    setTimeout(() => toast(`Balance is below ${money(alerts.lowBalanceAt, { cents: false })}`), 2400);
+  }
+}
+
 export function homeScreen({ onPickCard, onProfile }) {
   const node = screenEl('sc-home', `
     <div class="sc-home__top">
@@ -36,7 +51,7 @@ export function homeScreen({ onPickCard, onProfile }) {
       </div>
       <div class="sc-home__fade sc-home__money">
         <p class="sc-home__label">Available balance</p>
-        <p class="sc-home__balance" data-balance></p>
+        <button class="sc-home__balance" data-balance aria-label="Available balance"></button>
       </div>
       <div class="sc-home__card" data-cardslot></div>
     </div>
@@ -74,6 +89,7 @@ export function homeScreen({ onPickCard, onProfile }) {
   let active = 0;
   let shown = null;        // the balance currently painted, for the count-up
   let firstList = true;
+  let revealed = false;    // tap-to-reveal, when the balance is set to hide
 
   slot.innerHTML = cardMarkup(store.card, { hero: true });
 
@@ -119,6 +135,7 @@ export function homeScreen({ onPickCard, onProfile }) {
 
   function render() {
     paintBalance(store.balance);
+    balanceEl.classList.toggle('is-hidden', store.settings.hideBalance && !revealed);
     const fit = slot.querySelector('.card-fit');
     if (fit && !fit.querySelector(`.card--${store.card}`)) {
       slot.innerHTML = cardMarkup(store.card, { hero: true });
@@ -154,6 +171,13 @@ export function homeScreen({ onPickCard, onProfile }) {
     cardSlot.addEventListener(e, unpress));
 
   node.addEventListener('click', async event => {
+    if (event.target.closest('[data-balance]')) {
+      if (!store.settings.hideBalance) return;
+      tap();
+      revealed = !revealed;
+      return render();
+    }
+
     if (event.target.closest('[data-cardslot]')) {
       // Clear the press first: the hero flight measures this element's box.
       unpress();
@@ -165,7 +189,7 @@ export function homeScreen({ onPickCard, onProfile }) {
     if (event.target.closest('[data-add]')) {
       tap();
       const amount = await amountSheet({ title: 'Top up', note: 'Added straight to your balance.', cta: 'Add money' });
-      if (amount) { store.topUp(amount); toast(`${money(amount, { cents: false })} added`); }
+      if (amount) await pay(() => store.topUp(amount), `${money(amount, { cents: false })} added`);
       return;
     }
 
@@ -193,7 +217,7 @@ export function homeScreen({ onPickCard, onProfile }) {
         title: 'Convert', note: 'Moved between your currency balances.',
         cta: 'Convert', max: store.balance,
       });
-      if (amount) { store.convert(amount); toast(`${money(amount, { cents: false })} converted`); }
+      if (amount) await pay(() => store.convert(amount), `${money(amount, { cents: false })} converted`);
       setNav(0);
     }
   });
