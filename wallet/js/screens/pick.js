@@ -66,7 +66,10 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
     markHero();
   }
 
-  /** Neighbours shrink and dim in proportion to their distance from centre. */
+  /**
+   * Neighbours shrink, sink and dim in proportion to their distance from
+   * centre, so the stack reads with depth rather than as a flat filmstrip.
+   */
   function paint() {
     const centre = carousel.scrollLeft + carousel.clientWidth / 2;
     let best = 0, bestD = Infinity;
@@ -75,8 +78,10 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
       const cc = cell.offsetLeft + cell.offsetWidth / 2;
       const raw = Math.abs(centre - cc) / cell.offsetWidth;
       const d = Math.min(1, raw);
-      inners[i].style.transform = `scale(${(1 - 0.16 * d).toFixed(4)})`;
-      inners[i].style.opacity = (1 - 0.52 * d).toFixed(3);
+      const sink = (d * cell.offsetHeight * 0.035).toFixed(2);
+      inners[i].style.transform =
+        `translateY(${sink}px) scale(${(1 - 0.17 * d).toFixed(4)})`;
+      inners[i].style.opacity = (1 - 0.5 * d).toFixed(3);
       if (raw < bestD) { bestD = raw; best = i; }
     });
 

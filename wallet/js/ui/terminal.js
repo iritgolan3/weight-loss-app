@@ -6,6 +6,8 @@
    comes from re-drawing the silhouette a few pixels lower in dark grey.
    No raster assets. */
 
+import { CARD_GRADIENTS } from './card.js';
+
 const W = 230;    // plan length: keypad end -> printer end
 const H = 158;    // plan width
 const R = 24;     // body corner radius
@@ -37,16 +39,17 @@ function keypad() {
   return out.join('');
 }
 
-export function terminalSVG() {
+export function terminalSVG(tierId = 'gold') {
+  const [g1, g2, g3] = CARD_GRADIENTS[tierId] || CARD_GRADIENTS.gold;
   return `
   <svg class="term" viewBox="0 0 330 322" role="img"
        aria-label="A card terminal printing a receipt with a confirmation tick">
 
     <defs>
-      <linearGradient id="termGold" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#D8C89C"/>
-        <stop offset="0.5" stop-color="#C0AA79"/>
-        <stop offset="1" stop-color="#9A8863"/>
+      <linearGradient id="termCard" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${g1}"/>
+        <stop offset="0.5" stop-color="${g2}"/>
+        <stop offset="1" stop-color="${g3}"/>
       </linearGradient>
       <linearGradient id="termPaper" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#FFFFFF"/>
@@ -106,7 +109,7 @@ export function terminalSVG() {
          what animates; the projection lives on the inner one so the two
          transforms cannot overwrite each other. -->
     <g class="term__card"><g transform="${PROJ}">
-      ${rr(64, -14, 122, 74, 7, 'url(#termGold)',
+      ${rr(64, -14, 122, 74, 7, 'url(#termCard)',
            'stroke="rgba(0,0,0,0.10)" stroke-width="1"')}
       <g transform="translate(160,4) rotate(90) scale(0.40)" opacity="0.55">
         ${[8, 15, 22].map((r, i) => {

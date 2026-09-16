@@ -13,22 +13,22 @@
 }
 
 .sc-splash__mark {
-  font-size: 30px;
+  font-size: 1.875rem;
   font-weight: 600;
-  letter-spacing: -1px;
+  letter-spacing: -0.0625rem;
   color: #FFF;
   animation: mark-in 900ms var(--e-out) both;
 }
 
 .sc-splash__dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 0.5rem; height: 0.5rem; border-radius: 50%;
   background: var(--green);
-  margin: 18px auto 0;
+  margin: 1.125rem auto 0;
   animation: mark-in 900ms var(--e-out) 120ms both;
 }
 
 @keyframes mark-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  from { opacity: 0; transform: translateY(0.875rem) scale(0.94); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -37,13 +37,13 @@
    -------------------------------------------------------------------------- */
 
 .sc-auth .screen__body { padding-inline: var(--gutter); }
-.sc-auth__head  { margin: 18px 0 30px; }
-.sc-auth__swap  { margin-top: 20px; text-align: center; font-size: 14px; color: var(--muted); }
+.sc-auth__head  { margin: 1.125rem 0 1.875rem; }
+.sc-auth__swap  { margin-top: 1.25rem; text-align: center; font-size: 0.875rem; color: var(--muted); }
 .sc-auth__swap b { color: var(--ink); font-weight: 600; cursor: pointer; }
-.sc-auth__foot  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.sc-auth__foot  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem); }
 .sc-auth__hint  {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 12px; color: var(--muted); margin-top: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 0.375rem;
+  font-size: 0.75rem; color: var(--muted); margin-top: 0.875rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -51,8 +51,8 @@
    -------------------------------------------------------------------------- */
 
 .sc-pass .screen__body { padding-inline: var(--gutter); align-items: center; }
-.sc-pass__head { text-align: center; margin-top: 28px; }
-.sc-pass__pad  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 100%; }
+.sc-pass__head { text-align: center; margin-top: 1.75rem; }
+.sc-pass__pad  { margin-top: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.75rem); width: 100%; }
 
 /* --------------------------------------------------------------------------
    Home
@@ -61,8 +61,8 @@
 .sc-home { background: var(--bg-dark); }
 
 .sc-home__top {
-  /* +20px so the greeting clears the status bar exactly as in the design. */
-  padding: 20px var(--gutter) 0;
+  /* +1.25rem so the greeting clears the status bar exactly as in the design. */
+  padding: 1.25rem var(--gutter) 0;
   flex: none;
   color: #FFF;
 }
@@ -70,30 +70,30 @@
 .sc-home__bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 44px;
+  gap: 0.75rem;
+  height: 2.75rem;
 }
 
 .sc-home__hello {
   flex: 1;
   min-width: 0;
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 600;
-  letter-spacing: -0.85px;
+  letter-spacing: -0.05312rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sc-home__label   { font-size: 13px; color: #8C8C8C; margin-top: 26px; letter-spacing: -0.1px; }
-.sc-home__balance { font-size: 40px; font-weight: 600; letter-spacing: -1.6px; line-height: 1.1; margin-top: 2px; }
-.sc-home__card    { margin-top: 18px; }
+.sc-home__label   { font-size: 0.8125rem; color: #8C8C8C; margin-top: 1.625rem; letter-spacing: -0.00625rem; }
+.sc-home__balance { font-size: 2.5rem; font-weight: 600; letter-spacing: -0.1rem; line-height: 1.1; margin-top: 0.125rem; }
+.sc-home__card    { margin-top: 1.125rem; }
 
 /* The white sheet rides up over the black. */
 .sc-home__sheet {
   flex: 1;
   min-height: 0;
-  margin-top: 30px;
+  margin-top: 1.875rem;
   background: var(--surface);
   border-radius: var(--r-sheet) var(--r-sheet) 0 0;
   display: flex;
@@ -105,13 +105,13 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 22px var(--gutter) 10px;
+  padding: 1.375rem var(--gutter) 0.625rem;
   flex: none;
 }
 
-.sc-home__sheettitle { font-size: 17px; font-weight: 600; letter-spacing: -0.4px; }
-.sc-home__seeall     { font-size: 14px; color: var(--muted); }
-.sc-home__list       { flex: 1; min-height: 0; padding-bottom: 104px; }
+.sc-home__sheettitle { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.025rem; }
+.sc-home__seeall     { font-size: 0.875rem; color: var(--muted); }
+.sc-home__list       { flex: 1; min-height: 0; padding-bottom: 6.5rem; }
 
 /* Cross-fade target: everything except the flying card dims out on exit. */
 .sc-home__fade,
@@ -127,13 +127,13 @@
    Card picker
    -------------------------------------------------------------------------- */
 
-.sc-pick .screen__body { padding-top: calc(var(--safe-top) + 10px); }
-.sc-pick__nav   { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
+.sc-pick .screen__body { padding-top: calc(var(--safe-top) + 0.625rem); }
+.sc-pick__nav   { padding-inline: 1rem; height: 2.75rem; display: flex; align-items: center; flex: none; }
 
-.sc-pick__head  { text-align: center; flex: none; padding-top: 22px; height: 102px; }
-.sc-pick__name  { font-size: 30px; font-weight: 600; letter-spacing: -1px; }
-.sc-pick__price { font-size: 15px; margin-top: 2px; }
-.sc-pick__price b { font-weight: 600; letter-spacing: -0.3px; }
+.sc-pick__head  { text-align: center; flex: none; padding-top: 1.375rem; height: 6.375rem; }
+.sc-pick__name  { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.0625rem; }
+.sc-pick__price { font-size: 0.9375rem; margin-top: 0.125rem; }
+.sc-pick__price b { font-weight: 600; letter-spacing: -0.01875rem; }
 .sc-pick__price span { color: var(--muted); }
 
 /* Name and price swap with a short cross-fade as the carousel settles. */
@@ -142,10 +142,10 @@
 .sc-pick__name, .sc-pick__price { transition: opacity 160ms linear; }
 
 .carousel {
-  /* An inline-size container so the cells can be sized against the
-     carousel's own width; a percentage would resolve against the
-     shrink-to-fit track instead and blow the cell out. */
-  container-type: inline-size;
+  /* A size container: cells size against the carousel's own width (a
+     percentage would resolve against the shrink-to-fit track and blow the
+     cell out), and the card sizes against its height. */
+  container-type: size;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -193,38 +193,38 @@
   transform: translate(-50%, -50%);
 }
 
-.sc-pick__dots { flex: none; margin-bottom: 18px; }
-.sc-pick__foot { flex: none; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+.sc-pick__dots { flex: none; margin-bottom: 1.125rem; }
+.sc-pick__foot { flex: none; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 2.75rem); }
 
 .sc-pick {
   --cell: 71;                          /* cqw; leaves the neighbour peeking */
-  --pc-h: 448px;                       /* card width before the turn */
+  /* Card width before the turn: the reference size, or as much as the
+     carousel's own height allows on a shorter phone. Resolved where it is
+     used, inside the carousel, so cqh means the carousel's height. */
+  --pc-h: min(28rem, 90cqh);
   --pc-w: calc(var(--pc-h) / 1.586);   /* becomes the portrait width */
 }
-
-@media (max-height: 860px) { .sc-pick { --pc-h: 386px; } }
-@media (max-height: 740px) { .sc-pick { --pc-h: 318px; } }
 
 /* --------------------------------------------------------------------------
    Confirm order
    -------------------------------------------------------------------------- */
 
-.sc-confirm .screen__body { padding-top: calc(var(--safe-top) + 10px); }
-.sc-confirm__nav  { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
-.sc-confirm__head { padding: 8px var(--gutter) 0; flex: none; }
-.sc-confirm__card { padding: 26px var(--gutter) 0; flex: none; }
-.sc-confirm__box  { padding: 26px var(--gutter) 0; flex: none; }
-.sc-confirm__foot { margin-top: auto; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+.sc-confirm .screen__body { padding-top: calc(var(--safe-top) + 0.625rem); }
+.sc-confirm__nav  { padding-inline: 1rem; height: 2.75rem; display: flex; align-items: center; flex: none; }
+.sc-confirm__head { padding: 0.5rem var(--gutter) 0; flex: none; }
+.sc-confirm__card { padding: 1.625rem var(--gutter) 0; flex: none; }
+.sc-confirm__box  { padding: 1.625rem var(--gutter) 0; flex: none; }
+.sc-confirm__foot { margin-top: auto; padding: 1.25rem var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 2.75rem); }
 
 .sc-confirm__secure {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
   color: var(--muted);
-  margin-top: 13px;
-  min-height: 18px;
+  margin-top: 0.8125rem;
+  min-height: 1.125rem;
   transition: opacity 160ms linear;
 }
 
@@ -235,49 +235,52 @@
 .sc-done .screen__body { padding-top: var(--safe-top); }
 
 .sc-done__art {
-  flex: none;
-  height: 440px;
+  /* Grows into spare space on a tall phone, yields it on a short one, so the
+     Done button can never be pushed past the bottom edge. */
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 27.5rem;
   display: grid;
   place-items: center;
   padding-inline: var(--gutter);
 }
 
 .sc-done__head { text-align: center; padding-inline: var(--gutter); flex: none; }
-.sc-done__head .title { font-size: 30px; }
-.sc-done__sub  { font-size: 14px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
-.sc-done__box  { padding: 24px var(--gutter) 0; flex: none; }
-.sc-done__foot { margin-top: auto; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 44px); }
+.sc-done__head .title { font-size: 1.875rem; }
+.sc-done__sub  { font-size: 0.875rem; color: var(--muted); line-height: 1.55; margin-top: 0.5rem; }
+.sc-done__box  { padding: 1.5rem var(--gutter) 0; flex: none; }
+.sc-done__foot { margin-top: auto; padding: 1.25rem var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 2.75rem); }
 
 /* --------------------------------------------------------------------------
    Profile
    -------------------------------------------------------------------------- */
 
 .sc-profile .screen__body { padding-inline: var(--gutter); }
-.sc-profile__head { margin: 14px 0 22px; }
+.sc-profile__head { margin: 0.875rem 0 1.375rem; }
 
 .sc-profile__id {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 22px;
+  display: flex; align-items: center; gap: 0.875rem;
+  margin-bottom: 1.375rem;
 }
 
 .sc-profile__avatar {
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 3.5rem; height: 3.5rem; border-radius: 50%;
   background: var(--ink); color: #FFF;
   display: grid; place-items: center;
-  font-size: 20px; font-weight: 600;
+  font-size: 1.25rem; font-weight: 600;
   flex: none;
 }
 
 .sc-profile__id > span:last-child { display: flex; flex-direction: column; min-width: 0; }
-.sc-profile__email { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; line-height: 1.3; }
-.sc-profile__since { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.sc-profile__email { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.0125rem; line-height: 1.3; }
+.sc-profile__since { font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
 
 .rowbtn {
-  display: flex; align-items: center; gap: 14px;
-  width: 100%; height: 58px; padding-inline: 18px;
-  background: var(--surface); border-radius: 16px;
-  margin-bottom: 10px;
-  font-size: 15px; font-weight: 500; letter-spacing: -0.2px;
+  display: flex; align-items: center; gap: 0.875rem;
+  width: 100%; height: 3.625rem; padding-inline: 1.125rem;
+  background: var(--surface); border-radius: 1rem;
+  margin-bottom: 0.625rem;
+  font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.0125rem;
   box-shadow: var(--sh-box);
   transition: transform var(--t-fast) var(--e-out);
 }
@@ -294,15 +297,15 @@
 
 .amount {
   text-align: center;
-  font-size: 46px;
+  font-size: 2.875rem;
   font-weight: 600;
-  letter-spacing: -1.8px;
-  margin: 10px 0 4px;
-  min-height: 60px;
+  letter-spacing: -0.1125rem;
+  margin: 0.625rem 0 0.25rem;
+  min-height: 3.75rem;
 }
 
 .amount--dim { color: var(--muted-dim); }
-.amount__note { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 14px; }
+.amount__note { font-size: 0.8125rem; color: var(--muted); text-align: center; margin-bottom: 0.875rem; }
 
 /* --------------------------------------------------------------------------
    Staggered entrance
@@ -314,7 +317,7 @@
 }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(1rem); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -322,4 +325,70 @@
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* The terminal illustration fills its art block. */
-.sc-done__art .term { width: 100%; max-width: 404px; height: auto; display: block; }
+.sc-done__art .term {
+  width: 25.25rem;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Home entrance
+   The class is stripped once the cascade finishes: an animation with `both`
+   fill would otherwise pin opacity and block the hero exit cross-fade.
+   -------------------------------------------------------------------------- */
+
+.sc-home.is-entering .sc-home__bar   { animation: rise 520ms var(--e-out) both; }
+.sc-home.is-entering .sc-home__money { animation: rise 520ms var(--e-out) 70ms both; }
+.sc-home.is-entering .sc-home__card  { animation: card-in 640ms var(--e-out) 130ms both; }
+.sc-home.is-entering .sc-home__sheet { animation: sheet-up 620ms var(--e-out) 230ms both; }
+.sc-home.is-entering .navpill        { animation: pill-in 640ms var(--e-spring) 380ms both; }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(1.5rem) scale(0.95); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sheet-up {
+  from { opacity: 0; transform: translateY(2.5rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pill-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(5rem); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Transaction rows cascade in behind the sheet. */
+.sc-home__list.is-entering .txn {
+  opacity: 0;
+  animation: rise 460ms var(--e-out) both;
+}
+
+/* The card takes a press. Driven by a class rather than :active so it is
+   always cleared before the hero flight measures the card's box. */
+.sc-home__card { transition: transform 260ms var(--e-out); }
+.sc-home__card.is-pressed { transform: scale(0.975); }
+
+/* Rows acknowledge a tap. */
+.txn { transition: background 180ms linear; }
+.txn:active { background: #F6F5F3; }
+
+/* --------------------------------------------------------------------------
+   Short phones
+   A 375x667 screen is proportionally much shorter than the 440x956 reference,
+   so width scaling alone leaves the transaction list starved. Tighten the
+   vertical rhythm above the sheet to hand those pixels back to the list.
+   -------------------------------------------------------------------------- */
+
+@media (max-height: 740px) {
+  .sc-home__top     { padding-top: 0.5rem; }
+  .sc-home__label   { margin-top: 1rem; }
+  .sc-home__balance { font-size: 2.25rem; }
+  .sc-home__card    { margin-top: 0.75rem; }
+  .sc-home__sheet   { margin-top: 1.25rem; }
+
+  .sc-done__head .title { font-size: 1.75rem; }
+  .sc-done__box         { padding-top: 1rem; }
+}

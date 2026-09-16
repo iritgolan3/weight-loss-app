@@ -6,7 +6,7 @@ import { stagger } from '../hero.js';
 /** Order confirmation, fronted by the animated terminal illustration. */
 export function doneScreen({ tier, onDone }) {
   const node = screenEl('sc-done', `
-    <div class="sc-done__art">${terminalSVG()}</div>
+    <div class="sc-done__art">${terminalSVG(tier.id)}</div>
 
     <div class="sc-done__head" data-head>
       <h1 class="title">Order placed</h1>

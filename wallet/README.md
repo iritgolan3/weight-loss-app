@@ -43,6 +43,27 @@ domain root.
 | **Profile** | Device, biometric enrolment, change passcode, lock now |
 | **Sync** | Optional email sign-in, shown only when a backend is configured |
 
+## Sizing
+
+Every length is authored in `rem` against a **440 x 956pt reference phone**,
+and `html`'s font size scales with viewport width
+(`clamp(0.8125rem, 3.6364vw, 1.0625rem)`). A 375pt iPhone SE therefore gets
+the same design at 85%, rather than 440pt-sized type crammed onto a smaller
+screen. On desktop the shell is pinned to the reference width, so the scale
+is exactly 1.
+
+Width scaling alone is not enough, because a short phone is not just a
+narrow one — an SE is 1.78:1 against the reference's 2.17:1. Two things
+absorb that:
+
+- the card picker sizes its card to the carousel's own height
+  (`min(28rem, 90cqh)`) rather than to a fixed breakpoint, so it is as large
+  as will fit;
+- the order-placed illustration is `flex: 1` with a max height, so it yields
+  space instead of pushing the Done button off the bottom;
+- under `max-height: 740px` the home screen tightens its vertical rhythm to
+  hand those pixels back to the transaction list.
+
 ## The animations
 
 The card is a single element that travels between screens rather than two
@@ -52,11 +73,21 @@ turn along the way — which is what makes the home → picker move read as a
 physical card being turned. `js/router.js` cross-fades the dark and light
 backdrops underneath it.
 
+Home opens with a cascade: greeting, balance, card, then the sheet rising,
+the rows dealing in behind it, and the nav pill springing up last. The
+balance counts to its new value rather than snapping whenever money moves.
+
 Everything else is built from the same handful of primitives: staggered
 entrances (`stagger()`), the pay button's width morph into a dot spinner,
-the carousel's continuous scale/opacity falloff driven by scroll offset,
-and the terminal's scripted sequence in `js/ui/terminal.js` — body settles,
-card slides into the slot, receipt prints, tick strokes itself on.
+the carousel's scroll-driven falloff — neighbours shrink, sink and dim so
+the stack reads with depth — and the terminal's scripted sequence in
+`js/ui/terminal.js`: body settles, card slides into the slot, receipt
+prints, tick strokes itself on.
+
+One trap worth knowing about: a CSS animation with `both` fill pins the
+properties it touches, beating later declarations. The home entrance
+therefore clears its own class before any navigation, or the hero exit
+cross-fade would have nothing to fade.
 
 All motion is Web Animations or CSS transitions, and all of it collapses to
 near-zero duration under `prefers-reduced-motion`.

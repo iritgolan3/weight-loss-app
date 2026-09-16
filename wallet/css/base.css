@@ -4,6 +4,13 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Every size in this app is authored in rem against a 440pt reference phone.
+   Scaling the root font size by viewport width means a 375pt phone gets the
+   same design at 85%, rather than 440pt-sized type on a smaller screen. */
+html {
+  font-size: clamp(0.8125rem, 3.6364vw, 1.0625rem);
+}
+
 html, body {
   height: 100%;
   overscroll-behavior: none;
@@ -44,28 +51,31 @@ ul     { list-style: none; }
 /* The reference device is a 440 x 956pt phone; matching it on desktop keeps
    every proportion identical to the design. */
 @media (min-width: 660px) and (min-height: 700px) {
-  body { padding: 24px; }
+  /* The shell below is pinned to the reference device, so no scaling. */
+  html { font-size: 16px; }
+
+  body { padding: 1.5rem; }
 
   #device {
-    width: 440px;
-    height: 956px;
-    max-height: calc(100vh - 48px);
-    border-radius: 54px;
+    width: 27.5rem;
+    height: 59.75rem;
+    max-height: calc(100vh - 3rem);
+    border-radius: 3.375rem;
     box-shadow:
       var(--sh-device),
-      0 0 0 11px #1B1B1D,
-      0 0 0 13px #303034;
+      0 0 0 0.6875rem #1B1B1D,
+      0 0 0 0.8125rem #303034;
   }
 
   /* Dynamic Island */
   #device::after {
     content: '';
     position: absolute;
-    top: 11px;
+    top: 0.6875rem;
     left: 50%;
     transform: translateX(-50%);
-    width: 118px;
-    height: 34px;
+    width: 7.375rem;
+    height: 2.125rem;
     border-radius: var(--r-pill);
     background: #000;
     z-index: 900;

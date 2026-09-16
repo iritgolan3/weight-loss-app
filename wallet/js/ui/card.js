@@ -1,5 +1,13 @@
 import { contactless } from '../icons.js';
 
+/** Card face gradients, keyed by tier. The terminal illustration draws the
+    ordered card too, so these cannot live only in CSS. */
+export const CARD_GRADIENTS = {
+  platinum: ['#D5D4CF', '#B0AEA8', '#8E8B85'],
+  silver:   ['#C9C7C0', '#A7A59D', '#827E78'],
+  gold:     ['#D8C89C', '#C0AA79', '#9A8863'],
+};
+
 /** The three orderable card tiers, in carousel order. */
 export const TIERS = [
   { id: 'platinum', name: 'Platinum', price: 199, subtitle: 'Platinum metal' },

@@ -33,14 +33,14 @@
   --gold-3:       #9A8863;
 
   /* --- Geometry -------------------------------------------------------- */
-  --gutter:       24px;
-  /* Clears the desktop shell's island (54px) or the phone's real status bar,
+  --gutter:       1.5rem;
+  /* Clears the desktop shell's island (3.375rem) or the phone's real status bar,
      whichever is larger. Nothing is painted here — the OS owns this strip. */
-  --safe-top:     max(54px, calc(env(safe-area-inset-top, 0px) + 12px));
-  --r-card:       20px;      /* credit card corner                         */
-  --r-sheet:      28px;      /* white sheet / modal top corners            */
-  --r-box:        20px;      /* summary cards                              */
-  --r-pill:       999px;
+  --safe-top:     max(3.375rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+  --r-card:       1.25rem;      /* credit card corner                         */
+  --r-sheet:      1.75rem;      /* white sheet / modal top corners            */
+  --r-box:        1.25rem;      /* summary cards                              */
+  --r-pill:       62.4375rem;
   --card-ratio:   1.586;     /* ISO/IEC 7810 ID-1                          */
 
   /* --- Motion ---------------------------------------------------------- */
@@ -52,10 +52,10 @@
   --t-slow:       560ms;
 
   /* --- Elevation ------------------------------------------------------- */
-  --sh-card:      0 18px 40px -12px rgba(0, 0, 0, 0.38);
-  --sh-nav:       0 12px 32px -8px rgba(0, 0, 0, 0.45);
-  --sh-box:       0 2px 12px -4px rgba(0, 0, 0, 0.06);
-  --sh-device:    0 40px 120px -20px rgba(0, 0, 0, 0.55);
+  --sh-card:      0 1.125rem 2.5rem -0.75rem rgba(0, 0, 0, 0.38);
+  --sh-nav:       0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.45);
+  --sh-box:       0 0.125rem 0.75rem -0.25rem rgba(0, 0, 0, 0.06);
+  --sh-device:    0 2.5rem 7.5rem -1.25rem rgba(0, 0, 0, 0.55);
 }
 
 @media (prefers-reduced-motion: reduce) {

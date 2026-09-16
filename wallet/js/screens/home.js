@@ -34,7 +34,7 @@ export function homeScreen({ onPickCard, onProfile }) {
         <button class="iconbtn" data-search aria-label="Search transactions">${icon('search', 21)}</button>
         <button class="iconbtn" data-add aria-label="Top up">${icon('plus', 21)}</button>
       </div>
-      <div class="sc-home__fade">
+      <div class="sc-home__fade sc-home__money">
         <p class="sc-home__label">Available balance</p>
         <p class="sc-home__balance" data-balance></p>
       </div>
@@ -72,6 +72,8 @@ export function homeScreen({ onPickCard, onProfile }) {
   const queryEl   = node.querySelector('[data-q]');
   let query = '';
   let active = 0;
+  let shown = null;        // the balance currently painted, for the count-up
+  let firstList = true;
 
   slot.innerHTML = cardMarkup(store.card, { hero: true });
 
@@ -80,12 +82,43 @@ export function homeScreen({ onPickCard, onProfile }) {
     const rows = store.txns.filter(t => !q || t.title.toLowerCase().includes(q));
     listEl.innerHTML = rows.length
       ? rows.map(txnRow).join('')
-      : `<li style="padding:34px var(--gutter);text-align:center;color:var(--muted);font-size:14px">
+      : `<li style="padding:2.125rem var(--gutter);text-align:center;color:var(--muted);font-size:0.875rem">
            Nothing matches “${query.trim()}”.</li>`;
+
+    // Only the first paint cascades; later ones would fight the search field.
+    if (firstList && rows.length) {
+      firstList = false;
+      listEl.classList.add('is-entering');
+      [...listEl.children].forEach((row, i) => {
+        row.style.animationDelay = `${380 + i * 55}ms`;
+      });
+      setTimeout(() => listEl.classList.remove('is-entering'), 380 + rows.length * 55 + 500);
+    }
+  }
+
+  /** Counts the balance to its new value rather than snapping. */
+  function paintBalance(value) {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (shown === null || reduced || shown === value) {
+      shown = value;
+      balanceEl.textContent = money(value, { cents: false });
+      return;
+    }
+
+    const from = shown, delta = value - from, t0 = performance.now();
+    shown = value;
+    const ease = t => 1 - Math.pow(1 - t, 3);
+
+    const frame = now => {
+      const t = Math.min(1, (now - t0) / 620);
+      balanceEl.textContent = money(Math.round(from + delta * ease(t)), { cents: false });
+      if (t < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }
 
   function render() {
-    balanceEl.textContent = money(store.balance, { cents: false });
+    paintBalance(store.balance);
     const fit = slot.querySelector('.card-fit');
     if (fit && !fit.querySelector(`.card--${store.card}`)) {
       slot.innerHTML = cardMarkup(store.card, { hero: true });
@@ -105,8 +138,29 @@ export function homeScreen({ onPickCard, onProfile }) {
     placeThumb();
   }
 
+  const cardSlot = node.querySelector('.sc-home__card');
+  const unpress = () => cardSlot.classList.remove('is-pressed');
+
+  /* The entrance animations use `both` fill, which pins opacity at 1 and
+     would block the hero exit cross-fade. Always settle them before leaving. */
+  let enterTimer;
+  const settleEntrance = () => {
+    clearTimeout(enterTimer);
+    node.classList.remove('is-entering');
+    listEl.classList.remove('is-entering');
+  };
+  cardSlot.addEventListener('pointerdown', () => cardSlot.classList.add('is-pressed'));
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(e =>
+    cardSlot.addEventListener(e, unpress));
+
   node.addEventListener('click', async event => {
-    if (event.target.closest('[data-cardslot]')) { tap(); return onPickCard(); }
+    if (event.target.closest('[data-cardslot]')) {
+      // Clear the press first: the hero flight measures this element's box.
+      unpress();
+      settleEntrance();
+      tap();
+      return onPickCard();
+    }
 
     if (event.target.closest('[data-add]')) {
       tap();
@@ -129,7 +183,7 @@ export function homeScreen({ onPickCard, onProfile }) {
     const id = nav.dataset.nav;
     const index = NAV.findIndex(n => n.id === id);
 
-    if (id === 'card')    return onPickCard();
+    if (id === 'card')    { settleEntrance(); return onPickCard(); }
     if (id === 'profile') return onProfile();
 
     setNav(index);
@@ -155,9 +209,16 @@ export function homeScreen({ onPickCard, onProfile }) {
 
   return {
     el: node,
-    enter()    { requestAnimationFrame(placeThumb); },
+    enter() {
+      requestAnimationFrame(placeThumb);
+      // Cascade in on first mount only — coming back from the card picker
+      // should land where the hero flight leaves off, not replay this.
+      node.classList.add('is-entering');
+      enterTimer = setTimeout(() => node.classList.remove('is-entering'), 1100);
+    },
     onResume() { setNav(0); render(); },
     destroy()  {
+      clearTimeout(enterTimer);
       store.removeEventListener('change', onChange);
       window.removeEventListener('resize', onResize);
     },
