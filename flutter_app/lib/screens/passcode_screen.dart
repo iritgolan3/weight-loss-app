@@ -1,7 +1,9 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 
 import '../services/app_scope.dart';
@@ -47,6 +49,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
   bool _confirming = false;
   bool _checking = false;
   bool _biometricAvailable = false;
+  List<BiometricType> _biometrics = const <BiometricType>[];
   String? _error;
 
   @override
@@ -162,37 +165,90 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
 
   Future<void> _probeBiometrics() async {
     bool available = false;
+    List<BiometricType> enrolled = const <BiometricType>[];
     try {
       final bool supported = await _localAuth.isDeviceSupported();
       final bool canCheck = await _localAuth.canCheckBiometrics;
-      available = supported && canCheck;
+      // canCheckBiometrics only reports hardware. Asking what is actually
+      // enrolled is what separates "has a sensor" from "can be used".
+      enrolled = await _localAuth.getAvailableBiometrics();
+      available = supported && canCheck && enrolled.isNotEmpty;
     } on PlatformException {
       available = false;
     } on MissingPluginException {
       available = false;
     }
     if (!mounted) return;
-    setState(() => _biometricAvailable = available);
+    setState(() {
+      _biometricAvailable = available;
+      _biometrics = enrolled;
+    });
+  }
+
+  /// Names the sensors this device actually has enrolled.
+  ///
+  /// Android from API 30 reports strength (`strong`/`weak`) rather than the
+  /// modality, so both are named there; iOS reports face or fingerprint.
+  String get _biometricLabel {
+    final bool face = _biometrics.contains(BiometricType.face);
+    final bool print = _biometrics.contains(BiometricType.fingerprint);
+    final bool apple = Platform.isIOS;
+
+    if (face && print) return apple ? 'Face ID or Touch ID' : 'face or fingerprint';
+    if (face) return apple ? 'Face ID' : 'face unlock';
+    if (print) return apple ? 'Touch ID' : 'fingerprint';
+    if (_biometrics.contains(BiometricType.strong) ||
+        _biometrics.contains(BiometricType.weak)) {
+      return 'fingerprint or face unlock';
+    }
+    return 'biometric unlock';
+  }
+
+  /// Turns a plugin error code into something worth showing a person.
+  String _biometricFailure(PlatformException e) {
+    switch (e.code) {
+      case auth_error.notEnrolled:
+        return 'No face or fingerprint is set up on this device yet.';
+      case auth_error.notAvailable:
+        return 'This device does not offer face or fingerprint unlock.';
+      case auth_error.passcodeNotSet:
+        return 'Set a device passcode first, then biometrics can be used.';
+      case auth_error.lockedOut:
+        return 'Too many attempts. Wait a moment, or use your passcode.';
+      case auth_error.permanentlyLockedOut:
+        return 'Biometrics are locked. Unlock the device itself, then retry.';
+      case auth_error.biometricOnlyNotSupported:
+        return 'This device cannot limit the prompt to biometrics.';
+      default:
+        return 'Biometrics are unavailable right now. Use your passcode.';
+    }
   }
 
   Future<void> _useBiometrics() async {
     bool ok = false;
+    String? failure;
     try {
       ok = await _localAuth.authenticate(
-        localizedReason: 'Unlock DailyWallet',
-        options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
+        localizedReason: 'Unlock your wallet with $_biometricLabel',
+        options: const AuthenticationOptions(
+          // No device-credential fallback: the app has its own passcode, and
+          // the keypad is right there behind the prompt.
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
       );
-    } on PlatformException {
-      ok = false;
+      if (!ok) failure = 'Not recognised. Try again, or use your passcode.';
+    } on PlatformException catch (e) {
+      failure = _biometricFailure(e);
     } on MissingPluginException {
-      ok = false;
+      failure = 'Biometrics are not wired up in this build.';
     }
     if (!mounted) return;
     if (ok) {
       AppScope.authOf(context).unlock();
       _finish();
     } else {
-      setState(() => _error = 'Biometrics did not match. Use your passcode.');
+      setState(() => _error = failure);
     }
   }
 
@@ -258,8 +314,13 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                   leading: widget.mode == PasscodeMode.unlock && _biometricAvailable
                       ? KeypadKey(
                           onTap: _useBiometrics,
-                          child: const Icon(
-                            Icons.fingerprint,
+                          semanticLabel: 'Unlock with $_biometricLabel',
+                          child: Icon(
+                            // Face-only devices get the face mark.
+                            _biometrics.contains(BiometricType.face) &&
+                                    !_biometrics.contains(BiometricType.fingerprint)
+                                ? Icons.face_retouching_natural_outlined
+                                : Icons.fingerprint,
                             size: 27,
                             color: AppColors.ink,
                           ),

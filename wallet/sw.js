@@ -1,6 +1,6 @@
 /* Offline shell. Bump CACHE whenever the asset list below changes. */
 
-const CACHE = 'dailywallet-v4';
+const CACHE = 'dailywallet-v5';
 
 const SHELL = [
   './',

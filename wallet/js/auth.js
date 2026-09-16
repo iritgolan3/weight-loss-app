@@ -18,7 +18,17 @@ const SESSION = 'dw:session';
 const ITER    = 210_000;
 
 const enc = new TextEncoder();
-const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+function b64(buf) {
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(s);
+}
+
+const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 
 const randomSalt = (bytes = 16) => b64(crypto.getRandomValues(new Uint8Array(bytes)));
 
@@ -42,6 +52,60 @@ const read  = () => { try { return JSON.parse(localStorage.getItem(PROFILE)); } 
 const write = p  => { try { localStorage.setItem(PROFILE, JSON.stringify(p)); } catch { /* private mode */ } };
 
 export const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((v || '').trim());
+
+/* --- Biometrics ---------------------------------------------------------
+   WebAuthn asks the platform for *its* authenticator; the device decides
+   whether that means a face scan or a fingerprint, and there is no web API
+   to pick one. So the app names both and lets the OS choose the sensor it
+   has. On Android, BiometricPrompt lets the user switch between enrolled
+   modalities itself. */
+
+function platformKind() {
+  const ua = navigator.userAgent || '';
+  const appleTouch = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  if (/iPhone|iPad|iPod/.test(ua) || appleTouch) return 'ios';
+  if (/Macintosh|Mac OS X/.test(ua))            return 'mac';
+  if (/Android/.test(ua))                        return 'android';
+  if (/Windows/.test(ua))                        return 'windows';
+  return 'other';
+}
+
+/**
+ * What to call the sensor on this platform, naming both modalities where the
+ * platform has both. Phrased to read correctly after "Unlock with", "Turn on"
+ * and "This device does not offer".
+ */
+export function biometricLabel() {
+  switch (platformKind()) {
+    case 'ios':     return 'Face ID or Touch ID';
+    case 'mac':     return 'Touch ID';
+    case 'android': return 'fingerprint or face unlock';
+    case 'windows': return 'Windows Hello';
+    default:        return 'fingerprint or face';
+  }
+}
+
+/** Which glyph best represents the likely sensor. */
+export function biometricGlyph() {
+  return platformKind() === 'ios' ? 'faceid' : 'finger';
+}
+
+/** Turns a WebAuthn DOMException into something worth showing a person. */
+function biometricError(err, action) {
+  const name = err?.name || '';
+  const what = biometricLabel();
+
+  if (name === 'NotAllowedError') {
+    return action === 'enrol'
+      ? `Setup was dismissed. Tap again and confirm with ${what}.`
+      : `Not recognised, or the prompt was dismissed. Try again, or use your passcode.`;
+  }
+  if (name === 'InvalidStateError') return 'This device is already set up for biometric unlock.';
+  if (name === 'SecurityError')     return 'Biometric unlock needs the app to be served over HTTPS.';
+  if (name === 'NotSupportedError') return `This device does not offer ${what}.`;
+  if (name === 'AbortError')        return 'The prompt closed before it finished.';
+  return `${what.charAt(0).toUpperCase() + what.slice(1)} is unavailable right now.`;
+}
 
 class Auth extends EventTarget {
   #profile = null;   // { id, createdAt, email, passcode, webauthn }
@@ -145,9 +209,16 @@ class Auth extends EventTarget {
   }
 
   /* --- Biometric unlock -------------------------------------------------
-     WebAuthn with a platform authenticator gives us Face ID / Touch ID /
-     Windows Hello / Android biometrics. The credential never leaves the
-     device and we use it only as proof of presence for the local gate. */
+
+     Both calls below MUST run inside a fresh user gesture. Safari on iOS
+     rejects WebAuthn without user activation, and activation does not
+     survive a setTimeout or a slow await — which is why neither of these is
+     ever fired automatically on screen entry.
+
+     `authenticatorAttachment: 'platform'` asks for the device's own sensor,
+     which is Face ID, Touch ID, Windows Hello or an Android fingerprint or
+     face, whichever that device has. `userVerification: 'required'` makes
+     the biometric check mandatory rather than mere presence. */
 
   static async biometricAvailable() {
     try {
@@ -158,45 +229,78 @@ class Auth extends EventTarget {
 
   get hasBiometric() { return Boolean(this.#profile?.webauthn); }
 
+  /** Call only from a tap handler. Throws a readable Error on failure. */
   async enrolBiometric() {
-    const label = this.email || 'This device';
-    const cred = await navigator.credentials.create({
-      publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rp: { name: 'DailyWallet' },
-        user: { id: enc.encode(this.profileId), name: label, displayName: label },
-        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          userVerification: 'required',
-          residentKey: 'preferred',
+    if (!(await Auth.biometricAvailable())) {
+      throw new Error(`This device does not offer ${biometricLabel()}.`);
+    }
+
+    const label = this.email || 'DailyWallet';
+    const existing = this.#profile?.webauthn;
+
+    let cred;
+    try {
+      cred = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'DailyWallet' },
+          user: { id: enc.encode(this.profileId), name: label, displayName: label },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'required',
+            residentKey: 'preferred',
+          },
+          // Stops the platform from silently making a second credential.
+          excludeCredentials: existing
+            ? [{ type: 'public-key', id: unb64(existing.id), transports: ['internal'] }]
+            : [],
+          timeout: 60_000,
+          attestation: 'none',
         },
-        timeout: 60_000,
-        attestation: 'none',
-      },
-    });
-    if (!cred) throw new Error('Biometric setup was cancelled.');
+      });
+    } catch (err) {
+      throw new Error(biometricError(err, 'enrol'));
+    }
+
+    if (!cred) throw new Error('Biometric setup did not complete.');
     this.#profile.webauthn = { id: b64(cred.rawId) };
     this.#save();
     return true;
   }
 
+  /** Call only from a tap handler. Throws a readable Error on failure. */
   async unlockWithBiometric() {
     const w = this.#profile?.webauthn;
-    if (!w) return false;
-    const id = Uint8Array.from(atob(w.id), c => c.charCodeAt(0));
-    const got = await navigator.credentials.get({
-      publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        allowCredentials: [{ type: 'public-key', id }],
-        userVerification: 'required',
-        timeout: 60_000,
-      },
-    });
-    if (!got) return false;
+    if (!w) throw new Error('Biometric unlock is not set up on this device yet.');
+
+    let got;
+    try {
+      got = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          // 'internal' keeps the prompt on this device's own sensor rather
+          // than offering a phone-as-security-key hand-off.
+          allowCredentials: [{ type: 'public-key', id: unb64(w.id), transports: ['internal'] }],
+          userVerification: 'required',
+          timeout: 60_000,
+        },
+      });
+    } catch (err) {
+      throw new Error(biometricError(err, 'unlock'));
+    }
+
+    if (!got) throw new Error('Biometric unlock did not complete.');
     this.#locked = false;
     this.dispatchEvent(new CustomEvent('change'));
     return true;
+  }
+
+  /** Forget the enrolled credential; the passcode still works. */
+  forgetBiometric() {
+    if (!this.#profile) return;
+    this.#profile.webauthn = null;
+    this.#save();
   }
 }
 

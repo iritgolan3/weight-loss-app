@@ -1,6 +1,6 @@
 import { screenEl, tap, toast } from '../dom.js';
 import { icon } from '../icons.js';
-import { auth } from '../auth.js';
+import { auth, biometricLabel, biometricGlyph } from '../auth.js';
 import { store, money } from '../store.js';
 import { tierById } from '../ui/card.js';
 import { stagger } from '../hero.js';
@@ -28,7 +28,8 @@ export function profileScreen({ onBack, onChangePasscode, onSync, onStopSync, on
       <button class="rowbtn" data-passcode>${icon('key', 20)} Change passcode
         <span class="rowbtn__chev">${icon('chevronR', 18)}</span></button>
 
-      <button class="rowbtn" data-bio>${icon('finger', 20)} <span data-biolabel>Biometric unlock</span>
+      <button class="rowbtn" data-bio>${icon(biometricGlyph(), 20)}
+        <span data-biolabel>Biometric unlock</span>
         <span class="rowbtn__chev">${icon('chevronR', 18)}</span></button>
 
       ${auth.canSync ? (synced
@@ -62,25 +63,42 @@ export function profileScreen({ onBack, onChangePasscode, onSync, onStopSync, on
 
     if (event.target.closest('[data-bio]')) {
       tap();
-      if (auth.hasBiometric) return toast('Biometric unlock is already on.');
+
+      // Already on: offer to forget it rather than dead-ending.
+      if (auth.hasBiometric) {
+        auth.forgetBiometric();
+        setBioLabel();
+        return toast(`${cap(biometricLabel())} turned off`);
+      }
+
       try {
+        // Runs straight off this tap, with no await in front of it, because
+        // WebAuthn needs live user activation.
         await auth.enrolBiometric();
-        bioLabel.textContent = 'Biometric unlock · on';
-        toast('Biometric unlock enabled');
-      } catch {
-        toast('This device turned down the request.');
+        setBioLabel();
+        toast(`${cap(biometricLabel())} turned on`);
+      } catch (err) {
+        toast(err.message);
       }
     }
   });
+
+  let canBio = false;
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+  function setBioLabel() {
+    const what = cap(biometricLabel());
+    bioLabel.textContent = !canBio ? `${what} · unavailable`
+      : auth.hasBiometric ? `${what} · on` : `Turn on ${biometricLabel()}`;
+    node.querySelector('[data-bio]').disabled = !canBio;
+  }
 
   return {
     el: node,
     async enter() {
       stagger(node.querySelector('[data-rows]'), { step: 60, start: 120 });
-      const can = await auth.constructor.biometricAvailable();
-      bioLabel.textContent = !can ? 'Biometric unlock · unavailable'
-        : auth.hasBiometric ? 'Biometric unlock · on' : 'Biometric unlock';
-      node.querySelector('[data-bio]').disabled = !can;
+      canBio = await auth.constructor.biometricAvailable();
+      setBioLabel();
     },
   };
 }

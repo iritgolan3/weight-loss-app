@@ -1,5 +1,5 @@
 import { screenEl, tap, toast } from '../dom.js';
-import { auth } from '../auth.js';
+import { auth, biometricLabel, biometricGlyph } from '../auth.js';
 import { icon } from '../icons.js';
 
 const LEN = 6;
@@ -25,10 +25,15 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
       ${Array.from({ length: LEN }, () => '<i></i>').join('')}
     </div>
 
+    <button class="pcode__bio" data-bio-cta hidden>
+      ${icon(biometricGlyph(), 18)} <span data-bio-label></span>
+    </button>
+
     <div class="sc-pass__pad">
       <div class="keypad">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button data-k="${n}">${n}</button>`).join('')}
-        <button class="is-bare" data-bio hidden aria-label="Unlock with biometrics">${icon('finger', 26)}</button>
+        <button class="is-bare" data-bio hidden
+                aria-label="Unlock with ${biometricLabel()}">${icon(biometricGlyph(), 26)}</button>
         <button data-k="0">0</button>
         <button class="is-bare" data-del aria-label="Delete">${icon('back', 24)}</button>
       </div>
@@ -39,6 +44,7 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
   const sub   = node.querySelector('[data-s]');
   const dots  = node.querySelector('.pcode__dots');
   const bio   = node.querySelector('[data-bio]');
+  const bioCta = node.querySelector('[data-bio-cta]');
 
   const COPY = {
     unlock:  ['Enter your passcode', 'Six digits to unlock your wallet.'],
@@ -49,7 +55,13 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
   function render() {
     [title.textContent, sub.textContent] = COPY[stage];
     [...dots.children].forEach((d, i) => d.classList.toggle('is-on', i < buf.length));
-    bio.hidden = !(stage === 'unlock' && bioReady);
+    const offer = stage === 'unlock' && bioReady;
+    bio.hidden = !offer;
+    bioCta.hidden = !offer;
+    if (offer) {
+      bioCta.querySelector('[data-bio-label]').textContent =
+        `Unlock with ${biometricLabel()}`;
+    }
   }
 
   function reject(message) {
@@ -85,11 +97,11 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
 
     await auth.setPasscode(buf);
 
-    // Offer biometrics once the passcode exists, but never block on it.
-    if (bioReady && !auth.hasBiometric) {
-      try { await auth.enrolBiometric(); } catch { /* user declined */ }
-    }
-    toast('Passcode set');
+    // Biometric setup needs its own tap, so point at Profile instead of
+    // firing a prompt that the platform would reject here.
+    toast(bioReady && !auth.hasBiometric
+      ? `Passcode set — turn on ${biometricLabel()} in Profile`
+      : 'Passcode set');
     onDone();
   }
 
@@ -111,10 +123,12 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
       return render();
     }
 
-    if (event.target.closest('[data-bio]')) {
+    if (event.target.closest('[data-bio]') || event.target.closest('[data-bio-cta]')) {
+      tap();
+      // Runs straight off this tap: WebAuthn needs live user activation.
       auth.unlockWithBiometric()
-        .then(ok => ok ? onDone() : toast('Biometric unlock failed.'))
-        .catch(() => toast('Biometric unlock is unavailable.'));
+        .then(() => onDone())
+        .catch(err => toast(err.message));
     }
   });
 
@@ -133,10 +147,6 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
         ? (await auth.constructor.biometricAvailable()) && auth.hasBiometric
         : await auth.constructor.biometricAvailable();
       render();
-      // Offer the biometric prompt straight away when it is already enrolled.
-      if (stage === 'unlock' && bioReady) {
-        auth.unlockWithBiometric().then(ok => ok && onDone()).catch(() => {});
-      }
     },
     destroy() { window.removeEventListener('keydown', onKey); },
   };

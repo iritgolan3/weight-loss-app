@@ -50,17 +50,32 @@ Poppins is pulled at runtime by `google_fonts`, so there are no font binaries
 and no `assets:` section to wire up. The first launch needs a network
 connection to fetch the font; after that it is cached on device.
 
-### `local_auth` platform setup
+### Biometrics: face and fingerprint
 
-Biometric unlock degrades gracefully — if the plugin is missing or the device
-has no enrolled biometrics, the fingerprint key simply does not appear. To
-enable it for real:
+Both modalities are covered. `getAvailableBiometrics()` reports what is
+actually enrolled, and the app names and illustrates it accordingly — Face ID
+or Touch ID on iOS, "fingerprint or face unlock" on Android (which from API 30
+reports sensor *strength* rather than modality, so both are named). Android's
+BiometricPrompt lets the user switch between enrolled sensors itself.
+
+The key only appears when the device is supported, can check biometrics **and**
+has something enrolled — `canCheckBiometrics` alone reports hardware, not
+enrolment, so it would offer a key that could never succeed. Failures are
+mapped from the plugin's `auth_error` codes to messages that say what to do
+(nothing enrolled, locked out, no device passcode, and so on) rather than a
+single generic line.
+
+`biometricOnly: true` means there is no device-credential fallback; the app's
+own passcode keypad is behind the prompt anyway.
+
+**Both platforms need native setup, or the key will never appear:**
 
 * **Android** — make `MainActivity` extend `FlutterFragmentActivity` in
   `android/app/src/main/kotlin/.../MainActivity.kt`, and add
   `<uses-permission android:name="android.permission.USE_BIOMETRIC"/>` to
   `android/app/src/main/AndroidManifest.xml`.
 * **iOS** — add `NSFaceIDUsageDescription` to `ios/Runner/Info.plist`.
+  **Face ID silently fails without it**; Touch ID does not need it.
 
 ## Structure
 

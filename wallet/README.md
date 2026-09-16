@@ -113,9 +113,31 @@ The passcode is never stored. It gets a random 16-byte salt and a
 PBKDF2-SHA256 derivation at 210,000 iterations (`js/auth.js`), and unlocking
 compares derivations rather than secrets, in constant time.
 
-Biometric unlock uses WebAuthn with a platform authenticator (Face ID, Touch
-ID, Windows Hello, Android biometrics); the credential never leaves the
-device and is used only as proof of presence.
+### Face and fingerprint
+
+Biometric unlock is WebAuthn with `authenticatorAttachment: 'platform'` and
+`userVerification: 'required'`. That asks the device for **its own** sensor,
+which is Face ID or Touch ID on an iPhone, Touch ID on a Mac, Windows Hello,
+or a fingerprint or face on Android. There is no web API to request one
+modality over the other — the platform picks the sensor it has, and Android's
+prompt lets the user switch between enrolled ones. The app therefore names
+both, and shows a face mark on iOS and a fingerprint elsewhere. The
+credential never leaves the device and is used only as proof of presence.
+
+Two rules govern the implementation, and breaking either is what makes
+biometrics "not work" on a phone:
+
+1. **Both calls need live user activation.** Safari on iOS rejects WebAuthn
+   without it, and activation does not survive a `setTimeout` or a slow
+   `await`. So nothing is ever fired on screen entry: unlocking needs a tap
+   on the prompt or the keypad key, and enrolling needs a tap in Profile.
+2. **The relying-party ID must be a real domain.** `localhost` works for
+   development and any HTTPS host works in production, but a bare IP such as
+   `127.0.0.1` is rejected outright — serve the dev server on `localhost`.
+
+Failures are translated from the DOMException name into something actionable
+rather than swallowed, and a failed or dismissed scan always leaves the
+passcode working.
 
 The lock re-arms on reload and after the app has been backgrounded for a
 minute. Profile also offers **Lock now**.

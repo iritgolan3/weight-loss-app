@@ -28,6 +28,10 @@ body {
   justify-content: center;
 }
 
+/* A class that sets `display` outranks the hidden attribute's UA rule, which
+   silently un-hides anything toggled with `el.hidden`. */
+[hidden] { display: none !important; }
+
 button, input { font: inherit; color: inherit; }
 button { background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 input  { border: 0; outline: 0; background: none; }

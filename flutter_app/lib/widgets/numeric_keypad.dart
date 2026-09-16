@@ -9,15 +9,20 @@ class KeypadKey extends StatelessWidget {
     required this.child,
     this.onTap,
     this.size = 74,
+    this.semanticLabel,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final double size;
 
+  /// Spoken name for keys whose glyph carries the meaning, such as the
+  /// biometric and backspace keys.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final Widget key = Material(
       color: Colors.transparent,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
@@ -33,6 +38,9 @@ class KeypadKey extends StatelessWidget {
         ),
       ),
     );
+
+    if (semanticLabel == null) return key;
+    return Semantics(button: true, label: semanticLabel, child: key);
   }
 }
 
