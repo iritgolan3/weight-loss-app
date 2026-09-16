@@ -34,6 +34,9 @@
 
   /* --- Geometry -------------------------------------------------------- */
   --gutter:       24px;
+  /* Clears the desktop shell's island (54px) or the phone's real status bar,
+     whichever is larger. Nothing is painted here — the OS owns this strip. */
+  --safe-top:     max(54px, calc(env(safe-area-inset-top, 0px) + 12px));
   --r-card:       20px;      /* credit card corner                         */
   --r-sheet:      28px;      /* white sheet / modal top corners            */
   --r-box:        20px;      /* summary cards                              */

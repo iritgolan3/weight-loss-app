@@ -127,7 +127,7 @@
    Card picker
    -------------------------------------------------------------------------- */
 
-.sc-pick .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+.sc-pick .screen__body { padding-top: calc(var(--safe-top) + 10px); }
 .sc-pick__nav   { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
 
 .sc-pick__head  { text-align: center; flex: none; padding-top: 22px; height: 102px; }
@@ -209,7 +209,7 @@
    Confirm order
    -------------------------------------------------------------------------- */
 
-.sc-confirm .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+.sc-confirm .screen__body { padding-top: calc(var(--safe-top) + 10px); }
 .sc-confirm__nav  { padding-inline: 16px; height: 44px; display: flex; align-items: center; flex: none; }
 .sc-confirm__head { padding: 8px var(--gutter) 0; flex: none; }
 .sc-confirm__card { padding: 26px var(--gutter) 0; flex: none; }
@@ -232,7 +232,7 @@
    Order placed
    -------------------------------------------------------------------------- */
 
-.sc-done .screen__body { padding-top: calc(env(safe-area-inset-top, 0px) + 24px); }
+.sc-done .screen__body { padding-top: var(--safe-top); }
 
 .sc-done__art {
   flex: none;
@@ -268,8 +268,9 @@
   flex: none;
 }
 
-.sc-profile__email { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; }
-.sc-profile__since { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.sc-profile__id > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.sc-profile__email { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; line-height: 1.3; }
+.sc-profile__since { font-size: 12px; color: var(--muted); line-height: 1.35; }
 
 .rowbtn {
   display: flex; align-items: center; gap: 14px;
@@ -281,7 +282,9 @@
   transition: transform var(--t-fast) var(--e-out);
 }
 
-.rowbtn:active   { transform: scale(0.985); }
+.rowbtn:active           { transform: scale(0.985); }
+.rowbtn:disabled         { color: var(--muted-dim); pointer-events: none; }
+.rowbtn:disabled svg     { color: var(--muted-dim); }
 .rowbtn__chev    { margin-left: auto; color: var(--muted-dim); }
 .rowbtn--danger  { color: var(--danger); }
 

@@ -1,5 +1,3 @@
-import { statusIcons } from './icons.js';
-
 /** Build a detached element from an HTML string. */
 export function el(html) {
   const t = document.createElement('template');
@@ -7,22 +5,10 @@ export function el(html) {
   return t.content.firstElementChild;
 }
 
-/** The faux iOS status bar. Times match the device clock. */
-export function statusbar({ light = false } = {}) {
-  const now = new Date();
-  const h = now.getHours() % 12 || 12;
-  const m = String(now.getMinutes()).padStart(2, '0');
-  return `<div class="statusbar${light ? ' statusbar--light' : ''}">
-            <span>${h}:${m}</span>
-            <span class="statusbar__icons">${statusIcons()}</span>
-          </div>`;
-}
-
 /** Wrap screen content in the standard shell. */
 export function screenEl(cls, body, { dark = false, flush = false } = {}) {
   return el(`
     <section class="screen ${cls}${dark ? ' screen--dark' : ''}${flush ? ' screen--flush' : ''}">
-      ${statusbar({ light: dark })}
       <div class="screen__body">${body}</div>
     </section>`);
 }

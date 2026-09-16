@@ -1,25 +1,26 @@
-/* Accounts, passcode and biometric unlock.
+/* Device profile, passcode and biometric unlock.
 
-   Passwords and passcodes are never stored. We keep a random per-credential
-   salt plus a PBKDF2-SHA256 derivation of it, and compare derivations. That
-   is the same shape a server would use, so switching the storage adapter to
-   a real backend later does not change the security model here.
+   The passcode is the credential. A profile is created on first run and the
+   app is usable immediately — no email, no sign-up. An email is only ever
+   introduced when the optional cloud backend is configured and the user asks
+   to sync across devices.
+
+   Secrets are never stored. Each one gets a random salt plus a PBKDF2-SHA256
+   derivation, and we compare derivations rather than secrets.
 
    WebCrypto's subtle API needs a secure context: https, or localhost during
    development. */
 
 import { remote } from './backend.js';
 
-const ACCOUNTS = 'dw:accounts';
-const SESSION  = 'dw:session';
-const ITER     = 210_000;
+const PROFILE = 'dw:profile';
+const SESSION = 'dw:session';
+const ITER    = 210_000;
 
 const enc = new TextEncoder();
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 
-function randomSalt(bytes = 16) {
-  return b64(crypto.getRandomValues(new Uint8Array(bytes)));
-}
+const randomSalt = (bytes = 16) => b64(crypto.getRandomValues(new Uint8Array(bytes)));
 
 async function derive(secret, saltB64) {
   const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
@@ -29,7 +30,7 @@ async function derive(secret, saltB64) {
   return b64(bits);
 }
 
-/** Constant-time-ish comparison so a wrong guess costs the same as a right one. */
+/** Constant-time comparison so a near-miss costs the same as a wild guess. */
 function same(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
   let diff = 0;
@@ -37,131 +38,116 @@ function same(a, b) {
   return diff === 0;
 }
 
-const readAll  = () => { try { return JSON.parse(localStorage.getItem(ACCOUNTS)) || {}; } catch { return {}; } };
-const writeAll = m  => { try { localStorage.setItem(ACCOUNTS, JSON.stringify(m)); } catch { /* private mode */ } };
+const read  = () => { try { return JSON.parse(localStorage.getItem(PROFILE)); } catch { return null; } };
+const write = p  => { try { localStorage.setItem(PROFILE, JSON.stringify(p)); } catch { /* private mode */ } };
 
 export const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((v || '').trim());
 
-/** Ensure a local record exists so the device passcode has somewhere to live. */
-function ensureRecord(email) {
-  const all = readAll();
-  if (!all[email]) { all[email] = { createdAt: Date.now(), remote: true }; writeAll(all); }
-  return all[email];
-}
-
 class Auth extends EventTarget {
-  #user = null;      // { email } once signed in
-  #locked = true;    // passcode gate
-  #session = null;   // Supabase tokens, when the cloud backend is configured
+  #profile = null;   // { id, createdAt, email, passcode, webauthn }
+  #locked = true;
+  #session = null;   // cloud tokens, only when syncing
 
-  /** Restore a previous session; the passcode gate always re-arms on load. */
+  /** Load or create the device profile. The lock re-arms on every load. */
   boot() {
+    this.#profile = read() || {
+      id: `p_${b64(crypto.getRandomValues(new Uint8Array(9))).replace(/\W/g, '')}`,
+      createdAt: Date.now(),
+      email: null,
+      passcode: null,
+      webauthn: null,
+    };
+    write(this.#profile);
+
     try {
       const s = JSON.parse(sessionStorage.getItem(SESSION) || 'null');
-      if (s?.email && readAll()[s.email]) {
-        this.#user = { email: s.email };
-        if (s.token) this.#session = s;
-      }
+      if (s?.token && s.email === this.#profile.email) this.#session = s;
     } catch { /* ignore */ }
-    this.#locked = !!this.#user;
+
+    this.#locked = this.hasPasscode;
     return this;
   }
 
-  /** Tokens for the cloud backend, or null when running on-device only. */
-  get session() { return this.#session; }
-  get isRemote() { return remote.enabled; }
+  /** Stable id used to namespace this device's wallet. */
+  get profileId()   { return this.#profile?.id || 'local'; }
+  get email()       { return this.#profile?.email || null; }
+  get isSynced()    { return Boolean(this.#profile?.email); }
+  get hasPasscode() { return Boolean(this.#profile?.passcode); }
+  get isLocked()    { return this.#locked; }
+  get session()     { return this.#session; }
+  get canSync()     { return remote.enabled; }
 
-  get user()      { return this.#user; }
-  get email()     { return this.#user?.email || null; }
-  get isLocked()  { return this.#locked; }
-  get hasAccounts() { return Object.keys(readAll()).length > 0; }
-
-  hasPasscode(email = this.email) {
-    const a = readAll()[email];
-    return !!a?.passcode;
+  /** What the home screen greets the user with. */
+  get displayName() {
+    const email = this.email;
+    if (!email) return 'DailyWallet';
+    const stem = email.split('@')[0].replace(/[._-]+/g, ' ').trim();
+    return stem.charAt(0).toUpperCase() + stem.slice(1);
   }
 
-  async signUp(email, password) {
-    email = (email || '').trim().toLowerCase();
-    if (!isValidEmail(email))    throw new Error('Enter a valid email address.');
-    if ((password || '').length < 8) throw new Error('Use at least 8 characters.');
+  #save() { write(this.#profile); this.dispatchEvent(new CustomEvent('change')); }
 
-    if (remote.enabled) {
-      this.#session = await remote.signUp(email, password);
-      ensureRecord(email);
-      this.#start(email);
-      return this.#user;
-    }
-
-    const all = readAll();
-    if (all[email]) throw new Error('That email already has an account.');
-
-    const salt = randomSalt();
-    all[email] = { salt, hash: await derive(password, salt), createdAt: Date.now() };
-    writeAll(all);
-    this.#start(email);
-    return this.#user;
-  }
-
-  async signIn(email, password) {
-    email = (email || '').trim().toLowerCase();
-
-    if (remote.enabled) {
-      this.#session = await remote.signIn(email, password);
-      ensureRecord(email);
-      this.#start(email);
-      return this.#user;
-    }
-
-    const a = readAll()[email];
-    // Derive even when the account is missing so timing does not leak existence.
-    const probe = await derive(password || '', a?.salt || randomSalt());
-    if (!a || !same(probe, a.hash)) throw new Error('Email or password is incorrect.');
-    this.#start(email);
-    return this.#user;
-  }
-
-  #start(email) {
-    this.#user = { email };
-    this.#locked = false;
-    try {
-      sessionStorage.setItem(SESSION, JSON.stringify({ email, ...(this.#session || {}) }));
-    } catch { /* ignore */ }
-    this.dispatchEvent(new CustomEvent('change'));
-  }
-
-  signOut() {
-    if (remote.enabled && this.#session?.token) remote.signOut(this.#session.token);
-    this.#user = null;
-    this.#session = null;
-    this.#locked = true;
-    try { sessionStorage.removeItem(SESSION); } catch { /* ignore */ }
-    this.dispatchEvent(new CustomEvent('change'));
-  }
-
-  lock()   { this.#locked = true;  this.dispatchEvent(new CustomEvent('change')); }
+  /* --- Passcode -------------------------------------------------------- */
 
   async setPasscode(code) {
-    const all = readAll();
-    const a = all[this.email];
-    if (!a) throw new Error('No account is signed in.');
     const salt = randomSalt();
-    a.passcode = { salt, hash: await derive(code, salt) };
-    writeAll(all);
+    this.#profile.passcode = { salt, hash: await derive(code, salt) };
+    this.#locked = false;
+    this.#save();
   }
 
   async verifyPasscode(code) {
-    const a = readAll()[this.email];
-    if (!a?.passcode) return false;
-    const ok = same(await derive(code, a.passcode.salt), a.passcode.hash);
+    const p = this.#profile?.passcode;
+    if (!p) return false;
+    const ok = same(await derive(code, p.salt), p.hash);
     if (ok) { this.#locked = false; this.dispatchEvent(new CustomEvent('change')); }
     return ok;
   }
 
-  /* --- Biometric unlock ------------------------------------------------
+  lock() { this.#locked = true; this.dispatchEvent(new CustomEvent('change')); }
+
+  /* --- Optional cloud sync --------------------------------------------- */
+
+  /** Attach an email so this wallet follows the user to other devices. */
+  async signUp(email, password) {
+    email = (email || '').trim().toLowerCase();
+    if (!isValidEmail(email))        throw new Error('Enter a valid email address.');
+    if ((password || '').length < 8) throw new Error('Use at least 8 characters.');
+    if (!remote.enabled)             throw new Error('Syncing is not set up for this app yet.');
+
+    this.#session = await remote.signUp(email, password);
+    this.#profile.email = email;
+    this.#persistSession();
+    this.#save();
+  }
+
+  async signIn(email, password) {
+    email = (email || '').trim().toLowerCase();
+    if (!remote.enabled) throw new Error('Syncing is not set up for this app yet.');
+
+    this.#session = await remote.signIn(email, password);
+    this.#profile.email = email;
+    this.#persistSession();
+    this.#save();
+  }
+
+  #persistSession() {
+    try { sessionStorage.setItem(SESSION, JSON.stringify(this.#session)); } catch { /* ignore */ }
+  }
+
+  /** Detach the email. The device profile, passcode and wallet all stay. */
+  stopSync() {
+    if (this.#session?.token) remote.signOut(this.#session.token);
+    this.#session = null;
+    this.#profile.email = null;
+    try { sessionStorage.removeItem(SESSION); } catch { /* ignore */ }
+    this.#save();
+  }
+
+  /* --- Biometric unlock -------------------------------------------------
      WebAuthn with a platform authenticator gives us Face ID / Touch ID /
      Windows Hello / Android biometrics. The credential never leaves the
-     device and we only use it as proof of presence for the local gate. */
+     device and we use it only as proof of presence for the local gate. */
 
   static async biometricAvailable() {
     try {
@@ -170,22 +156,15 @@ class Auth extends EventTarget {
     } catch { return false; }
   }
 
-  hasBiometric(email = this.email) { return !!readAll()[email]?.webauthn; }
+  get hasBiometric() { return Boolean(this.#profile?.webauthn); }
 
   async enrolBiometric() {
-    const all = readAll();
-    const a = all[this.email];
-    if (!a) throw new Error('No account is signed in.');
-
+    const label = this.email || 'This device';
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: { name: 'DailyWallet' },
-        user: {
-          id: enc.encode(this.email),
-          name: this.email,
-          displayName: this.email,
-        },
+        user: { id: enc.encode(this.profileId), name: label, displayName: label },
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
@@ -197,15 +176,15 @@ class Auth extends EventTarget {
       },
     });
     if (!cred) throw new Error('Biometric setup was cancelled.');
-    a.webauthn = { id: b64(cred.rawId) };
-    writeAll(all);
+    this.#profile.webauthn = { id: b64(cred.rawId) };
+    this.#save();
     return true;
   }
 
   async unlockWithBiometric() {
-    const a = readAll()[this.email];
-    if (!a?.webauthn) return false;
-    const id = Uint8Array.from(atob(a.webauthn.id), c => c.charCodeAt(0));
+    const w = this.#profile?.webauthn;
+    if (!w) return false;
+    const id = Uint8Array.from(atob(w.id), c => c.charCodeAt(0));
     const got = await navigator.credentials.get({
       publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),

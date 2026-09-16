@@ -12,13 +12,6 @@ const NAV = [
   { id: 'profile', glyph: 'person',  label: 'Profile'  },
 ];
 
-/** `irit@example.com` -> `Irit` */
-function displayName(email) {
-  if (!email) return 'DailyWallet';
-  const stem = email.split('@')[0].replace(/[._-]+/g, ' ').trim();
-  return stem.charAt(0).toUpperCase() + stem.slice(1);
-}
-
 function txnRow(t) {
   const credit = t.amount > 0;
   const glyph = t.type === 'card' ? 'card' : (t.type === 'topup' ? 'plus' : t.type);
@@ -37,7 +30,7 @@ export function homeScreen({ onPickCard, onProfile }) {
   const node = screenEl('sc-home', `
     <div class="sc-home__top">
       <div class="sc-home__bar sc-home__fade">
-        <h1 class="sc-home__hello">Hello ${displayName(auth.email)}</h1>
+        <h1 class="sc-home__hello">Hello ${auth.displayName}</h1>
         <button class="iconbtn" data-search aria-label="Search transactions">${icon('search', 21)}</button>
         <button class="iconbtn" data-add aria-label="Top up">${icon('plus', 21)}</button>
       </div>

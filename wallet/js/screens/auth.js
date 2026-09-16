@@ -3,11 +3,17 @@ import { auth, isValidEmail } from '../auth.js';
 import { icon } from '../icons.js';
 import { stagger } from '../hero.js';
 
-/** Sign in / create account. Toggles between the two modes in place. */
-export function authScreen({ onDone }) {
-  let mode = auth.hasAccounts ? 'in' : 'up';
+/**
+ * Optional sync sign-in. Never part of getting into the app — it is reached
+ * from Profile, and only when a cloud backend has been configured.
+ */
+export function authScreen({ onDone, onCancel }) {
+  let mode = 'in';
 
   const node = screenEl('sc-auth', `
+    <button class="iconbtn iconbtn--bare" data-back aria-label="Back"
+            style="margin-bottom:6px">${icon('chevronL', 24)}</button>
+
     <div class="sc-auth__head">
       <h1 class="title" data-t></h1>
       <p class="subtitle" data-s></p>
@@ -38,7 +44,7 @@ export function authScreen({ onDone }) {
     <p class="sc-auth__swap"></p>
 
     <div class="sc-auth__foot">
-      <p class="sc-auth__hint">${icon('lock', 14)} Your details stay on this device</p>
+      <p class="sc-auth__hint">${icon('lock', 14)} Skip this and the wallet still works — it just stays on this device</p>
     </div>
   `);
 
@@ -53,15 +59,16 @@ export function authScreen({ onDone }) {
 
   function render() {
     const up = mode === 'up';
-    title.textContent = up ? 'Create account' : 'Welcome back';
-    sub.textContent   = up ? 'A minute to set up, then your wallet is ready.'
-                           : 'Sign in to pick up where you left off.';
+    title.textContent = up ? 'Create a sync account' : 'Sync this wallet';
+    sub.textContent   = up
+      ? 'Optional. An account lets this wallet follow you to another device.'
+      : 'Sign in to pick this wallet up on another device.';
     label.textContent = up ? 'Create account' : 'Sign in';
     form.password.autocomplete = up ? 'new-password' : 'current-password';
     form.password.placeholder  = up ? 'Password (8+ characters)' : 'Password';
     swap.innerHTML = up
-      ? 'Already have an account? <b data-swap>Sign in</b>'
-      : 'New here? <b data-swap>Create one</b>';
+      ? 'Already have a sync account? <b data-swap>Sign in</b>'
+      : 'No sync account yet? <b data-swap>Create one</b>';
     swap.querySelector('[data-swap]').onclick = () => { clearError(); mode = up ? 'in' : 'up'; render(); };
   }
 
@@ -76,6 +83,8 @@ export function authScreen({ onDone }) {
   }
 
   form.addEventListener('input', clearError);
+
+  node.querySelector('[data-back]').addEventListener('click', () => { tap(); onCancel(); });
 
   form.addEventListener('submit', async event => {
     event.preventDefault();

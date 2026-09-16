@@ -3,7 +3,8 @@
 An animated banking and card-ordering app built with Flutter. Black home
 screen with the balance and metal card, a rotated card carousel, a staggered
 order-confirmation flow with a morphing pay button, and a hand-drawn POS
-terminal success animation.
+terminal success animation. A six-digit passcode is the only credential —
+there is no email and no sign-up.
 
 > **Authored without a Flutter SDK.** This project was written file by file in
 > an environment that had no Flutter or Dart toolchain installed, so it has
@@ -72,17 +73,16 @@ lib/
     txn.dart                    ledger entry + seed data
   services/
     app_scope.dart              InheritedWidget handing the services down
-    auth_service.dart           salted SHA-256 accounts + passcode
+    auth_service.dart           device profile + PBKDF2 passcode
     wallet_service.dart         balance, ledger, owned card
   screens/
     splash_screen.dart          wordmark, loads state, routes on
-    auth_screen.dart            sign in / sign up
     passcode_screen.dart        six-dot passcode, keypad, biometrics
     home_screen.dart            balance, card, ledger sheet, nav pill
     card_picker_screen.dart     rotated card carousel
     confirm_order_screen.dart   staggered summary + morphing pay button
     order_placed_screen.dart    POS terminal animation
-    profile_screen.dart         account, card, passcode, sign out
+    profile_screen.dart         device, card, passcode, lock now
   widgets/
     credit_card_widget.dart     card face + hero flight (with rotation)
     pos_terminal.dart           CustomPaint terminal, receipt and tick
@@ -107,11 +107,10 @@ metal with dark ink.
 
 ## Security note
 
-Passwords and passcodes are never stored in the clear. Each credential gets a
-16-byte salt from `Random.secure()`; only the salt and a PBKDF2-HMAC-SHA256
-derivation of `salt + secret` are written to `shared_preferences`, and
-comparisons run in constant time. Sign-in derives a hash even when no account
-matches, so response timing does not reveal whether an email is registered.
+The passcode is the only credential and it is never stored in the clear. It
+gets a random salt from `Random.secure()`; only the salt and a
+PBKDF2-HMAC-SHA256 derivation of `salt + passcode` are written to
+`shared_preferences`, and comparisons run in constant time.
 
 The derivation runs in a background isolate via `compute`, so the work factor
 (`kPbkdf2Iterations`, 100,000) does not block the UI. It is lower than the

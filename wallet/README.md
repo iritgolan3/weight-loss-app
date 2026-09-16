@@ -2,8 +2,8 @@
 
 A banking wallet app recreated from a design reference: balance and
 transactions, a metal card picker, a card-order checkout, and an animated
-order-confirmation screen — behind an email/password account and a
-passcode + biometric lock.
+order-confirmation screen — behind a passcode and biometric lock. No email,
+no sign-up: the passcode is the credential.
 
 Built as a plain web app (no framework, no build step) that installs to a
 phone home screen as a PWA. A Flutter port of the same app lives in
@@ -34,14 +34,14 @@ domain root.
 
 | Screen | What it does |
 | --- | --- |
-| **Splash** | Brand mark, then routes to auth, the lock screen, or home |
-| **Auth** | Sign in / create account, with inline validation |
+| **Splash** | Brand mark, then routes to passcode setup, the lock screen, or home |
 | **Passcode** | Six-digit entry, spring-filling dots, shake on a wrong code, biometric key |
 | **Home** | Greeting, balance, card, recent transactions, floating nav pill |
 | **Card picker** | Snapping carousel of turned cards — Platinum $199, Silver $99, Gold $349 |
 | **Confirm order** | Order summary; the pay button morphs into a spinner |
 | **Order placed** | Animated card terminal, receipt and tick, then back to home |
-| **Profile** | Account, biometric enrolment, change passcode, sign out |
+| **Profile** | Device, biometric enrolment, change passcode, lock now |
+| **Sync** | Optional email sign-in, shown only when a backend is configured |
 
 ## The animations
 
@@ -72,22 +72,22 @@ numbers or payment credentials.
 State is namespaced per account, so two accounts on one device never see
 each other's data.
 
-## How sign-in works
+## How getting in works
 
-Passwords are never stored. Each credential gets a random 16-byte salt and
-a PBKDF2-SHA256 derivation at 210,000 iterations (`js/auth.js`), and
-sign-in compares derivations rather than secrets. A missing account still
-runs the derivation so response timing does not reveal whether an email is
-registered.
+A device profile is created on first run, the app asks for a six-digit
+passcode, and that is the whole sign-up. There is no email field anywhere in
+the entry path.
 
-The passcode is hashed the same way and always stays on the device, even
-when accounts are synced to a backend — it is a device lock, not a
-credential. Biometric unlock uses WebAuthn with a platform authenticator
-(Face ID, Touch ID, Windows Hello, Android biometrics); the credential
-never leaves the device and is used only as proof of presence.
+The passcode is never stored. It gets a random 16-byte salt and a
+PBKDF2-SHA256 derivation at 210,000 iterations (`js/auth.js`), and unlocking
+compares derivations rather than secrets, in constant time.
+
+Biometric unlock uses WebAuthn with a platform authenticator (Face ID, Touch
+ID, Windows Hello, Android biometrics); the credential never leaves the
+device and is used only as proof of presence.
 
 The lock re-arms on reload and after the app has been backgrounded for a
-minute.
+minute. Profile also offers **Lock now**.
 
 ### Turning on cloud accounts
 
@@ -125,9 +125,14 @@ create policy "own wallet: update" on public.wallets
   for update using (auth.uid() = user_id);
 ```
 
-Sign-up and sign-in then go through Supabase Auth, and the wallet is pulled
-on sign-in and pushed (debounced) after every change. Nothing else in the
-app changes. Never put a service-role key in `config.js`.
+Profile then grows a **Sync across devices** row — the only place an email is
+ever asked for, and only because a cloud account needs one. The wallet is
+pulled on sign-in and pushed (debounced) after every change. Passcode entry
+is unaffected: it stays a device lock, hashed on the device, never uploaded.
+Never put a service-role key in `config.js`.
+
+With `config.js` left blank, that row does not appear and the app never
+mentions email at all.
 
 ## Layout
 

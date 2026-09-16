@@ -6,7 +6,6 @@ import '../services/auth_service.dart';
 import '../services/wallet_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/transitions.dart';
-import 'auth_screen.dart';
 import 'home_screen.dart';
 import 'passcode_screen.dart';
 
@@ -53,9 +52,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
     if (!mounted) return;
 
+    // First run sets a passcode, every later open unlocks with it. Nothing
+    // else stands between opening the app and using it.
     final Widget next;
-    if (!auth.isSignedIn) {
-      next = const AuthScreen();
+    if (!auth.hasPasscode) {
+      next = const PasscodeScreen(mode: PasscodeMode.setup, replaceWithHome: true);
     } else if (auth.isLocked) {
       next = const PasscodeScreen(mode: PasscodeMode.unlock, replaceWithHome: true);
     } else {

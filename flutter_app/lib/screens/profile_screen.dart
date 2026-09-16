@@ -10,7 +10,6 @@ import '../utils/formatters.dart';
 import '../utils/transitions.dart';
 import '../widgets/credit_card_widget.dart';
 import '../widgets/primary_button.dart';
-import 'auth_screen.dart';
 import 'passcode_screen.dart';
 
 /// Account details, the active card and the two account actions.
@@ -36,12 +35,13 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context) async {
-    final AuthService auth = AppScope.authOf(context);
-    await auth.signOut();
-    if (!context.mounted) return;
+  /// Re-arms the passcode gate without touching the wallet.
+  void _lockNow(BuildContext context) {
+    AppScope.authOf(context).lock();
     Navigator.of(context).pushAndRemoveUntil<void>(
-      fadeThroughRoute<void>(const AuthScreen()),
+      fadeThroughRoute<void>(
+        const PasscodeScreen(mode: PasscodeMode.unlock, replaceWithHome: true),
+      ),
       (Route<dynamic> route) => false,
     );
   }
@@ -64,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
           child: ListenableBuilder(
             listenable: Listenable.merge(<Listenable>[auth, wallet]),
             builder: (BuildContext context, Widget? child) {
-              final String email = auth.currentUser ?? 'Not signed in';
+              final String title = auth.displayName;
               final CardTier tier = wallet.activeCard;
 
               return SingleChildScrollView(
@@ -99,7 +99,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              email.isEmpty ? '?' : email.substring(0, 1).toUpperCase(),
+                              title.isEmpty ? 'D' : title.substring(0, 1).toUpperCase(),
                               style: AppTheme.body(
                                 18,
                                 color: Colors.white,
@@ -114,12 +114,12 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Signed in as',
+                                  'This device',
                                   style: AppTheme.body(12, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  email,
+                                  title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTheme.body(15, weight: FontWeight.w600),
@@ -175,10 +175,9 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _ActionRow(
-                      label: 'Sign out',
-                      icon: Icons.logout_rounded,
-                      danger: true,
-                      onTap: () => _signOut(context),
+                      label: 'Lock now',
+                      icon: Icons.lock_person_outlined,
+                      onTap: () => _lockNow(context),
                     ),
                   ],
                 ),

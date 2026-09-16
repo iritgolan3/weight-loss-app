@@ -33,17 +33,13 @@ const GLYPHS = {
   key:       P('M15.2 4.5a4.6 4.6 0 1 0-3.6 7.5c.4 0 .8 0 1.2-.1l1.3 1.3h1.8v1.8h1.8v1.8H19l.9.9v2.3h-2.6l-5-5') ,
   bell:      P('M12 4.2a5.6 5.6 0 0 0-5.6 5.6c0 4.4-1.9 5.8-1.9 5.8h15s-1.9-1.4-1.9-5.8A5.6 5.6 0 0 0 12 4.2z') +
              P('M13.6 19a1.9 1.9 0 0 1-3.2 0'),
-  wifi:      '<path d="M1 4.2C2.9 2.6 5.3 1.7 8 1.7s5.1.9 7 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
-             '<path d="M3.5 7c1.2-1.1 2.8-1.7 4.5-1.7S11.3 5.9 12.5 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
-             '<circle cx="8" cy="10.4" r="1.3" fill="currentColor"/>',
 };
 
 /** Returns an inline SVG string for `name`, sized to `size` px. */
 export function icon(name, size = 22) {
   const g = GLYPHS[name];
   if (!g) return '';
-  const vb = name === 'wifi' ? '0 0 16 12' : '0 0 24 24';
-  return `<svg viewBox="${vb}" width="${size}" height="${size}"
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}"
                aria-hidden="true" focusable="false">${g}</svg>`;
 }
 
@@ -62,21 +58,4 @@ export function contactless() {
       `<path d="${arc(r)}" fill="none" stroke="#2A2519" stroke-width="3.0"
              stroke-linecap="round" opacity="${(0.95 - i * 0.05).toFixed(2)}"/>`).join('')}
   </svg>`;
-}
-
-/** iOS-style battery + cellular marks for the faux status bar. */
-export function statusIcons() {
-  return `
-    <svg viewBox="0 0 18 10" width="17" height="10" aria-hidden="true">
-      ${[0, 1, 2, 3].map(i =>
-        `<rect x="${i * 4.4}" y="${6.4 - i * 2}" width="3" height="${3.6 + i * 2}"
-               rx="1" fill="currentColor" opacity="${i === 3 ? 0.35 : 1}"/>`).join('')}
-    </svg>
-    ${icon('wifi', 16)}
-    <svg viewBox="0 0 26 12" width="25" height="12" aria-hidden="true">
-      <rect x="0.6" y="0.6" width="21" height="10.8" rx="3.2"
-            fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/>
-      <rect x="2.2" y="2.2" width="17.8" height="7.6" rx="2" fill="currentColor"/>
-      <path d="M23.4 4.2v3.6a2 2 0 0 0 0-3.6z" fill="currentColor" opacity="0.4"/>
-    </svg>`;
 }

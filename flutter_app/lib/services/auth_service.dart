@@ -32,120 +32,70 @@ String derivePbkdf2(List<String> saltThenSecret) {
   return out.map((int b) => b.toRadixString(16).padLeft(2, '0')).join();
 }
 
-/// A single persisted account. The raw password is never stored: only a random
-/// per-account salt and a PBKDF2-SHA256 derivation of `salt + password`.
-@immutable
-class StoredAccount {
-  const StoredAccount({
-    required this.email,
-    required this.salt,
-    required this.hash,
-    this.passcodeSalt,
-    this.passcodeHash,
-  });
-
-  final String email;
-  final String salt;
-  final String hash;
-  final String? passcodeSalt;
-  final String? passcodeHash;
-
-  bool get hasPasscode => passcodeHash != null && passcodeSalt != null;
-
-  StoredAccount copyWith({String? passcodeSalt, String? passcodeHash}) {
-    return StoredAccount(
-      email: email,
-      salt: salt,
-      hash: hash,
-      passcodeSalt: passcodeSalt ?? this.passcodeSalt,
-      passcodeHash: passcodeHash ?? this.passcodeHash,
-    );
-  }
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'email': email,
-        'salt': salt,
-        'hash': hash,
-        'passcodeSalt': passcodeSalt,
-        'passcodeHash': passcodeHash,
-      };
-
-  factory StoredAccount.fromJson(Map<String, dynamic> json) => StoredAccount(
-        email: json['email'] as String,
-        salt: json['salt'] as String,
-        hash: json['hash'] as String,
-        passcodeSalt: json['passcodeSalt'] as String?,
-        passcodeHash: json['passcodeHash'] as String?,
-      );
-}
-
-/// Email + password accounts, persisted with `shared_preferences`.
+/// The device profile. No email and no password: the passcode is the only
+/// credential, so the app is usable the moment it opens.
+///
+/// The passcode is never stored. A random salt plus a PBKDF2-SHA256
+/// derivation is kept, and comparisons run on derivations in constant time.
 class AuthService extends ChangeNotifier {
-  static const String _accountsKey = 'dw_accounts';
-  static const String _currentKey = 'dw_current_user';
+  static const String _profileKey = 'dw_profile';
 
-  final Map<String, StoredAccount> _accounts = <String, StoredAccount>{};
-  String? _currentEmail;
+  String _profileId = '';
+  String? _passcodeSalt;
+  String? _passcodeHash;
   bool _locked = false;
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
 
-  bool get hasAccount => _accounts.isNotEmpty;
+  /// Stable id for this install, used to namespace anything device-scoped.
+  String get profileId => _profileId;
 
-  String? get currentUser => _currentEmail;
+  bool get hasPasscode => _passcodeSalt != null && _passcodeHash != null;
 
-  bool get isSignedIn => _currentEmail != null;
-
-  StoredAccount? get _current => _currentEmail == null ? null : _accounts[_currentEmail];
-
-  bool get hasPasscode => _current?.hasPasscode ?? false;
-
-  /// A session is locked when a signed-in account has a passcode and the app
-  /// has not been unlocked since launch.
+  /// Locked when a passcode exists and the app has not been unlocked since
+  /// launch.
   bool get isLocked => _locked && hasPasscode;
+
+  /// The home screen greeting. Matches the reference design.
+  String get displayName => 'DailyWallet';
 
   Future<void> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_accountsKey);
-    _accounts.clear();
+    final String? raw = prefs.getString(_profileKey);
+
     if (raw != null && raw.isNotEmpty) {
-      final Map<String, dynamic> decoded = jsonDecode(raw) as Map<String, dynamic>;
-      decoded.forEach((String key, dynamic value) {
-        _accounts[key] = StoredAccount.fromJson(Map<String, dynamic>.from(value as Map));
-      });
+      final Map<String, dynamic> json = jsonDecode(raw) as Map<String, dynamic>;
+      _profileId = json['id'] as String? ?? _newId();
+      _passcodeSalt = json['passcodeSalt'] as String?;
+      _passcodeHash = json['passcodeHash'] as String?;
+    } else {
+      _profileId = _newId();
+      await _persist();
     }
-    final String? current = prefs.getString(_currentKey);
-    _currentEmail = current != null && _accounts.containsKey(current) ? current : null;
-    // Every cold start begins locked when the account is protected.
+
+    // Every cold start begins locked once a passcode is set.
     _locked = hasPasscode;
     _loaded = true;
     notifyListeners();
   }
 
-  // --- Validation -----------------------------------------------------------
+  // --- Derivation -----------------------------------------------------------
 
-  static final RegExp _emailPattern = RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
-
-  static String? validateEmail(String value) {
-    final String email = value.trim();
-    if (email.isEmpty) return 'Enter your email address.';
-    if (!_emailPattern.hasMatch(email)) return 'That email address does not look right.';
-    return null;
+  static String _newId() {
+    final Random random = Random.secure();
+    return List<String>.generate(
+      12,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
   }
-
-  static String? validatePassword(String value) {
-    if (value.isEmpty) return 'Enter your password.';
-    if (value.length < 8) return 'Use at least 8 characters.';
-    return null;
-  }
-
-  // --- Credentials ----------------------------------------------------------
 
   static String _newSalt() {
     final Random random = Random.secure();
-    final List<int> bytes = List<int>.generate(16, (_) => random.nextInt(256));
-    return base64Url.encode(bytes);
+    return List<String>.generate(
+      32,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
   }
 
   static Future<String> _digest(String salt, String secret) =>
@@ -161,71 +111,25 @@ class AuthService extends ChangeNotifier {
     return diff == 0;
   }
 
-  /// Returns `null` on success, otherwise a message for the UI.
-  Future<String?> signUp(String email, String password) async {
-    final String key = email.trim().toLowerCase();
-    final String? emailError = validateEmail(key);
-    if (emailError != null) return emailError;
-    final String? passwordError = validatePassword(password);
-    if (passwordError != null) return passwordError;
-    if (_accounts.containsKey(key)) {
-      return 'An account already exists for that email.';
-    }
-    final String salt = _newSalt();
-    _accounts[key] =
-        StoredAccount(email: key, salt: salt, hash: await _digest(salt, password));
-    _currentEmail = key;
-    _locked = false;
-    await _persist();
-    notifyListeners();
-    return null;
-  }
-
-  /// Returns `null` on success, otherwise a message for the UI.
-  Future<String?> signIn(String email, String password) async {
-    final String key = email.trim().toLowerCase();
-    final String? emailError = validateEmail(key);
-    if (emailError != null) return emailError;
-    final String? passwordError = validatePassword(password);
-    if (passwordError != null) return passwordError;
-    final StoredAccount? account = _accounts[key];
-    final String probe = await _digest(account?.salt ?? _newSalt(), password);
-    if (account == null || !_same(probe, account.hash)) {
-      return 'Email or password is incorrect.';
-    }
-    _currentEmail = key;
-    _locked = account.hasPasscode;
-    await _persist();
-    notifyListeners();
-    return null;
-  }
-
-  Future<void> signOut() async {
-    _currentEmail = null;
-    _locked = false;
-    await _persist();
-    notifyListeners();
-  }
-
   // --- Passcode -------------------------------------------------------------
 
   Future<void> setPasscode(String code) async {
-    final StoredAccount? account = _current;
-    if (account == null) return;
     final String salt = _newSalt();
-    _accounts[account.email] = account.copyWith(
-      passcodeSalt: salt,
-      passcodeHash: await _digest(salt, code),
-    );
+    _passcodeSalt = salt;
+    _passcodeHash = await _digest(salt, code);
     _locked = false;
     await _persist();
     notifyListeners();
   }
 
   Future<bool> verifyPasscode(String code) async {
-    final StoredAccount? account = _current;
-    if (account == null || !account.hasPasscode) return false;
-    return _same(await _digest(account.passcodeSalt!, code), account.passcodeHash!);
+    if (!hasPasscode) return false;
+    final bool ok = _same(await _digest(_passcodeSalt!, code), _passcodeHash!);
+    if (ok) {
+      _locked = false;
+      notifyListeners();
+    }
+    return ok;
   }
 
   void lock() {
@@ -242,15 +146,13 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _persist() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final Map<String, dynamic> encoded = <String, dynamic>{
-      for (final MapEntry<String, StoredAccount> entry in _accounts.entries)
-        entry.key: entry.value.toJson(),
-    };
-    await prefs.setString(_accountsKey, jsonEncode(encoded));
-    if (_currentEmail == null) {
-      await prefs.remove(_currentKey);
-    } else {
-      await prefs.setString(_currentKey, _currentEmail!);
-    }
+    await prefs.setString(
+      _profileKey,
+      jsonEncode(<String, dynamic>{
+        'id': _profileId,
+        'passcodeSalt': _passcodeSalt,
+        'passcodeHash': _passcodeHash,
+      }),
+    );
   }
 }

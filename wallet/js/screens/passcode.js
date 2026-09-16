@@ -86,7 +86,7 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
     await auth.setPasscode(buf);
 
     // Offer biometrics once the passcode exists, but never block on it.
-    if (bioReady && !auth.hasBiometric()) {
+    if (bioReady && !auth.hasBiometric) {
       try { await auth.enrolBiometric(); } catch { /* user declined */ }
     }
     toast('Passcode set');
@@ -130,7 +130,7 @@ export function passcodeScreen({ mode = 'unlock', onDone }) {
     el: node,
     async enter() {
       bioReady = stage === 'unlock'
-        ? (await auth.constructor.biometricAvailable()) && auth.hasBiometric()
+        ? (await auth.constructor.biometricAvailable()) && auth.hasBiometric
         : await auth.constructor.biometricAvailable();
       render();
       // Offer the biometric prompt straight away when it is already enrolled.

@@ -21,7 +21,9 @@ const router = new Router(
 /* --- Navigation intents ------------------------------------------------ */
 
 const goHome = (mode = 'fade') => {
-  store.use(auth.email || 'guest');
+  // Namespaced by the device profile, so attaching an email later never
+  // looks like the wallet reset itself.
+  store.use(auth.profileId);
   syncDown();                       // no-op unless a backend is configured
   return router.go('home', {}, { mode });
 };
@@ -50,16 +52,17 @@ store.addEventListener('change', () => {
   }, 800);
 });
 
-const goAuth = () => router.go('auth', {}, { mode: 'fade' });
-
-/** After signing in: set a passcode if there isn't one, otherwise straight in. */
-const afterSignIn = () =>
-  auth.hasPasscode() ? goHome() : router.go('passcode', { mode: 'set' }, { mode: 'fade' });
+const goPasscode = (mode, extra = {}) =>
+  router.go('passcode', { mode, ...extra }, { mode: 'fade' });
 
 router
   .register('splash',  () => splashScreen({ onDone: boot }))
 
-  .register('auth',    () => authScreen({ onDone: afterSignIn }))
+  // Reached only from Profile, and only when a cloud backend is configured.
+  .register('auth',    () => authScreen({
+    onDone: () => router.go('profile', {}, { mode: 'fade' }),
+    onCancel: () => router.back(),
+  }))
 
   .register('passcode', params => passcodeScreen({
     mode: params.mode,
@@ -96,15 +99,19 @@ router
     onBack: () => router.back(),
     onChangePasscode: () =>
       router.go('passcode', { mode: 'set', returnTo: 'profile' }, { mode: 'push' }),
-    onSignOut: () => { auth.signOut(); goAuth(); },
+    onSync: () => router.go('auth', {}, { mode: 'push' }),
+    onStopSync: () => { auth.stopSync(); router.go('profile', {}, { mode: 'fade' }); },
+    onLock: () => { auth.lock(); goPasscode('unlock'); },
   }));
 
 /* --- Boot -------------------------------------------------------------- */
 
+/* First run sets a passcode, every later open unlocks with it. Nothing else
+   stands between opening the app and using it. */
 function boot() {
   auth.boot();
-  if (!auth.user)                          return goAuth();
-  if (auth.isLocked && auth.hasPasscode()) return router.go('passcode', { mode: 'unlock' }, { mode: 'fade' });
+  if (!auth.hasPasscode) return goPasscode('set');
+  if (auth.isLocked)     return goPasscode('unlock');
   return goHome();
 }
 
@@ -114,9 +121,9 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   const away = Date.now() - hiddenAt;
-  if (hiddenAt && away > 60_000 && auth.user && auth.hasPasscode() && !router.busy) {
+  if (hiddenAt && away > 60_000 && auth.hasPasscode && !auth.isLocked && !router.busy) {
     auth.lock();
-    router.go('passcode', { mode: 'unlock' }, { mode: 'fade' });
+    goPasscode('unlock');
   }
 });
 
