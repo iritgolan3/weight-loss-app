@@ -678,3 +678,53 @@ button.srow:active { background: #F6F5F3; }
 .txnsheet__amount--in { color: var(--green); }
 .txnsheet__who  { text-align: center; font-size: 1rem; font-weight: 500; margin-top: 0.375rem; }
 .txnsheet__when { text-align: center; font-size: 0.8125rem; color: var(--muted); margin-top: 0.125rem; }
+
+/* --------------------------------------------------------------------------
+   Rank, made visible
+   A card you are not paying with loses its lustre: the metal desaturates,
+   darkens a touch and sits lower. Switching up therefore shows itself —
+   the new card lifts as the old one dulls.
+   -------------------------------------------------------------------------- */
+
+.card {
+  filter: saturate(1) brightness(1);
+  transition:
+    transform 420ms var(--e-out),
+    box-shadow 420ms var(--e-out),
+    filter 520ms var(--e-out);
+}
+
+.card--muted {
+  filter: saturate(0.32) brightness(0.84) contrast(0.96);
+  box-shadow: 0 0.5rem 1.25rem -0.5rem rgba(0, 0, 0, 0.3);
+}
+
+.card--muted .card__gloss { opacity: 0.3; }
+.card--muted .card__brand,
+.card--muted .card__mark  { opacity: 0.7; }
+
+/* The switch itself: one lifts, the other drops back. */
+.carousel__inner.is-promoted .card {
+  animation: card-promote 720ms var(--e-spring) both;
+}
+
+.carousel__inner.is-demoted .card {
+  animation: card-demote 720ms var(--e-out) both;
+}
+
+@keyframes card-promote {
+  0%   { filter: saturate(0.32) brightness(0.84); }
+  55%  { filter: saturate(1.12) brightness(1.06); }
+  100% { filter: saturate(1) brightness(1); }
+}
+
+@keyframes card-demote {
+  0%   { filter: saturate(1) brightness(1); }
+  100% { filter: saturate(0.32) brightness(0.84) contrast(0.96); }
+}
+
+/* A line that has left the balance but not yet settled. */
+.txn--pending .txn__icon  { border-style: dashed; color: var(--muted); }
+.txn--pending .txn__title { color: #6E6C68; }
+.txn--pending .txn__amt   { color: #6E6C68; }
+.txn--pending .txn__time  { color: #B07A12; font-weight: 500; }

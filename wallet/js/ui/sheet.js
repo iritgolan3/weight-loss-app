@@ -108,7 +108,8 @@ export function txnSheet(txn) {
         <div class="srow"><span class="srow__body"><span class="srow__name">Type</span></span>
           <span class="srow__val">${KIND[txn.type] || 'Payment'}</span></div>
         <div class="srow"><span class="srow__body"><span class="srow__name">Status</span></span>
-          <span class="srow__val" style="color:var(--green-deep)">Completed</span></div>
+          <span class="srow__val" style="color:${txn.pending ? '#B07A12' : 'var(--green-deep)'}">
+            ${txn.pending ? 'Pending' : 'Completed'}</span></div>
         ${card ? `<div class="srow"><span class="srow__body"><span class="srow__name">Card</span></span>
           <span class="srow__val">${card.label || card.brand} •••• ${card.last4}</span></div>` : ''}
         <div class="srow"><span class="srow__body"><span class="srow__name">Reference</span></span>

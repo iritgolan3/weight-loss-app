@@ -143,6 +143,45 @@ full number and the security code are discarded at submit and never written
 to storage — asserted by a test that reads localStorage back and checks the
 number is absent.
 
+## Rank, and what the metals actually give you
+
+The three metals are a ladder — Silver, then Platinum, then Gold — and the
+terms that differ between them are the ones the app enforces, not decoration:
+
+| | Silver | Platinum | Gold |
+| --- | --- | --- | --- |
+| Annual fee | $99 | $199 | $349 |
+| Per payment | $2,500 | $5,000 | $10,000 |
+| Per day | $10,000 | $25,000 | $50,000 |
+| Cashback | 1% | 1.5% | 2% |
+| Foreign exchange | 2.5% | none | none |
+| Free cash withdrawals | 2 a month | 5 a month | unlimited |
+
+A card issued on a tier takes that tier's limits, and those limits are what
+refuse an over-limit payment. Exchanging currency on a Silver card adds the
+2.5% fee as its own line on the statement, the way an issuer bills it;
+Platinum and Gold add nothing. Cashback is credited at the tier rate.
+
+Rank is visible, too. A card you are not paying with desaturates and sits
+lower, so moving up the ladder shows itself: the card you take up brightens
+and lifts while the one you leave behind dulls, and the toast says whether
+you moved up or down.
+
+### Figures that add up
+
+The opening balance and the ledger agree by construction — the balance is
+the opening figure with the ledger applied, so the number on the home screen
+is genuinely the result of the activity listed beneath it. Money is rounded
+to the penny on every commit rather than left to accumulate float error.
+Cards are issued with their own number and an expiry four years out, so two
+cards never wear the same digits.
+
+### Pending, then settled
+
+Money leaves immediately; the line settles a few seconds later, as it does
+on a real statement. The balance never moves twice — only the label changes.
+Anything still pending from a previous session is settled on load.
+
 ## Choosing a card is not buying one
 
 The same carousel serves two different acts, and the difference matters.

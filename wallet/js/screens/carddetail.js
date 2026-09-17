@@ -1,6 +1,6 @@
 import { screenEl, tap, toast } from '../dom.js';
 import { icon } from '../icons.js';
-import { store, money, Declined, CONTROL_NAMES } from '../store.js';
+import { store, money, Declined, CONTROL_NAMES, termsFor } from '../store.js';
 import { cardFace } from '../ui/card.js';
 import { attachTilt } from '../ui/tilt.js';
 import { group, navRow, toggleRow, optionSheet, confirmSheet } from '../ui/controls.js';
@@ -53,6 +53,25 @@ export function cardDetailScreen({ cardId, onBack }) {
                  <span class="srow__sub">Everything goes out of this card.</span></span></div>`
           : navRow('makeDefault', 'Make this the default', { glyph: 'card' }),
       ].join(''))}
+
+      ${(() => {
+        const t = termsFor(c);
+        if (!t) return group('Terms', [
+          `<div class="srow"><span class="srow__body"><span class="srow__name">Added card</span>
+             <span class="srow__sub">Rewards and fees are set by whoever issued it,
+               not by DailyWallet.</span></span></div>`,
+        ].join(''));
+        return group(`${t.name} terms`, [
+          `<div class="srow"><span class="srow__body"><span class="srow__name">Cashback</span></span>
+             <span class="srow__val">${t.cashback}% on card spend</span></div>`,
+          `<div class="srow"><span class="srow__body"><span class="srow__name">Foreign exchange</span></span>
+             <span class="srow__val">${t.fx === 0 ? 'No fee' : `${t.fx}%`}</span></div>`,
+          `<div class="srow"><span class="srow__body"><span class="srow__name">Free cash withdrawals</span></span>
+             <span class="srow__val">${t.freeAtm < 0 ? 'Unlimited' : `${t.freeAtm} a month`}</span></div>`,
+          `<div class="srow"><span class="srow__body"><span class="srow__name">Annual fee</span></span>
+             <span class="srow__val">${money(t.price, { cents: false })}</span></div>`,
+        ].join(''), 'These come with the metal. Ordering a different one changes them.');
+      })()}
 
       ${group('Spending limits', [
         navRow('perTxn', 'Per payment', { glyph: 'plus', value: money(c.limits.perTxn, { cents: false }) }),

@@ -17,11 +17,11 @@ function txnRow(t) {
   const credit = t.amount > 0;
   const glyph = t.type === 'card' ? 'card' : (t.type === 'topup' ? 'plus' : t.type);
   return `
-    <li class="txn" data-txn="${t.id}">
+    <li class="txn${t.pending ? ' txn--pending' : ''}" data-txn="${t.id}">
       <span class="txn__icon">${icon(glyph, 19)}</span>
       <span class="txn__body">
         <span class="txn__title">${t.title}</span>
-        <span class="txn__time">${t.time}</span>
+        <span class="txn__time">${t.pending ? 'Pending' : t.time}</span>
       </span>
       <span class="txn__amt${credit ? ' txn__amt--in' : ''}">${credit ? '+' : ''}${money(t.amount)}</span>
     </li>`;

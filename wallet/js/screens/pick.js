@@ -1,6 +1,6 @@
 import { screenEl, tap } from '../dom.js';
 import { icon } from '../icons.js';
-import { TIERS, cardMarkup, cardFace } from '../ui/card.js';
+import { TIERS, cardMarkup, cardFace, rankOf } from '../ui/card.js';
 import { store, money } from '../store.js';
 import { attachTilt } from '../ui/tilt.js';
 
@@ -44,7 +44,7 @@ export function pickScreen({ mode = 'order', start, onBack, onChoose }) {
           <div class="carousel__cell" data-item="${ordering ? item.id : item.id}">
             <div class="carousel__inner">${ordering
               ? cardMarkup(item.id, { turned: true })
-              : cardFace(item, { turned: true })}</div>
+              : cardFace(item, { turned: true, muted: item.id !== store.defaultCardId })}</div>
           </div>`).join('')}
       </div>
     </div>
@@ -143,13 +143,45 @@ export function pickScreen({ mode = 'order', start, onBack, onChoose }) {
 
   node.addEventListener('click', event => {
     if (event.target.closest('[data-back]'))   { tap(); return onBack(); }
-    if (event.target.closest('[data-choose]')) { tap(); return onChoose(items[index]); }
+    if (event.target.closest('[data-choose]')) {
+      tap();
+      if (ordering) return onChoose(items[index]);
+      return switchTo(index);
+    }
     const cell = event.target.closest('.carousel__cell');
     if (cell) {
       const i = cells.indexOf(cell);
       if (i !== index) { tap(); scrollTo(i, 'smooth'); }
     }
   });
+
+  /**
+   * Move to another card, showing the change rather than just recording it.
+   * The card being taken up brightens and lifts; the one being left behind
+   * desaturates and settles back, so a step up the ladder reads as one.
+   */
+  async function switchTo(to) {
+    const next = items[to];
+    const prevId = store.defaultCardId;
+    const prev = items.findIndex(c => c.id === prevId);
+    if (next.id === prevId) return;
+
+    const step = rankOf(next) - rankOf(items[prev]);
+    const chooseBtn = node.querySelector('[data-choose]');
+    chooseBtn.disabled = true;
+
+    if (prev >= 0) {
+      inners[prev].classList.add('is-demoted');
+      inners[prev].querySelector('.card')?.classList.add('card--muted');
+    }
+    inners[to].classList.add('is-promoted');
+    inners[to].querySelector('.card')?.classList.remove('card--muted');
+
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    await new Promise(r => setTimeout(r, reduced ? 0 : 720));
+
+    onChoose(next, step);
+  }
 
   const detachers = [...node.querySelectorAll('.card-fit')].map(attachTilt);
 

@@ -73,7 +73,7 @@ export function cardsScreen({ onBack, onCard, onAdd }) {
       <div class="stack" data-stack style="height:${cards.length ? (cards.length - 1) * STEP + 216 : 0}px">
         ${cards.map((c, i) => `
           <div class="stack__item" data-item="${c.id}" style="transform:translateY(${i * STEP}px)">
-            ${cardFace(c)}
+            ${cardFace(c, { muted: c.id !== def?.id })}
             <div class="stack__tags">
               <span class="stack__name${c.kind === 'linked' ? ' stack__name--light' : ''}">
                 ${c.label || c.brand} <b>•••• ${c.last4}</b>

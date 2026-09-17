@@ -86,14 +86,17 @@ router
     mode: params.mode || 'order',
     start: params.start,
     onBack: () => router.back({ hero: true }),
-    onChoose: item => {
+    onChoose: (item, step = 0) => {
       if ((params.mode || 'order') === 'order') {
         return router.go('confirm', { tier: item }, { mode: 'hero' });
       }
       // Selecting: make it the card you pay with, then go back to where
       // you came from. No order, no fee, nothing bought.
       store.setDefaultCard(item.id);
-      toast(`Now paying with ${item.label || item.brand} •••• ${item.last4}`);
+      const name = item.label || item.brand;
+      toast(step > 0 ? `Moved up to ${name}`
+          : step < 0 ? `Moved down to ${name}`
+          : `Now paying with ${name} •••• ${item.last4}`);
       return router.back({ hero: true });
     },
   }))
