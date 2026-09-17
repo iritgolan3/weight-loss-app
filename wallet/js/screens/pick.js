@@ -1,16 +1,32 @@
 import { screenEl, tap } from '../dom.js';
 import { icon } from '../icons.js';
-import { TIERS, cardMarkup } from '../ui/card.js';
-import { money } from '../store.js';
+import { TIERS, cardMarkup, cardFace } from '../ui/card.js';
+import { store, money } from '../store.js';
 import { attachTilt } from '../ui/tilt.js';
 
 /**
- * Card picker. A snapping carousel of turned cards; the focused card is the
- * hero that flies in from Home and on to Confirm, so exactly one cell at a
- * time carries the hero marker.
+ * The card carousel, in one of two jobs.
+ *
+ *   mode 'select'  the cards already in the wallet — swipe to the one you
+ *                  want to pay with and it becomes your default. Nothing is
+ *                  bought here. This is where tapping your card on Home goes.
+ *   mode 'order'   the three orderable metals, with their annual fee, leading
+ *                  to Confirm order. Reached from Cards -> Add a card.
+ *
+ * Same carousel, same layout, same turned card; only the subtitle and the
+ * button differ, because choosing and buying are different acts.
  */
-export function pickScreen({ start = 'platinum', onBack, onChoose }) {
-  let index = Math.max(0, TIERS.findIndex(t => t.id === start));
+export function pickScreen({ mode = 'order', start, onBack, onChoose }) {
+  const ordering = mode === 'order';
+
+  // In select mode the items are the user's own cards, not products.
+  const items = ordering ? TIERS : store.cards;
+  if (!items.length) return { el: screenEl('sc-pick', ''), enter: onBack };
+
+  const startIndex = ordering
+    ? TIERS.findIndex(t => t.id === start)
+    : store.cards.findIndex(c => c.id === (start || store.defaultCard?.id));
+  let index = Math.max(0, startIndex);
 
   const node = screenEl('sc-pick', `
     <div class="sc-pick__nav">
@@ -24,15 +40,17 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
 
     <div class="carousel" data-carousel>
       <div class="carousel__track">
-        ${TIERS.map(t => `
-          <div class="carousel__cell" data-tier="${t.id}">
-            <div class="carousel__inner">${cardMarkup(t.id, { turned: true })}</div>
+        ${items.map(item => `
+          <div class="carousel__cell" data-item="${ordering ? item.id : item.id}">
+            <div class="carousel__inner">${ordering
+              ? cardMarkup(item.id, { turned: true })
+              : cardFace(item, { turned: true })}</div>
           </div>`).join('')}
       </div>
     </div>
 
     <div class="dots sc-pick__dots" data-dots>
-      ${TIERS.map(() => '<i></i>').join('')}
+      ${items.map(() => '<i></i>').join('')}
     </div>
 
     <div class="sc-pick__foot">
@@ -59,10 +77,23 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
   }
 
   function renderHead() {
-    const t = TIERS[index];
-    nameEl.textContent = t.name;
-    priceEl.innerHTML = `<b>${money(t.price, { cents: false })}</b> <span>/ year</span>`;
-    ctaEl.textContent = `Choose ${t.name}`;
+    const item = items[index];
+
+    if (ordering) {
+      nameEl.textContent = item.name;
+      priceEl.innerHTML = `<b>${money(item.price, { cents: false })}</b> <span>/ year</span>`;
+      ctaEl.textContent = `Choose ${item.name}`;
+    } else {
+      // Choosing, not buying: no price, and the button says what it does.
+      const isDefault = store.defaultCard?.id === item.id;
+      nameEl.textContent = item.label || item.brand;
+      priceEl.innerHTML = item.frozen
+        ? '<span>Frozen · unfreeze it in Cards</span>'
+        : `<b>•••• ${item.last4}</b> <span>· expires ${item.expiry}</span>`;
+      ctaEl.textContent = isDefault ? 'Already your card' : 'Use this card';
+      node.querySelector('[data-choose]').disabled = isDefault || item.frozen;
+    }
+
     dots.forEach((d, i) => d.classList.toggle('is-active', i === index));
     markHero();
   }
@@ -112,7 +143,7 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
 
   node.addEventListener('click', event => {
     if (event.target.closest('[data-back]'))   { tap(); return onBack(); }
-    if (event.target.closest('[data-choose]')) { tap(); return onChoose(TIERS[index]); }
+    if (event.target.closest('[data-choose]')) { tap(); return onChoose(items[index]); }
     const cell = event.target.closest('.carousel__cell');
     if (cell) {
       const i = cells.indexOf(cell);
@@ -129,7 +160,7 @@ export function pickScreen({ start = 'platinum', onBack, onChoose }) {
 
   return {
     el: node,
-    get tier() { return TIERS[index]; },
+    get tier() { return items[index]; },
     enter() {
       // Force layout so the hero measurement below reads the settled position.
       void carousel.offsetWidth;

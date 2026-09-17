@@ -143,6 +143,25 @@ full number and the security code are discarded at submit and never written
 to storage — asserted by a test that reads localStorage back and checks the
 number is absent.
 
+## Choosing a card is not buying one
+
+The same carousel serves two different acts, and the difference matters.
+
+Tapping your card on Home opens it in **select** mode: it holds the cards
+already in your wallet, the subtitle shows the last four and the expiry
+rather than a price, and the button reads *Use this card* — or *Already your
+card*, disabled, for the one you are on. Choosing sets your default and takes
+you back. Nothing is bought, nothing is charged.
+
+**Order** mode is reached from Cards → Add a card → Order a DailyWallet card.
+That is where the three metals appear with their annual fee and where
+*Choose Gold* leads on to Confirm order and payment, exactly as in the
+reference.
+
+Same layout, same turned card, same dots and the same button. Only the
+subtitle and the verb change, because looking at your wallet should never
+cost anything.
+
 ## The card stack
 
 Cards overlap like a real wallet, each showing its top strip with the name and

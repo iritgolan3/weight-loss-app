@@ -77,14 +77,25 @@ router
   }))
 
   .register('home',    () => homeScreen({
-    onPickCard: () => router.go('pick', { start: store.card }, { mode: 'hero' }),
+    onPickCard: () => router.go('pick',
+      { mode: 'select', start: store.defaultCard?.id }, { mode: 'hero' }),
     onProfile:  () => router.go('settings', {}, { mode: 'push' }),
   }))
 
   .register('pick',    params => pickScreen({
+    mode: params.mode || 'order',
     start: params.start,
-    onBack:   () => router.back({ hero: true }),
-    onChoose: tier => router.go('confirm', { tier }, { mode: 'hero' }),
+    onBack: () => router.back({ hero: true }),
+    onChoose: item => {
+      if ((params.mode || 'order') === 'order') {
+        return router.go('confirm', { tier: item }, { mode: 'hero' });
+      }
+      // Selecting: make it the card you pay with, then go back to where
+      // you came from. No order, no fee, nothing bought.
+      store.setDefaultCard(item.id);
+      toast(`Now paying with ${item.label || item.brand} •••• ${item.last4}`);
+      return router.back({ hero: true });
+    },
   }))
 
   .register('confirm', params => confirmScreen({
@@ -132,7 +143,7 @@ router
   .register('addcard', () => addCardScreen({
     onBack:  () => router.back(),
     onAdded: () => router.back(),
-    onOrder: () => router.go('pick', { start: store.card }, { mode: 'push' }),
+    onOrder: () => router.go('pick', { mode: 'order', start: store.card }, { mode: 'push' }),
   }))
 
   .register('carddetail', params => cardDetailScreen({
