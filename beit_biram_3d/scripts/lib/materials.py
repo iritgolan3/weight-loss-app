@@ -440,7 +440,8 @@ def grass(name="GROUND_Grass"):
                    (0.52, (0.112, 0.176, 0.040, 1)),
                    (0.78, (0.168, 0.232, 0.058, 1))], loc=(-1400, 150))
     nt.links.new(n.outputs["Fac"], r.inputs["Fac"])
-    dry = _mix(nt, 0.18, r.outputs["Color"], (0.26, 0.24, 0.10), loc=(-1150, 150))
+    dry = _mix(nt, 0.10, r.outputs["Color"], (0.195, 0.190, 0.085),
+               loc=(-1150, 150))
     nt.links.new(n2.outputs["Fac"], dry.inputs["Fac"])
     _bump(nt, n2.outputs["Fac"], b, strength=0.55, distance=0.02)
     return _finish(m, b, nt, dry.outputs["Color"], roughness=0.88)

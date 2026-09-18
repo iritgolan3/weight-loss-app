@@ -157,8 +157,8 @@ def pine_aleppo(height=11.0, seed=0):
     # flattened umbrella of needle clumps
     crown_r = height * rng.uniform(0.40, 0.52)
     for (p, r, l) in tips:
-        _cluster(mb, p[0], p[1], p[2] + 0.30, crown_r * 0.50, rng,
-                 n=rng.randint(3, 5), flat=0.38, spread=1.05, noise=0.38)
+        _cluster(mb, p[0], p[1], p[2] + 0.30, crown_r * 0.44, rng,
+                 n=rng.randint(4, 7), flat=0.34, spread=1.25, noise=0.46)
     _cluster(mb, cur[0], cur[1], cur[2] + height * 0.20, crown_r * 0.72, rng,
              n=4, flat=0.34, spread=1.10, noise=0.34)
     return mb
@@ -196,10 +196,10 @@ def broadleaf(height=10.0, seed=0, spread=1.0):
         L = math.sqrt(sum(c * c for c in d))
         _branch(mb, (0, 0, trunk_h), tuple(c / L for c in d),
                 height * 0.30, r0 * 0.62, 3, rng, tips, split=2, drop=0.18)
-    cr = height * 0.26 * spread
+    cr = height * 0.24 * spread
     for (p, r, l) in tips:
-        _cluster(mb, p[0], p[1], p[2], cr * rng.uniform(0.62, 0.95), rng,
-                 n=rng.randint(2, 4), flat=0.82, spread=0.95)
+        _cluster(mb, p[0], p[1], p[2], cr * rng.uniform(0.55, 0.88), rng,
+                 n=rng.randint(3, 6), flat=0.80, spread=1.15, noise=0.42)
     return mb
 
 

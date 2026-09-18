@@ -295,6 +295,11 @@ def build_buildings():
         group = "HISTORIC_BUILDINGS" if name in HISTORIC else "BUILDINGS"
         c = coll(f"BEIT_BIRAM/{group}/{name}")
         ob = mb.to_object(name, c, mats=building_mats(d["style"]))
+        # Curved surfaces -- Pevzner's hung roof, the sports-hall barrel vault,
+        # the Biram stair drum -- are built from many near-coplanar faces and
+        # read as faceted bands when flat-shaded. Smoothing below 26 degrees
+        # rounds them off while every wall corner and window reveal stays crisp.
+        core.add_smooth_by_angle(ob, 26)
         made.append(ob)
 
     # the indoor pool inside the sports hall
