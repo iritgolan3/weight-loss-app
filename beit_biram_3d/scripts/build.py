@@ -33,6 +33,10 @@ GZ = T.ground_z
 # set by --lite: thins the planting for a lighter viewport scene
 LITE = False
 
+# set by --context: adds the streets, neighbouring blocks and the wooded
+# hillside around the campus. Off by default — the deliverable is the school.
+CONTEXT = False
+
 
 # --------------------------------------------------------------------------
 # material palettes
@@ -125,7 +129,14 @@ def build_terrain():
             return 2 if d > 26 else 1          # rock/scrub beyond, soil at the edge
         return 0                                # campus lawn
 
-    n = T.build_terrain(mb, -215, -185, 215, 185, step=2.5, mat_map=mat_of)
+    if CONTEXT:
+        ext = (-215, -185, 215, 185)
+    else:
+        # campus only: a modest apron of hillside so the site sits in ground
+        # rather than ending at a cliff, but no wider landscape
+        ext = (SP.SITE_X0 - 45, SP.SITE_Y0 - 45, SP.SITE_X1 + 45, SP.SITE_Y1 + 45)
+    n = T.build_terrain(mb, ext[0], ext[1], ext[2], ext[3], step=2.5,
+                        mat_map=mat_of)
     ob = mb.to_object("TERRAIN_Carmel", c,
                       mats=[M.grass(), M.soil(), M.rock_carmel()])
     core.add_smooth_by_angle(ob, 38)
@@ -372,7 +383,7 @@ def _boundary_runs():
 
 
 def build_boundary():
-    c = coll("BEIT_BIRAM/STREET/BOUNDARY")
+    c = coll("BEIT_BIRAM/BOUNDARY")
     mb = MeshBuilder()
     runs = _boundary_runs()
     for r in runs:
@@ -493,8 +504,9 @@ def _blocked(x, y, margin=3.0, keepout=True):
             px, py = ax + (bx - ax) * t, ay + (by - ay) * t
             if math.hypot(x - px, y - py) < 3.6:
                 return True
-    # the entrance plaza stays open
-    if -124 < x < -100 and -32 < y < 4:
+    # the entrance plaza stays open — but only its central paved area, or the
+    # avenue of palms meant to flank it gets rejected along with it
+    if -122 < x < -104 and -28 < y < 0:
         return True
     return False
 
@@ -599,7 +611,7 @@ def build_vegetation():
         planted += 1
 
     # --- palms flanking the entrance plaza ---
-    pts = [(-101.0, -28.0 + i * 7.0) for i in range(9)]
+    pts = [(-102.0, -22.0 + i * 7.0) for i in range(9)]
     planted += len(_plant(tpl, "PALM", pts,
                           "BEIT_BIRAM/VEGETATION/TREES/PALMS", rng,
                           scale=(0.95, 1.12), jitter=0.4))
@@ -677,9 +689,9 @@ def build_vegetation():
                           "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng,
                           scale=(0.85, 1.2), jitter=2.2))
 
-    # --- the hillside outside the campus ---
-    # The Carmel is wooded, and the ground beyond the wall was rendering as a
-    # bare pale expanse that read as unfinished plane rather than landscape.
+    # --- the hillside outside the campus (context only) ---
+    # The Carmel is wooded, and the ground beyond the wall would otherwise read
+    # as a bare unfinished plane. Only built when --context is on.
     def on_road(x, y):
         return (abs(x - SP.ST_ABBA_HUSHI_X) < 13.0
                 or abs(x - SP.ST_YAAROT_X) < 10.0
@@ -690,7 +702,7 @@ def build_vegetation():
                 and SP.SITE_Y0 - 4 < y < SP.SITE_Y1 + 4)
 
     hill_pine, hill_scrub = [], []
-    for _ in range(380 if LITE else 1400):
+    for _ in range((380 if LITE else 1400) if CONTEXT else 0):
         x = rng.uniform(-205, 205)
         y = rng.uniform(-178, 178)
         if in_campus(x, y) or on_road(x, y) or _camera_keepout(x, y):
@@ -701,8 +713,9 @@ def build_vegetation():
             continue
         (hill_pine if rng.random() < 0.55 else hill_scrub).append((x, y))
 
-    hc2 = coll("BEIT_BIRAM/STREET/HILLSIDE")
     n_hill = 0
+    hc2 = coll("BEIT_BIRAM/SURROUNDINGS/HILLSIDE") if (hill_pine or hill_scrub) \
+        else None
     for i, (x, y) in enumerate(hill_pine):
         v = rng.choice(tpl["PINE"])
         s2 = rng.uniform(0.7, 1.15)
@@ -721,14 +734,14 @@ def build_vegetation():
 
     # --- street trees outside the campus (Haifa context) ---
     street = []
-    for y in range(-176, 180, 12):
+    for y in (range(-176, 180, 12) if CONTEXT else ()):
         street.append((SP.ST_ABBA_HUSHI_X - 11.5, float(y)))
         street.append((SP.ST_ABBA_HUSHI_X + 11.5, float(y)))
         street.append((SP.ST_YAAROT_X + 7.5, float(y)))
-    for x in range(-180, 184, 14):
+    for x in (range(-180, 184, 14) if CONTEXT else ()):
         street.append((float(x), SP.ST_EINSTEIN_Y - 7.5))
-    sc_ = coll("BEIT_BIRAM/STREET/TREES")
     n_st = 0
+    sc_ = coll("BEIT_BIRAM/SURROUNDINGS/STREET_TREES") if street else None
     for i, (x, y) in enumerate(street):
         if _camera_keepout(x, y):
             continue
@@ -1124,7 +1137,7 @@ def build_streets():
     """Abba Hushi Blvd (west), Einstein St (south) and Yaarot St (east) — the
     three streets documented as bounding the campus — plus their pavements and
     a band of Ahuza neighbourhood context."""
-    c = coll("BEIT_BIRAM/STREET")
+    c = coll("BEIT_BIRAM/SURROUNDINGS/STREETS")
     mb = MeshBuilder()
     ASPH, PAV, KERB, LINE, SOIL = 0, 1, 2, 3, 4
 
@@ -1228,7 +1241,7 @@ def build_neighbourhood():
     Generic (tier C) — included so the campus reads as embedded in Haifa, not
     floating. Kept deliberately simple and set back from the campus.
     """
-    c = coll("BEIT_BIRAM/STREET/NEIGHBOURHOOD")
+    c = coll("BEIT_BIRAM/SURROUNDINGS/NEIGHBOURHOOD")
     rng = random.Random(9090)
     mb = MeshBuilder()
     slots = _neighbourhood_plots()
@@ -1545,13 +1558,17 @@ def main():
                                                   "beit_biram.blend"))
     ap.add_argument("--light", action="store_true",
                     help="lighter render sampling for fast iteration")
+    ap.add_argument("--context", action="store_true",
+                    help="also build the surrounding streets, pavements, "
+                         "neighbouring blocks and wooded hillside")
     ap.add_argument("--lite", action="store_true",
                     help="thin the planting and the grass tufts for a lighter "
                          "viewport scene (same layout, fewer instances)")
     args = ap.parse_args()
 
-    global LITE
+    global LITE, CONTEXT
     LITE = args.lite
+    CONTEXT = args.context
     core.reset_scene()
     core.clear_coll_cache()
     # reset_scene() invalidates every datablock, so drop the cached handles
@@ -1580,10 +1597,11 @@ def main():
     build_lighting_props()
     print("  signage ...")
     build_signs()
-    print("  streets ...")
-    build_streets()
-    print("  neighbourhood context ...")
-    build_neighbourhood()
+    if CONTEXT:
+        print("  streets ...")
+        build_streets()
+        print("  neighbourhood context ...")
+        build_neighbourhood()
     print("  sun, sky and cameras ...")
     build_sun_and_sky()
     build_cameras()

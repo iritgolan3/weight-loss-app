@@ -105,7 +105,8 @@ export OCIO=$(python3 -c "import bpy.utils;print(bpy.utils.resource_path('LOCAL'
 |---|---|
 | `build.py --out path.blend` | write somewhere else |
 | `build.py --light` | fewer render samples / bounces, for fast iteration |
-| `build.py --lite --out out/beit_biram_lite.blend` | thinned planting for a lighter viewport scene — same layout, ~1.9 M triangles instead of ~2.9 M |
+| `build.py --lite --out out/beit_biram_lite.blend` | thinned planting for a lighter viewport scene — same layout, fewer instances |
+| `build.py --context` | **also** build the surrounding streets, pavements, kerbs, neighbouring blocks and wooded hillside (off by default) |
 | `render.py --cams CAM_01_MainEntrance,CAM_05_AerialOverview` | render selected cameras |
 | `render.py --samples 256 --res 2560x1440` | final-quality stills |
 | `variants.py` | writes `beit_biram_{morning,golden,sunset,evening}.blend` |
@@ -117,6 +118,16 @@ Daylight is the reference setup and lives in `build.py`; these are extras.
 
 ---
 
+## Scope
+
+**The deliverable is the school itself.** The default build stops at the campus
+boundary: the walled site, its buildings, grounds and planting, plus a modest
+apron of hillside so the campus sits in ground rather than ending at a cliff.
+
+The surrounding streets (Abba Hushi / Einstein / Yaarot), their pavements and
+kerbs, the neighbouring Ahuza blocks and the wooded Carmel hillside beyond are
+built **only** with `--context`. They roughly double the triangle count.
+
 ## What is in the scene
 
 ```
@@ -125,21 +136,22 @@ BEIT_BIRAM/
   BUILDINGS/        SCIENCE_COMPLEX, ARCHIVE, OPEN_UNIVERSITY, SPORTS_HALL,
                     PEDAGOGICAL, RUACH_VERE_UT, KINDERGARTEN, MAINTENANCE, GATEHOUSE
   HISTORIC_BUILDINGS/ BIRAM_BUILDING, PEVZNER_HALL, LIBRARY_REICH, COMPUTER_CENTRE
+  BOUNDARY/         the concrete acoustic wall, palisade fencing, gates, turnstiles
   PATHS/            paved surfaces + PERGOLA/ (שדרת הפרגולה)
   VEGETATION/       HERO_TREES/ TREES/ BUSHES/ GRASS/
   FURNITURE/        benches, bins, bike racks, memorial wall, sports equipment, cars
   SIGNS/            sign boards + Hebrew 3D text
   LIGHTING/         sun + lamp columns, bollard lights, stadium floodlights
-  STREET/           Abba Hushi / Einstein / Yaarot + BOUNDARY/ NEIGHBOURHOOD/ TREES/
   CAMERAS/          8 views + REFERENCE_CAMERA
+  SURROUNDINGS/     --context only: STREETS/ NEIGHBOURHOOD/ HILLSIDE/ STREET_TREES/
   _TEMPLATES/       hidden instance sources (vegetation)
 ```
 
 **Scale is real**: 1 Blender unit = 1 metre. Campus 250 × 202 m ≈ 50.5 dunam.
 
-**Scene cost**: ~3.0 M triangles from ~50 unique meshes in a ~10 MB file — the
-424 trees and 235 shrubs are linked duplicates, so the whole planting scheme
-costs 18 meshes.
+**Scene cost**: ~10 M triangles from ~50 unique meshes in a ~21 MB file. The
+280 trees and 235 shrubs are linked duplicates, so the whole planting scheme
+costs about 20 meshes. `--context` roughly doubles this.
 
 ### Signature elements
 
@@ -231,7 +243,7 @@ or a tree crown.
 | `CAM_03_HistoricBiram` | the 1940s Biram Building |
 | `CAM_04_CentralCourtyard` | courtyard between the library and the science complex |
 | `CAM_05_AerialOverview` | high aerial of the whole site |
-| `CAM_06_StreetLevel` | from Abba Hushi Blvd, outside the acoustic wall |
+| `CAM_06_StreetLevel` | exterior, outside the acoustic wall on the Abba Hushi frontage |
 | `CAM_07_PevznerHall` | the 1962 auditorium and its suspended roof |
 | `CAM_08_Landscape` | landscape view over the northern sports complex |
 | `REFERENCE_CAMERA` | free camera for matching against photographs |
