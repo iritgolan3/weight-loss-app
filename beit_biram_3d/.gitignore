@@ -1,0 +1,5 @@
+# Blender's rolling backups — the .blend files themselves are committed
+*.blend1
+*.blend2
+__pycache__/
+*.pyc
