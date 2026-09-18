@@ -837,6 +837,7 @@ def kindergarten(rect, z, seed=9):
     mb = MeshBuilder()
     x0, y0, x1, y1 = rect
     W, D = x1 - x0, y1 - y0
+    ground_slab(mb, rect, z, drop=0.9)
     n = 3
     for i in range(n):
         px0 = x0 + i * (W / n) + 1.4
@@ -873,6 +874,7 @@ def kindergarten(rect, z, seed=9):
 def utility_shed(rect, z, h=4.2, seed=10):
     mb = MeshBuilder()
     x0, y0, x1, y1 = rect
+    ground_slab(mb, rect, z, drop=0.9)
     spec = WinSpec(kind="punched", win_w=1.1, win_h=1.0, sill=2.2, bay=4.5,
                    margin=2.0, cols=1, recess=0.14)
     blank = WinSpec(kind="none")
@@ -894,6 +896,7 @@ def gatehouse(rect, z, seed=11):
     mb = MeshBuilder()
     x0, y0, x1, y1 = rect
     h = 3.2
+    ground_slab(mb, rect, z, drop=0.9)
     spec = WinSpec(kind="ribbon", win_h=1.45, sill=1.05, margin=0.5,
                    panes_per_m=0.55, recess=0.10)
     for (a, b) in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)),

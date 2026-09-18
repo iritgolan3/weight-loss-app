@@ -677,6 +677,48 @@ def build_vegetation():
                           "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng,
                           scale=(0.85, 1.2), jitter=2.2))
 
+    # --- the hillside outside the campus ---
+    # The Carmel is wooded, and the ground beyond the wall was rendering as a
+    # bare pale expanse that read as unfinished plane rather than landscape.
+    def on_road(x, y):
+        return (abs(x - SP.ST_ABBA_HUSHI_X) < 13.0
+                or abs(x - SP.ST_YAAROT_X) < 10.0
+                or abs(y - SP.ST_EINSTEIN_Y) < 10.0)
+
+    def in_campus(x, y):
+        return (SP.SITE_X0 - 4 < x < SP.SITE_X1 + 4
+                and SP.SITE_Y0 - 4 < y < SP.SITE_Y1 + 4)
+
+    hill_pine, hill_scrub = [], []
+    for _ in range(380 if LITE else 1400):
+        x = rng.uniform(-205, 205)
+        y = rng.uniform(-178, 178)
+        if in_campus(x, y) or on_road(x, y) or _camera_keepout(x, y):
+            continue
+        # keep the neighbourhood plots clear
+        if any(abs(x - cx) < 17 and abs(y - cy) < 13
+               for cx, cy in _NEIGHBOURHOOD_PLOTS):
+            continue
+        (hill_pine if rng.random() < 0.55 else hill_scrub).append((x, y))
+
+    hc2 = coll("BEIT_BIRAM/STREET/HILLSIDE")
+    n_hill = 0
+    for i, (x, y) in enumerate(hill_pine):
+        v = rng.choice(tpl["PINE"])
+        s2 = rng.uniform(0.7, 1.15)
+        link_dup(v, f"HILL_PINE_{i:03d}", loc=(x, y, T.base_height(x, y) - 0.2),
+                 rot_z=rng.uniform(0, math.tau), collection=hc2,
+                 scale=(s2, s2, s2 * rng.uniform(0.9, 1.15)))
+        n_hill += 1
+    for i, (x, y) in enumerate(hill_scrub):
+        v = rng.choice(tpl["BUSH"])
+        s2 = rng.uniform(1.1, 2.4)
+        link_dup(v, f"HILL_SCRUB_{i:03d}", loc=(x, y, T.base_height(x, y) - 0.1),
+                 rot_z=rng.uniform(0, math.tau), collection=hc2,
+                 scale=(s2, s2, s2 * rng.uniform(0.7, 1.0)))
+        n_hill += 1
+    planted += n_hill
+
     # --- street trees outside the campus (Haifa context) ---
     street = []
     for y in range(-176, 180, 12):
@@ -1160,6 +1202,26 @@ def build_streets():
     return [ob, ob2]
 
 
+def _neighbourhood_plots():
+    """Plot centres for the surrounding Ahuza blocks.
+
+    Shared so the hillside scatter can keep them clear instead of planting
+    pines through people's living rooms.
+    """
+    import random as _r
+    rng = _r.Random(9090)
+    slots = []
+    for y in range(-175, 180, 30):
+        slots.append((SP.ST_ABBA_HUSHI_X - 46.0, float(y), rng.randint(3, 5)))
+        slots.append((SP.ST_YAAROT_X + 40.0, float(y), rng.randint(2, 4)))
+    for x in range(-170, 175, 34):
+        slots.append((float(x), SP.ST_EINSTEIN_Y - 40.0, rng.randint(3, 5)))
+    return slots
+
+
+_NEIGHBOURHOOD_PLOTS = [(cx, cy) for cx, cy, _ in _neighbourhood_plots()]
+
+
 def build_neighbourhood():
     """A band of Ahuza context: 3–5 storey apartment blocks and villas.
 
@@ -1169,12 +1231,7 @@ def build_neighbourhood():
     c = coll("BEIT_BIRAM/STREET/NEIGHBOURHOOD")
     rng = random.Random(9090)
     mb = MeshBuilder()
-    slots = []
-    for y in range(-175, 180, 30):
-        slots.append((SP.ST_ABBA_HUSHI_X - 46.0, float(y), rng.randint(3, 5)))
-        slots.append((SP.ST_YAAROT_X + 40.0, float(y), rng.randint(2, 4)))
-    for x in range(-170, 175, 34):
-        slots.append((float(x), SP.ST_EINSTEIN_Y - 40.0, rng.randint(3, 5)))
+    slots = _neighbourhood_plots()
     for i, (cx, cy, floors) in enumerate(slots):
         w = rng.uniform(16, 26)
         d = rng.uniform(12, 18)
@@ -1290,7 +1347,7 @@ def build_sun_and_sky(elev_deg=52.0, azim_deg=214.0, strength=2.55,
 
 CAMERAS = [
     # name, location, look-at target, focal length (mm on a 36 mm sensor)
-    ("CAM_01_MainEntrance",     (-119.0, -19.0, 5.6),  (-58.0, -3.0, 8.0),  30),
+    ("CAM_01_MainEntrance",     (-104.0, -36.0, 5.6),  (-122.0, -17.0, 6.5), 30),
     ("CAM_02_CampusOverview",   (-176.0, -148.0, 78.0), (-8.0, -8.0, 10.0), 45),
     ("CAM_03_HistoricBiram",    (30.0, -88.0, 14.0),   (36.0, -27.0, 9.5),  38),
     ("CAM_04_CentralCourtyard", (-51.0, -30.0, 6.3),   (-45.0, 20.0, 8.5),  30),
