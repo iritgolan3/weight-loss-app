@@ -432,19 +432,38 @@ def paving_slab(name="GROUND_PavingSlab", c1=(0.56, 0.545, 0.515),
 
 @cached
 def grass(name="GROUND_Grass"):
-    """Irrigated campus lawn — the 'wide lawns between the buildings'."""
+    """Irrigated campus lawn — the documented 'wide lawns between the buildings'.
+
+    Three scales of variation, because a single noise reads as billiard felt:
+    metre-wide patches of mowing and irrigation, a decimetre mottle of
+    individual clumps, and a centimetre bump stands in for the blades.
+    """
     m, nt, b = _new(name)
-    n = _noise(nt, scale=0.55, detail=12.0, roughness=0.62, loc=(-1700, 150))
-    n2 = _noise(nt, scale=14.0, detail=8.0, loc=(-1700, -150))
-    r = _ramp(nt, [(0.28, (0.072, 0.112, 0.026, 1)),
-                   (0.52, (0.112, 0.176, 0.040, 1)),
-                   (0.78, (0.168, 0.232, 0.058, 1))], loc=(-1400, 150))
-    nt.links.new(n.outputs["Fac"], r.inputs["Fac"])
-    dry = _mix(nt, 0.10, r.outputs["Color"], (0.195, 0.190, 0.085),
-               loc=(-1150, 150))
-    nt.links.new(n2.outputs["Fac"], dry.inputs["Fac"])
-    _bump(nt, n2.outputs["Fac"], b, strength=0.55, distance=0.02)
-    return _finish(m, b, nt, dry.outputs["Color"], roughness=0.88)
+    broad = _noise(nt, scale=0.22, detail=10.0, roughness=0.60, loc=(-1700, 300))
+    clump = _noise(nt, scale=4.5, detail=12.0, roughness=0.68, loc=(-1700, 60))
+    blade = _noise(nt, scale=48.0, detail=8.0, loc=(-1700, -180))
+
+    r = _ramp(nt, [(0.24, (0.038, 0.072, 0.016, 1)),
+                   (0.46, (0.062, 0.112, 0.026, 1)),
+                   (0.68, (0.092, 0.150, 0.036, 1)),
+                   (0.86, (0.125, 0.188, 0.048, 1))], loc=(-1400, 300))
+    nt.links.new(broad.outputs["Fac"], r.inputs["Fac"])
+
+    mottle = _mix(nt, 0.40, r.outputs["Color"], (0.062, 0.100, 0.022),
+                  loc=(-1150, 220))
+    nt.links.new(clump.outputs["Fac"], mottle.inputs["Fac"])
+    dry = _mix(nt, 0.07, mottle.outputs["Color"], (0.135, 0.128, 0.058),
+               loc=(-940, 220))
+    nt.links.new(broad.outputs["Fac"], dry.inputs["Fac"])
+
+    hm = _mix(nt, 0.55, clump.outputs["Fac"], blade.outputs["Fac"],
+              loc=(-1150, -420), blend="MULTIPLY")
+    _bump(nt, hm.outputs["Color"], b, strength=0.95, distance=0.035)
+
+    rg = _ramp(nt, [(0.3, (0.80,) * 3 + (1,)), (0.8, (0.95,) * 3 + (1,))],
+               loc=(-940, -420))
+    nt.links.new(clump.outputs["Fac"], rg.inputs["Fac"])
+    return _finish(m, b, nt, dry.outputs["Color"], rg.outputs["Color"])
 
 
 @cached
@@ -579,6 +598,17 @@ def foliage_olive(name="VEG_FoliageOlive"):
 @cached
 def foliage_cypress(name="VEG_FoliageCypress"):
     return foliage(name, color=(0.042, 0.080, 0.028), rough=0.74)
+
+
+@cached
+def grass_blade(name="VEG_GrassBlade"):
+    """Tuft blades: one saturated green, independent of the lawn's patch noise."""
+    m, nt, b = _new(name)
+    n = _noise(nt, scale=30.0, detail=6.0, loc=(-1400, 0))
+    r = _ramp(nt, [(0.3, (0.042, 0.082, 0.018, 1)),
+                   (0.8, (0.086, 0.142, 0.034, 1))], loc=(-1150, 0))
+    nt.links.new(n.outputs["Fac"], r.inputs["Fac"])
+    return _finish(m, b, nt, r.outputs["Color"], roughness=0.82)
 
 
 @cached

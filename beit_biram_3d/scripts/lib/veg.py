@@ -45,7 +45,8 @@ def _blob(mb, cx, cy, cz, rx, ry, rz, *, rings=5, seg=8, noise=0.20, rng=None,
 
 
 def _cluster(mb, cx, cy, cz, r, rng, *, mat=M_LEAF, n=3, flat=1.0,
-             spread=0.85, noise=0.34):
+             spread=0.85, noise=0.24, leaves=True, leaf_size=0.125,
+             leaf_density=1.0):
     """A lumpy clump built from several small spheroids.
 
     A single large smooth blob reads as plastic; a handful of overlapping
@@ -56,9 +57,53 @@ def _cluster(mb, cx, cy, cz, r, rng, *, mat=M_LEAF, n=3, flat=1.0,
         oy = rng.uniform(-r * spread, r * spread)
         oz = rng.uniform(-r * spread * flat, r * spread * flat)
         rr = r * rng.uniform(0.48, 0.80)
-        _blob(mb, cx + ox, cy + oy, cz + oz, rr, rr * rng.uniform(0.85, 1.15),
-              rr * flat * rng.uniform(0.8, 1.1), rings=4, seg=7, noise=noise,
-              rng=rng, mat=mat, squash_bottom=0.85)
+        ry_ = rr * rng.uniform(0.85, 1.15)
+        rz_ = rr * flat * rng.uniform(0.8, 1.1)
+        _blob(mb, cx + ox, cy + oy, cz + oz, rr * 0.86, ry_ * 0.86, rz_ * 0.86,
+              rings=4, seg=8, noise=noise, rng=rng, mat=mat, squash_bottom=0.85)
+        if leaves:
+            _leaf_shell(mb, cx + ox, cy + oy, cz + oz, rr, ry_, rz_, rng,
+                        n=int(115 * leaf_density), size=leaf_size, mat=mat)
+
+
+def _leaf_shell(mb, cx, cy, cz, rx, ry, rz, rng, *, n=70, size=0.13,
+                mat=M_LEAF, jitter=0.75):
+    """Scatter small leaf cards over a spheroid's surface.
+
+    Overlapping smooth blobs alone read as artichoke plates: the silhouette is
+    made of a few big curved shells. A shell of small quads, roughly tangent to
+    the crown with a random tilt, breaks that outline into leaf-sized pieces,
+    which is what actually sells foliage at close range.
+    """
+    for _ in range(n):
+        u = rng.uniform(0.0, math.tau)
+        w = math.acos(rng.uniform(-1.0, 1.0))
+        sv, cv = math.sin(w), math.cos(w)
+        nx, ny, nz = sv * math.cos(u), sv * math.sin(u), cv
+        px = cx + nx * rx
+        py = cy + ny * ry
+        pz = cz + nz * rz
+        # a frame on the surface, then tilted randomly so leaves catch the light
+        if abs(nz) < 0.9:
+            ax, ay, az = -ny, nx, 0.0
+        else:
+            ax, ay, az = 1.0, 0.0, 0.0
+        al = math.sqrt(ax * ax + ay * ay + az * az) or 1.0
+        ax, ay, az = ax / al, ay / al, az / al
+        bx = ny * az - nz * ay
+        by = nz * ax - nx * az
+        bz = nx * ay - ny * ax
+        t = rng.uniform(-jitter, jitter)
+        ax, ay, az = ax + nx * t, ay + ny * t, az + nz * t
+        al = math.sqrt(ax * ax + ay * ay + az * az) or 1.0
+        ax, ay, az = ax / al, ay / al, az / al
+        s = size * rng.uniform(0.6, 1.4)
+        h = s * rng.uniform(0.5, 0.9)
+        mb.face(((px - ax * s - bx * h, py - ay * s - by * h, pz - az * s - bz * h),
+                 (px + ax * s - bx * h, py + ay * s - by * h, pz + az * s - bz * h),
+                 (px + ax * s + bx * h, py + ay * s + by * h, pz + az * s + bz * h),
+                 (px - ax * s + bx * h, py - ay * s + by * h, pz - az * s + bz * h)),
+                mat)
 
 
 def _taper_limb(mb, p0, p1, r0, r1, seg=7, mat=M_BARK):
@@ -158,9 +203,11 @@ def pine_aleppo(height=11.0, seed=0):
     crown_r = height * rng.uniform(0.40, 0.52)
     for (p, r, l) in tips:
         _cluster(mb, p[0], p[1], p[2] + 0.30, crown_r * 0.44, rng,
-                 n=rng.randint(4, 7), flat=0.34, spread=1.25, noise=0.46)
+                 n=rng.randint(4, 7), flat=0.34, spread=1.25, noise=0.30,
+                 leaf_size=0.085, leaf_density=1.15)
     _cluster(mb, cur[0], cur[1], cur[2] + height * 0.20, crown_r * 0.72, rng,
-             n=4, flat=0.34, spread=1.10, noise=0.34)
+             n=4, flat=0.34, spread=1.10, noise=0.34, leaf_size=0.085,
+             leaf_density=1.15)
     return mb
 
 
@@ -178,6 +225,8 @@ def cypress(height=12.0, seed=0):
         _blob(mb, rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), z,
               rad, rad * rng.uniform(0.92, 1.08), height * 0.085,
               rings=5, seg=9, noise=0.13, rng=rng)
+        _leaf_shell(mb, rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), z,
+                    rad, rad, height * 0.085, rng, n=42, size=0.07)
     return mb
 
 
@@ -199,7 +248,7 @@ def broadleaf(height=10.0, seed=0, spread=1.0):
     cr = height * 0.24 * spread
     for (p, r, l) in tips:
         _cluster(mb, p[0], p[1], p[2], cr * rng.uniform(0.55, 0.88), rng,
-                 n=rng.randint(3, 6), flat=0.80, spread=1.15, noise=0.42)
+                 n=rng.randint(3, 6), flat=0.80, spread=1.15, noise=0.26)
     return mb
 
 
@@ -326,13 +375,13 @@ def hedge_run(mb, path, *, width=0.9, height=1.1, mat=M_LEAF, seed=0, step=0.7):
             mb.prism(poly, 0, h, mat, cap_bottom=False)
 
 
-def grass_tuft(seed=0, height=0.28, blades=5):
+def grass_tuft(seed=0, height=0.13, blades=7):
     """A small crossed-blade clump for path edges and tree bases."""
     rng = random.Random(seed)
     mb = MeshBuilder()
     for i in range(blades):
         a = rng.uniform(0, math.pi)
-        w = rng.uniform(0.05, 0.10)
+        w = rng.uniform(0.010, 0.022)
         h = height * rng.uniform(0.7, 1.3)
         dx, dy = math.cos(a) * w, math.sin(a) * w
         lean_x, lean_y = rng.uniform(-0.08, 0.08), rng.uniform(-0.08, 0.08)

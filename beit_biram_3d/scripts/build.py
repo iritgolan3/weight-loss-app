@@ -437,8 +437,42 @@ def build_retaining():
 # vegetation
 # --------------------------------------------------------------------------
 
-def _blocked(x, y, margin=3.0):
-    """True where a tree must not be planted."""
+def _camera_keepout(x, y):
+    """Keep planting off the camera viewpoints and their near sight lines.
+
+    The planting is dense enough that a tree will otherwise land on top of a
+    camera or directly in front of it, which is how the Biram Building view
+    ended up as a wall of canopy.
+    """
+    for name, loc, target, lens in CAMERAS:
+        if loc[2] > 40.0:                 # aerials look down over everything
+            continue
+        cx, cy = loc[0], loc[1]
+        if math.hypot(x - cx, y - cy) < 11.0:
+            return True
+        tx, ty = target[0], target[1]
+        dx, dy = tx - cx, ty - cy
+        L = math.hypot(dx, dy)
+        if L < 1e-3:
+            continue
+        t = ((x - cx) * dx + (y - cy) * dy) / (L * L)
+        if 0.0 < t < 1.05:
+            px, py = cx + dx * t, cy + dy * t
+            # a corridor that widens with distance, matching the cone of view
+            if math.hypot(x - px, y - py) < 7.0 + 5.0 * t:
+                return True
+    return False
+
+
+def _blocked(x, y, margin=3.0, keepout=True):
+    """True where a tree must not be planted.
+
+    `keepout` guards the camera sight lines. Ground cover passes False:
+    tufts and low shrubs are exactly what a close-up wants in the
+    foreground, and they are too small to block a view.
+    """
+    if keepout and _camera_keepout(x, y):
+        return True
     for d in SP.BUILDINGS.values():
         x0, y0, x1, y1 = d["rect"]
         if x0 - margin < x < x1 + margin and y0 - margin < y < y1 + margin:
@@ -493,7 +527,7 @@ def _templates():
             mb = fn(height=h, seed=hash((name, k)) & 0xFFFF)
             ob = mb.to_object(f"TPL_{name}_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
                               mats=[bark_m, leaf_m])
-            core.add_smooth_by_angle(ob, 55)
+            core.add_smooth_by_angle(ob, 80)
             ob.hide_render = True
             ob.hide_viewport = True
             variants.append(ob)
@@ -503,14 +537,14 @@ def _templates():
         mb = veg.bush(radius=0.7 + 0.35 * k, seed=500 + k)
         ob = mb.to_object(f"TPL_BUSH_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
                           mats=[M.bark(), M.hedge()])
-        core.add_smooth_by_angle(ob, 55)
+        core.add_smooth_by_angle(ob, 80)
         ob.hide_render = True
         ob.hide_viewport = True
         tpl.setdefault("BUSH", []).append(ob)
     for k in range(3):
         mb = veg.grass_tuft(seed=700 + k, height=0.24 + 0.08 * k)
         ob = mb.to_object(f"TPL_TUFT_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
-                          mats=[M.bark(), M.grass()])
+                          mats=[M.bark(), M.grass_blade()])
         ob.hide_render = True
         ob.hide_viewport = True
         tpl.setdefault("TUFT", []).append(ob)
@@ -555,6 +589,8 @@ def build_vegetation():
     ]
     hc = coll("BEIT_BIRAM/VEGETATION/HERO_TREES")
     for i, (sp, x, y) in enumerate(hero):
+        if _camera_keepout(x, y):
+            continue
         v = tpl[sp][-1]
         s = rng.uniform(1.25, 1.55)
         link_dup(v, f"HERO_{sp}_{i:02d}", loc=(x, y, GZ(x, y) - 0.2),
@@ -652,6 +688,8 @@ def build_vegetation():
     sc_ = coll("BEIT_BIRAM/STREET/TREES")
     n_st = 0
     for i, (x, y) in enumerate(street):
+        if _camera_keepout(x, y):
+            continue
         sp = "FICUS" if i % 3 else "PALM"
         v = rng.choice(tpl[sp])
         s2 = rng.uniform(0.8, 1.1)
@@ -710,10 +748,21 @@ def build_vegetation():
     # --- grass tufts at path edges (close-up realism only where it shows) ---
     gc = coll("BEIT_BIRAM/VEGETATION/GRASS")
     n_t = 0
-    for _ in range(300 if LITE else 900):
-        x = rng.uniform(-118, 118)
-        y = rng.uniform(-96, 40)
-        if _blocked(x, y, 1.0):
+
+    def rough_ground(x, y):
+        """Tufts belong on the unmown ground, not the middle of a cut lawn:
+        the pine belt inside the wall, the terrace banks and the verges."""
+        near_wall = (x < SP.SITE_X0 + 16 or x > SP.SITE_X1 - 16
+                     or y < SP.SITE_Y0 + 16 or y > SP.SITE_Y1 - 16)
+        near_bank = any(abs(y - edge) < 7.0 for edge in (-50.0, 20.0, 42.0))
+        return near_wall or near_bank
+
+    for _ in range(300 if LITE else 1100):
+        x = rng.uniform(-120, 120)
+        y = rng.uniform(-98, 98)
+        if not rough_ground(x, y):
+            continue
+        if _blocked(x, y, 1.0, keepout=False):
             continue
         v = rng.choice(tpl["TUFT"])
         s = rng.uniform(0.8, 1.6)
@@ -1243,7 +1292,7 @@ CAMERAS = [
     # name, location, look-at target, focal length (mm on a 36 mm sensor)
     ("CAM_01_MainEntrance",     (-119.0, -19.0, 5.6),  (-58.0, -3.0, 8.0),  30),
     ("CAM_02_CampusOverview",   (-176.0, -148.0, 78.0), (-8.0, -8.0, 10.0), 45),
-    ("CAM_03_HistoricBiram",    (46.0, -60.0, 12.0),   (40.0, -27.0, 9.5),  38),
+    ("CAM_03_HistoricBiram",    (30.0, -88.0, 14.0),   (36.0, -27.0, 9.5),  38),
     ("CAM_04_CentralCourtyard", (-51.0, -30.0, 6.3),   (-45.0, 20.0, 8.5),  30),
     ("CAM_05_AerialOverview",   (-118.0, -205.0, 228.0), (0.0, 2.0, 6.0),   50),
     ("CAM_06_StreetLevel",      (-149.0, -46.0, 1.8),  (-120.0, -22.0, 7.5), 32),
