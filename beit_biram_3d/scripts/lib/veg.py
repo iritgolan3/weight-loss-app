@@ -278,7 +278,14 @@ def olive(height=6.5, seed=0):
 
 
 def palm_washingtonia(height=12.0, seed=0):
-    """Washingtonia — planted along Israeli institutional drives and forecourts."""
+    """Washingtonia — planted along Israeli institutional drives and forecourts.
+
+    A fan palm, not a feather palm: each frond is a long bare petiole carrying a
+    roughly semicircular blade split into segments at the tip. Built as flat
+    tapered strips it reads as a starfish, so the blade is made of radiating
+    segments that droop independently, and the crown carries a skirt of dead
+    fronds under the live ones, which is what the tree actually looks like.
+    """
     rng = random.Random(seed)
     mb = MeshBuilder()
     r0 = 0.30
@@ -291,29 +298,49 @@ def palm_washingtonia(height=12.0, seed=0):
         _taper_limb(mb, cur, nxt, r0 * (1 - 0.30 * i / segs),
                     r0 * (1 - 0.30 * t1), seg=10)
         cur = nxt
-    n_fronds = 26
-    for i in range(n_fronds):
-        ang = 2 * math.pi * i / n_fronds + rng.uniform(-0.18, 0.18)
-        droop = rng.uniform(0.10, 0.95)
-        fl = rng.uniform(3.2, 4.6)
-        dirs = (math.cos(ang), math.sin(ang), 0.55 - droop)
-        L = math.sqrt(sum(c * c for c in dirs))
-        dirs = tuple(c / L for c in dirs)
-        steps = 4
-        prev_w = 0.14
-        p = cur
-        for s in range(steps):
-            t = (s + 1) / steps
-            w = 0.14 + 0.80 * math.sin(math.pi * t) ** 0.6
-            nxt = (cur[0] + dirs[0] * fl * t,
-                   cur[1] + dirs[1] * fl * t,
-                   cur[2] + dirs[2] * fl * t - 0.55 * t * t * droop)
-            px, py = -dirs[1], dirs[0]
-            mb.face(((p[0] + px * prev_w, p[1] + py * prev_w, p[2]),
-                     (nxt[0] + px * w, nxt[1] + py * w, nxt[2]),
-                     (nxt[0] - px * w, nxt[1] - py * w, nxt[2]),
-                     (p[0] - px * prev_w, p[1] - py * prev_w, p[2])), M_LEAF)
-            p, prev_w = nxt, w
+
+    def frond(ang, droop, petiole_len, blade_r, mat=M_LEAF, segments=9,
+              spread=1.05):
+        ca, sa = math.cos(ang), math.sin(ang)
+        # petiole: a thin arching stalk out from the crown
+        rise = 0.45 - droop
+        tipx = cur[0] + ca * petiole_len
+        tipy = cur[1] + sa * petiole_len
+        tipz = cur[2] + rise * petiole_len - 0.30 * droop * petiole_len
+        px, py = -sa * 0.035, ca * 0.035
+        mb.face(((cur[0] + px, cur[1] + py, cur[2]),
+                 (cur[0] - px, cur[1] - py, cur[2]),
+                 (tipx - px * 0.5, tipy - py * 0.5, tipz),
+                 (tipx + px * 0.5, tipy + py * 0.5, tipz)), mat)
+        # fan blade: segments radiating from the petiole tip, each drooping
+        for k in range(segments):
+            f = (k / (segments - 1)) - 0.5
+            a2 = ang + f * spread
+            c2, s2 = math.cos(a2), math.sin(a2)
+            L = blade_r * (1.0 - 0.32 * abs(f) * 2.0) * rng.uniform(0.85, 1.12)
+            sag = (0.30 + 0.55 * abs(f) * 2.0) * L
+            ex = tipx + c2 * L
+            ey = tipy + s2 * L
+            ez = tipz - sag
+            hw = blade_r * 0.085
+            nx2, ny2 = -s2 * hw, c2 * hw
+            mid = ((tipx + ex) / 2, (tipy + ey) / 2, (tipz + ez) / 2 + L * 0.10)
+            mb.face(((tipx, tipy, tipz),
+                     (mid[0] + nx2, mid[1] + ny2, mid[2]),
+                     (ex, ey, ez),
+                     (mid[0] - nx2, mid[1] - ny2, mid[2])), mat)
+
+    live = 15
+    for i in range(live):
+        a = math.tau * i / live + rng.uniform(-0.15, 0.15)
+        d = rng.uniform(0.10, 0.80)
+        frond(a, d, rng.uniform(1.5, 2.2), rng.uniform(1.4, 2.0))
+    # skirt of spent fronds hanging below the crown
+    skirt = 9
+    for i in range(skirt):
+        a = math.tau * i / skirt + rng.uniform(-0.2, 0.2)
+        frond(a, 1.35, rng.uniform(1.0, 1.4), rng.uniform(0.9, 1.3),
+              mat=M_BARK, segments=6, spread=0.75)
     return mb
 
 
