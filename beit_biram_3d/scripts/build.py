@@ -771,6 +771,34 @@ def build_vegetation():
         n_hill += 1
     planted += n_hill
 
+    # --- the apron immediately outside the wall ---
+    # Not "surroundings": this is the ground the campus itself sits in, and
+    # without it the wide views end on a bald beige plane at the boundary.
+    # Uses the cheap leafless templates throughout — it is never close to camera.
+    apron = []
+    for _ in range(90 if LITE else 340):
+        x = rng.uniform(SP.SITE_X0 - 42, SP.SITE_X1 + 42)
+        y = rng.uniform(SP.SITE_Y0 - 42, SP.SITE_Y1 + 42)
+        inside = (SP.SITE_X0 - 3 < x < SP.SITE_X1 + 3
+                  and SP.SITE_Y0 - 3 < y < SP.SITE_Y1 + 3)
+        if inside or _camera_keepout(x, y):
+            continue
+        if CONTEXT and (abs(x - SP.ST_ABBA_HUSHI_X) < 13.0
+                        or abs(x - SP.ST_YAAROT_X) < 10.0
+                        or abs(y - SP.ST_EINSTEIN_Y) < 10.0):
+            continue
+        apron.append((x, y))
+    ac = coll("BEIT_BIRAM/TERRAIN/APRON_PLANTING") if apron else None
+    for i, (x, y) in enumerate(apron):
+        pine = rng.random() < 0.5
+        v = rng.choice(tpl_far["PINE"] if pine else tpl["BUSH"])
+        s2 = rng.uniform(0.7, 1.15) if pine else rng.uniform(1.1, 2.3)
+        link_dup(v, f"APRON_{'PINE' if pine else 'SCRUB'}_{i:03d}",
+                 loc=(x, y, T.ground_z(x, y) - 0.15),
+                 rot_z=rng.uniform(0, math.tau), collection=ac,
+                 scale=(s2, s2, s2 * rng.uniform(0.85, 1.1)))
+    planted += len(apron)
+
     # --- street trees outside the campus (Haifa context) ---
     street = []
     for y in (range(-176, 180, 12) if CONTEXT else ()):
