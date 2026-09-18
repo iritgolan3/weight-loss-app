@@ -9,6 +9,10 @@ LAYOUT EVIDENCE (see REFERENCES.md):
      science complex lie WEST of the Biram Building, toward the entrance.
      => main entrance on the WEST (Abba Hushi Blvd frontage);
         Biram Building EAST of the entrance cluster.
+  * "מצפון-מזרח לבניין בירם מצויים הבניינים וולפסון, לנדס ופרת" -> the Wolfson,
+     Landes and Prat buildings lie NORTH-EAST of the Biram Building.
+  * The Prat building (2002, for the 12th grade) is connected to the Biram
+     Building by a COVERED BRIDGE.
   * "בקצהו הצפוני של הקמפוס מתחם הספורט ולידו המכלול הפדגוגי ובניין הרוח והרעות"
      -> sports complex at the NORTH end, with the pedagogical complex and the
         Ruach ve-Re'ut building BESIDE it.
@@ -34,9 +38,9 @@ ST_YAAROT_X = 141.0          # east frontage, runs N-S
 # (x0, y0, x1, y1, level_z, blend_margin)
 TERRACES = [
     ("SOUTH_ARRIVAL", -138, -112, 138, -52, 9.0, 9.0),
-    ("CORE",          -138,  -48, 138,  18, 4.5, 8.0),
-    ("TRANSITION",    -138,   22, 138,  40, 0.5, 7.0),
-    ("SPORTS",        -138,   44, 138, 112, -4.5, 9.0),
+    ("CORE",          -138,  -48, 138,  26, 4.5, 8.0),
+    ("TRANSITION",    -138,   30, 138,  42, 0.5, 7.0),
+    ("SPORTS",        -138,   46, 138, 112, -4.5, 9.0),
 ]
 
 REGIONAL_FALL_N = 0.085     # ground drops ~8.5% toward the north (toward the sea)
@@ -51,15 +55,22 @@ BUILDINGS = {
     "SCIENCE_COMPLEX":    dict(rect=(-46, -42,  -6, -14), z=4.5, floors=3,
                                era=1970, style="brutalist"),
     "BIRAM_BUILDING":     dict(rect=(  6, -40,  66, -14), z=4.5, floors=3,
-                               era=1940, style="international"),
-    "ARCHIVE":            dict(rect=( 76, -38, 106, -18), z=4.5, floors=2,
+                               era=1939, style="international"),
+    "ARCHIVE":            dict(rect=( 76, -44, 104, -26), z=4.5, floors=2,
                                era=2004, style="stone_modern"),
+    # --- north-east of the Biram Building (documented) ---
+    "PRAT":               dict(rect=( 74, -20, 102,   2), z=4.5, floors=3,
+                               era=2002, style="contemporary"),
+    "LANDES":             dict(rect=(106, -20, 124,   2), z=4.5, floors=2,
+                               era=1990, style="brutalist"),
+    "WOLFSON":            dict(rect=( 74,   6, 124,  26), z=4.5, floors=3,
+                               era=1985, style="brutalist"),
     # --- north of the spine ---
     "COMPUTER_CENTRE":    dict(rect=(-104,   6, -58,  30), z=4.5, floors=2,
                                era=1955, style="modern_concrete"),
     "PEVZNER_HALL":       dict(rect=(-46,    4,   2,  40), z=4.5, floors=1,
                                era=1962, style="suspended_roof"),
-    "OPEN_UNIVERSITY":    dict(rect=( 14,    6,  58,  32), z=4.5, floors=2,
+    "OPEN_UNIVERSITY":    dict(rect=( 14,    6,  58,  26), z=4.5, floors=2,
                                era=1985, style="brutalist"),
     # --- north end, beside the sports complex (terrace SPORTS, z=-4.5) ---
     "SPORTS_HALL":        dict(rect=( -8,   48,  48,  96), z=-4.5, floors=1,
@@ -79,10 +90,10 @@ BUILDINGS = {
 
 # ------------------------------------------------------------------ open areas
 SPORTS = dict(
-    sprint_track=(-114, 46, -9, 55),        # 6 straight lanes, red polyurethane
-    pitch=(-110, 57, -20, 101),             # 90 x 44 synthetic-turf football pitch
-    parade=(-40, 22, 40, 40),               # מסדרים — paved assembly ground
-    courts=(50, 22, 112, 40),               # outdoor basketball, two courts
+    sprint_track=(-114, 48, -9, 57),        # 6 straight lanes, red polyurethane
+    pitch=(-110, 59, -20, 101),             # 90 x 42 synthetic-turf football pitch
+    parade=(-40, 30, 40, 42),               # מסדרים — paved assembly ground
+    courts=(50, 30, 112, 42),               # outdoor basketball, two courts
 )
 
 PARKING = dict(
@@ -97,13 +108,13 @@ LAWNS = [
     (-6, -12, 6, 2),
     (-98, -10, 66, 2),        # the long spine lawn
     (-46, -12, 6, 2),
-    (-40, 42, 40, 44),
+    (-40, 44, 40, 46),
 ]
 
 # ------------------------------------------------------------------- circulation
 # The pergola avenue: an east-west spine at y = 0 with branches serving each
 # building group and running north to the sports complex.
-PERGOLA_SPINE = [(-112, 0), (100, 0)]
+PERGOLA_SPINE = [(-112, 0), (68, 0)]
 PERGOLA_BRANCHES = [
     [(-77, 0), (-77, 6)],            # to the computer centre
     [(-77, 0), (-77, -14)],          # to the library
@@ -111,20 +122,22 @@ PERGOLA_BRANCHES = [
     [(-26, 0), (-26, -14)],          # to the science complex
     [(36, 0), (36, -14)],            # to the Biram Building
     [(36, 0), (36, 6)],              # to the Open University wing
-    [(20, 0), (20, 22), (20, 44)],   # north, down to the sports complex
+    [(20, 0), (20, 26), (20, 46)],   # north, down to the sports complex
     [(-112, 0), (-112, -14)],        # from the main gate
+    [(68, 0), (68, -18), (74, -18)], # to Prat, under the covered bridge
+    [(68, 0), (68, 12), (74, 12)],   # to Wolfson
 ]
 
 # main paths (not pergola-covered)
 PATHS = [
     [(-125, -20), (-112, -20), (-112, 0)],                 # main gate approach
-    [(-90, 0), (-90, 22), (-60, 22), (-60, 42)],
-    [(88, 0), (88, -18)],
-    [(20, 44), (20, 60), (-8, 60)],
+    [(-90, 0), (-90, 30), (-60, 30), (-60, 44)],
+    [(104, -10), (106, -10)],
+    [(20, 46), (20, 62), (-8, 62)],
     [(-95, -48), (-95, -58)],                              # down to the car park
     [(60, -48), (60, -60), (60, -66)],
-    [(-20, 40), (-20, 44)],
-    [(74, 40), (74, 46)],
+    [(-20, 42), (-20, 46)],
+    [(74, 42), (74, 48)],
 ]
 
 # ------------------------------------------------------------------- boundary

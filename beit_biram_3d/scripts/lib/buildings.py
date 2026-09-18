@@ -906,3 +906,69 @@ def gatehouse(rect, z, seed=11):
     mb.box(x0 - 0.6, y0 - 0.6, z + h + 0.24, x1 + 0.6, y1 + 0.6, z + h + 0.30,
            M_WALL2)
     return mb
+
+
+# ==========================================================================
+# WOLFSON — built in two phases, second half of the 1980s
+# ==========================================================================
+
+def wolfson(rect, z, floors=3, floor_h=3.6, seed=12):
+    """Documented as erected in two phases in the second half of the 1980s and
+    named for the Wolfson donor family of England.
+
+    Modelled as two Brutalist wings meeting at an expressed movement joint, with
+    the second phase stepping slightly in plan and height — which is what a
+    building finished in two campaigns actually looks like.
+    """
+    mb = MeshBuilder()
+    x0, y0, x1, y1 = rect
+    mid = x0 + (x1 - x0) * 0.55
+    joint = 1.4
+
+    a = brutalist_block((x0, y0, mid - joint / 2, y1), z, floors=floors,
+                        floor_h=floor_h, seed=seed, fins=True, reliefs=True,
+                        entrance="S", stair_tower=True)
+    mb.append(a)
+    # phase two: one storey lower, set back a little, no separate stair tower
+    b2 = brutalist_block((mid + joint / 2, y0 + 1.6, x1, y1), z,
+                         floors=max(1, floors - 1), floor_h=floor_h,
+                         seed=seed + 1, fins=False, reliefs=False,
+                         entrance=None, stair_tower=False)
+    mb.append(b2)
+    # the joint itself: a recessed glazed slot linking the two phases
+    mb.box(mid - joint / 2 - 0.25, y0 + 0.2, z, mid + joint / 2 + 0.25, y1 - 0.2,
+           z + max(1, floors - 1) * floor_h, M_DARK)
+    for f in range(max(1, floors - 1)):
+        mb.box(mid - joint / 2, y0 - 0.3, z + 0.9 + f * floor_h,
+               mid + joint / 2, y0 + 0.1, z + 2.9 + f * floor_h, M_GLASS)
+    return mb
+
+
+# ==========================================================================
+# covered bridge — documented link between the Biram Building and Prat
+# ==========================================================================
+
+def covered_bridge(x0, x1, y_mid, z_deck, *, width=3.6, height=2.9,
+                   mat_struct=M_WALL2):
+    """The documented covered bridge connecting Prat (2002) to the Biram
+    Building, carried over the pergola-level ground between them."""
+    mb = MeshBuilder()
+    ya, yb = y_mid - width / 2, y_mid + width / 2
+    # deck and soffit
+    mb.box(x0, ya, z_deck - 0.35, x1, yb, z_deck, mat_struct)
+    # parapet-height solid sides with a continuous glazed band above
+    for y in (ya, yb):
+        s = -1 if y == ya else 1
+        mb.box(x0, y - 0.12 * s, z_deck, x1, y + 0.12 * s, z_deck + 0.95,
+               mat_struct)
+        mb.box(x0, y - 0.06 * s, z_deck + 0.95, x1, y + 0.06 * s,
+               z_deck + height - 0.25, M_GLASS)
+        n = max(2, int((x1 - x0) / 1.6))
+        for i in range(n + 1):
+            cx = x0 + (x1 - x0) * i / n
+            mb.box(cx - 0.07, y - 0.10 * s, z_deck + 0.95, cx + 0.07,
+                   y + 0.10 * s, z_deck + height - 0.25, mat_struct)
+    # roof with a small overhang
+    mb.box(x0 - 0.25, ya - 0.3, z_deck + height - 0.25, x1 + 0.25, yb + 0.3,
+           z_deck + height, mat_struct)
+    return mb

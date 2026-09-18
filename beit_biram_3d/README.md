@@ -36,7 +36,9 @@ quoted text but **no images and no geometry**. So:
 ### What is documented (tier A — from cited sources)
 
 * Which buildings exist, their **names, dates and functions**:
-  Biram Building (1940s, **International Style**, first on campus) · Pevzner Hall
+  Biram Building (**1939**, **International Style**, first on campus) · Wolfson
+  (**two phases, late 1980s**) · Prat (**2002**, for the 12th grade, **linked to
+  Biram by a covered bridge**) · Landes · Pevzner Hall
   (**1962**, architect **Prof. Yohanan Ratner**, **650 seats**, **suspended concave
   roof**) · Library / Menachem Reich (**1967**, **shaded by a horizontal concrete
   slab attached to it**, houses the Yoel Angel hall) · Computer & communications
@@ -45,8 +47,9 @@ quoted text but **no images and no geometry**. So:
   swimming pool**, fitness room) · pedagogical complex · **Ruach ve-Re'ut**
   (inaugurated **31 Aug 2022**) · archive (1995 / building 2004).
 * **Relative layout**: the library, computer centres and science complex lie
-  **west of the Biram Building, toward the entrance**; the **sports complex is at
-  the northern end**, with the pedagogical complex and Ruach ve-Re'ut **beside it**.
+  **west of the Biram Building, toward the entrance**; **Wolfson, Landes and Prat
+  lie north-east of the Biram Building**; the **sports complex is at the northern
+  end**, with the pedagogical complex and Ruach ve-Re'ut **beside it**.
 * **שדרת הפרגולה** — a **pergola avenue links most of the buildings** with covered
   passage between them. Modelled as the campus's organising spine.
 * A **concrete wall surrounds the campus** to keep out the noise of the busy
@@ -149,9 +152,11 @@ BEIT_BIRAM/
 
 **Scale is real**: 1 Blender unit = 1 metre. Campus 250 × 202 m ≈ 50.5 dunam.
 
-**Scene cost**: ~10 M triangles from ~50 unique meshes in a ~21 MB file. The
-280 trees and 235 shrubs are linked duplicates, so the whole planting scheme
-costs about 20 meshes. `--context` roughly doubles this.
+**Scene cost**: ~4.6 M triangles from ~75 unique meshes in a ~13 MB file. Trees
+are linked duplicates on two levels of detail: instances more than 95 m from every
+ground camera use a leafless variant, roughly halving their cost, while anything a
+camera can actually see up close keeps its leaf cards. `--context` roughly doubles
+the scene.
 
 ### Signature elements
 

@@ -283,6 +283,9 @@ BUILDERS = {
     "COMPUTER_CENTRE": (B.computer_centre, {}),
     "ARCHIVE":         (B.archive, {}),
     "OPEN_UNIVERSITY": (B.brutalist_block, dict(fins=False, reliefs=True)),
+    "PRAT":            (B.ruach_vereut, {}),
+    "LANDES":          (B.brutalist_block, dict(fins=True, reliefs=False)),
+    "WOLFSON":         (B.wolfson, {}),
     "SPORTS_HALL":     (B.sports_hall, {}),
     "PEDAGOGICAL":     (B.brutalist_block, dict(fins=True, reliefs=True)),
     "RUACH_VERE_UT":   (B.ruach_vereut, {}),
@@ -291,7 +294,8 @@ BUILDERS = {
     "GATEHOUSE":       (B.gatehouse, {}),
 }
 
-HISTORIC = {"BIRAM_BUILDING", "PEVZNER_HALL", "LIBRARY_REICH", "COMPUTER_CENTRE"}
+HISTORIC = {"BIRAM_BUILDING", "PEVZNER_HALL", "LIBRARY_REICH",
+            "COMPUTER_CENTRE", "WOLFSON"}
 
 
 def build_buildings():
@@ -299,7 +303,7 @@ def build_buildings():
     for i, (name, d) in enumerate(SP.BUILDINGS.items()):
         fn, kw = BUILDERS[name]
         kwargs = dict(kw)
-        if fn in (B.brutalist_block,):
+        if fn in (B.brutalist_block, B.wolfson):
             kwargs["floors"] = d["floors"]
         kwargs["seed"] = 100 + i
         mb = fn(d["rect"], d["z"], **kwargs)
@@ -312,6 +316,17 @@ def build_buildings():
         # rounds them off while every wall corner and window reveal stays crisp.
         core.add_smooth_by_angle(ob, 26)
         made.append(ob)
+
+    # the documented covered bridge from the Biram Building across to Prat
+    bx = SP.BUILDINGS["BIRAM_BUILDING"]["rect"]
+    px = SP.BUILDINGS["PRAT"]["rect"]
+    z = SP.BUILDINGS["BIRAM_BUILDING"]["z"]
+    bmb = B.covered_bridge(bx[2] - 0.4, px[0] + 0.4, -17.0, z + 4.0)
+    ob = bmb.to_object("COVERED_BRIDGE_Biram_Prat",
+                       coll("BEIT_BIRAM/HISTORIC_BUILDINGS/BIRAM_BUILDING"),
+                       mats=building_mats("modern_concrete"))
+    core.add_smooth_by_angle(ob, 26)
+    made.append(ob)
 
     # the indoor pool inside the sports hall
     r = SP.BUILDINGS["SPORTS_HALL"]["rect"]
@@ -529,22 +544,39 @@ def species():
     }
 
 
-def _templates():
+LOD_DISTANCE = 95.0      # beyond this from every ground camera, drop leaf cards
+
+
+def _nearest_camera(x, y):
+    """Distance to the closest ground-level camera.
+
+    Aerials are excluded: from 228 m up a leaf card is far below a pixel, so
+    letting them force every tree to full detail would defeat the LOD entirely.
+    """
+    best = 1e9
+    for name, loc, target, lens in CAMERAS:
+        if loc[2] > 60.0:
+            continue
+        best = min(best, math.hypot(x - loc[0], y - loc[1]))
+    return best
+
+
+def _templates(leaves=True, tag=""):
     """One template mesh per species per size variant, hidden from renders."""
     tpl = {}
     for name, (fn, bark_m, leaf_m, (h0, h1)) in species().items():
         variants = []
         for k in range(3):
             h = h0 + (h1 - h0) * k / 2.0
-            mb = fn(height=h, seed=hash((name, k)) & 0xFFFF)
-            ob = mb.to_object(f"TPL_{name}_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
+            mb = fn(height=h, seed=hash((name, k)) & 0xFFFF, leaves=leaves)
+            ob = mb.to_object(f"TPL_{name}{tag}_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
                               mats=[bark_m, leaf_m])
             core.add_smooth_by_angle(ob, 80)
             ob.hide_render = True
             ob.hide_viewport = True
             variants.append(ob)
         tpl[name] = variants
-    # understorey
+    # understorey (no LOD: already cheap)
     for k in range(3):
         mb = veg.bush(radius=0.7 + 0.35 * k, seed=500 + k)
         ob = mb.to_object(f"TPL_BUSH_{k}", coll("BEIT_BIRAM/_TEMPLATES"),
@@ -563,7 +595,8 @@ def _templates():
     return tpl
 
 
-def _plant(tpl, species, pts, coll_path, rng, scale=(0.9, 1.15), jitter=1.2):
+def _plant(tpl, species, pts, coll_path, rng, scale=(0.9, 1.15), jitter=1.2,
+           tpl_far=None):
     c = coll(coll_path)
     out = []
     if LITE:
@@ -573,7 +606,10 @@ def _plant(tpl, species, pts, coll_path, rng, scale=(0.9, 1.15), jitter=1.2):
         py = y + rng.uniform(-jitter, jitter)
         if _blocked(px, py, 1.4):
             continue
-        v = rng.choice(tpl[species])
+        src = tpl
+        if tpl_far is not None and _nearest_camera(px, py) > LOD_DISTANCE:
+            src = tpl_far
+        v = rng.choice(src[species])
         s = rng.uniform(*scale)
         ob = link_dup(v, f"{species}_{i:03d}", loc=(px, py, GZ(px, py) - 0.15),
                       rot_z=rng.uniform(0, math.tau), collection=c,
@@ -585,12 +621,15 @@ def _plant(tpl, species, pts, coll_path, rng, scale=(0.9, 1.15), jitter=1.2):
 def build_vegetation():
     rng = random.Random(4242)
     tpl = _templates()
+    tpl_far = _templates(leaves=False, tag="_FAR")
     planted = 0
     if LITE:
         # keep every planting position's *role* but drop density, so the lite
         # scene still reads as the same campus rather than a different one
         for key in list(tpl):
             tpl[key] = tpl[key][:1]
+        for key in list(tpl_far):
+            tpl_far[key] = tpl_far[key][:1]
 
     # --- hero trees: large specimens at the campus focal points ---
     hero = [
@@ -613,7 +652,7 @@ def build_vegetation():
     # --- palms flanking the entrance plaza ---
     pts = [(-102.0, -22.0 + i * 7.0) for i in range(9)]
     planted += len(_plant(tpl, "PALM", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/PALMS", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/PALMS", rng, tpl_far=tpl_far,
                           scale=(0.95, 1.12), jitter=0.4))
 
     # --- avenue of shade trees along the pergola spine ---
@@ -622,7 +661,7 @@ def build_vegetation():
         for y in (-7.5, 7.5):
             pts.append((float(x), y))
     planted += len(_plant(tpl, "FICUS", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/SPINE_AVENUE", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/SPINE_AVENUE", rng, tpl_far=tpl_far,
                           scale=(0.85, 1.10), jitter=1.0))
 
     # --- Carmel pines along the perimeter and the terrace banks ---
@@ -634,20 +673,20 @@ def build_vegetation():
         pts.append((SP.SITE_X0 + 7.0, float(y)))
         pts.append((SP.SITE_X1 - 7.0, float(y)))
     planted += len(_plant(tpl, "PINE", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/PINES", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/PINES", rng, tpl_far=tpl_far,
                           scale=(0.85, 1.2), jitter=2.2))
 
     # --- cypress screens: car park edge and the sports boundary ---
     pts = [(-60.0, y) for y in range(-96, -56, 5)]
     pts += [(x, 44.5) for x in range(-118, -10, 6)]
     planted += len(_plant(tpl, "CYPRESS", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/CYPRESS", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/CYPRESS", rng, tpl_far=tpl_far,
                           scale=(0.9, 1.15), jitter=0.8))
 
     # --- olives on the south terrace ---
     pts = [(x, y) for x in range(-40, 40, 9) for y in (-60.0, -70.0)]
     planted += len(_plant(tpl, "OLIVE", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/OLIVES", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/OLIVES", rng, tpl_far=tpl_far,
                           scale=(0.9, 1.2), jitter=2.0))
 
     # --- flowering trees at the entrance and courtyards ---
@@ -655,7 +694,7 @@ def build_vegetation():
            (46.0, 16.0), (-70.0, -48.0), (18.0, -48.0), (-52.0, -24.0),
            (2.0, -24.0), (70.0, -24.0), (-52.0, 18.0), (86.0, 10.0)]
     planted += len(_plant(tpl, "FLOWERING", pts,
-                          "BEIT_BIRAM/VEGETATION/TREES/FLOWERING", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/FLOWERING", rng, tpl_far=tpl_far,
                           scale=(0.9, 1.2), jitter=1.4))
 
     # --- a dense pine belt inside the boundary wall, as on the Carmel ---
@@ -669,7 +708,7 @@ def build_vegetation():
         belt.append((SP.SITE_X0 + 11.0, float(y)))
         belt.append((SP.SITE_X1 - 11.0, float(y)))
     planted += len(_plant(tpl, "PINE", belt,
-                          "BEIT_BIRAM/VEGETATION/TREES/PINE_BELT", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/PINE_BELT", rng, tpl_far=tpl_far,
                           scale=(0.8, 1.25), jitter=2.4))
 
     # --- trees filling the lawns between the building rows ---
@@ -683,10 +722,10 @@ def build_vegetation():
     rng.shuffle(lawn)
     half = len(lawn) // 2
     planted += len(_plant(tpl, "FICUS", lawn[:half],
-                          "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng, tpl_far=tpl_far,
                           scale=(0.8, 1.15), jitter=2.2))
     planted += len(_plant(tpl, "OLIVE", lawn[half:],
-                          "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng,
+                          "BEIT_BIRAM/VEGETATION/TREES/LAWNS", rng, tpl_far=tpl_far,
                           scale=(0.85, 1.2), jitter=2.2))
 
     # --- the hillside outside the campus (context only) ---
@@ -717,7 +756,7 @@ def build_vegetation():
     hc2 = coll("BEIT_BIRAM/SURROUNDINGS/HILLSIDE") if (hill_pine or hill_scrub) \
         else None
     for i, (x, y) in enumerate(hill_pine):
-        v = rng.choice(tpl["PINE"])
+        v = rng.choice(tpl_far["PINE"])
         s2 = rng.uniform(0.7, 1.15)
         link_dup(v, f"HILL_PINE_{i:03d}", loc=(x, y, T.base_height(x, y) - 0.2),
                  rot_z=rng.uniform(0, math.tau), collection=hc2,

@@ -5,6 +5,10 @@ Research log for the 3D reconstruction of **The Hebrew Reali School – Beit Bir
 
 ## 0. Research conditions (important, read this first)
 
+*Revised after a second research pass, which recovered three further documented
+buildings (Wolfson, Landes, Prat), the Biram Building's exact date of 1939, and
+the covered bridge between Biram and Prat. Those are now modelled.*
+
 This model was produced inside a sandboxed session whose **network egress policy blocked
 every site except package registries**. Concretely:
 
@@ -43,7 +47,7 @@ Section 4 states, per element, exactly which is which.
 
 | Building | Hebrew | Date | Documented characteristics | Source |
 |---|---|---|---|---|
-| **Biram Building** | בניין בירם | 1940s | **First building** on campus. **International Style.** | he.wikipedia |
+| **Biram Building** | בניין בירם | **1939** | **First building** on campus; the campus's main structure. **International Style.** Houses the language-cluster learning environments, administrative offices, the teachers' room and the logistics centre. | he.wikipedia |
 | **Pevzner Hall** (auditorium) | אולם פבזנר | inaug. **1962** | **650 seats.** Architecturally unique: **suspended, concave roof**. Architect **Prof. Yohanan Ratner** (Technion architecture dean, Haganah figure), with an engineer. Formerly "the cinema hall". Named for Shmuel Yosef Pevzner. | haipo.co.il/item/509619, he.wikipedia |
 | **Library Building** (Menachem Reich) | בניין הספרייה ע"ש מנחם רייך | inaug. **1967** | Originally library + geography room + history room + small assembly hall. Today: main library, computer labs, staff rooms, **Yoel Angel assembly hall**. **Shaded by a horizontal concrete slab attached to it** that stops the building overheating in summer. | he.wikipedia |
 | **Computer / science centre** | מרכז המחשבים | inaug. **1955** | Formerly the upper-division physics labs; today computer labs + an auditorium. | he.wikipedia |
@@ -52,6 +56,9 @@ Section 4 states, per element, exactly which is which.
 | **Pedagogical complex** | המכלול הפדגוגי | — | Beside the sports complex at the north end. | he.wikipedia |
 | **Ruach ve-Re'ut Building** | בניין הרוח והרעות | inaug. **31 Aug 2022** | Humanities and social sciences. Newest major building. | he.wikipedia |
 | **Archive** | הארכיון | est. 1995; building 2004 | School archive & museum; 2004 building donated by Gail & Michael Klisman. | he.wikipedia, reali.org.il |
+| **Wolfson Building** | בניין וולפסון | **two phases, second half of the 1980s** | Named for the Wolfson family of Jewish donors from England. | he.wikipedia |
+| **Prat Building** | בניין פרת | **2002** | Built **for the 12th grade**; named for Simcha Prat, a school graduate. **Connected to the Biram Building by a covered bridge.** Houses language-cluster learning environments. | he.wikipedia |
+| **Landes Building** | בניין לנדס | — | Named on the campus building list; no further detail reachable. | he.wikipedia |
 
 ## 3. Campus-wide documented features
 
@@ -82,6 +89,10 @@ Direct quotes drive the plan:
   computer & communications centres, and the science complex.
   ⇒ **The main entrance is on the west side** (the Abba Hushi Blvd frontage), the Biram
   Building sits **east** of the entrance cluster.
+* *"מצפון-מזרח לבניין בירם מצויים הבניינים וולפסון, לנדס ופרת"*
+  → **North-east of the Biram Building** are the **Wolfson, Landes and Prat**
+  buildings. ⇒ these three form the campus's north-east cluster, and Prat is
+  linked back to Biram by its documented **covered bridge**.
 * *"בקצהו הצפוני של הקמפוס מתחם הספורט ולידו המכלול הפדגוגי ובניין הרוח והרעות"*
   → At the **northern end**: the sports complex, and **beside it** the pedagogical complex
   and the Ruach ve-Re'ut building.
@@ -92,7 +103,7 @@ Direct quotes drive the plan:
 
 | Confidence | Meaning | Applies to |
 |---|---|---|
-| **A — documented** | Stated in a cited source | Which buildings exist; their names, dates, functions; their **relative positions** (west cluster / east Biram / north sports); pergola spine; concrete acoustic wall; Pevzner's suspended concave roof + 650 seats; library's horizontal shading slab; Brutalist exposed concrete with symbols; sports facility list; site area; street frontages |
+| **A — documented** | Stated in a cited source | Which buildings exist; their names, dates, functions; their **relative positions** (library/computer/science west toward the entrance · Biram east of them · **Wolfson, Landes and Prat north-east of Biram** · sports complex north with the pedagogical complex and Ruach ve-Re'ut beside it); the **covered bridge** from Biram to Prat; pergola spine; concrete acoustic wall; Pevzner's suspended concave roof + 650 seats; library's horizontal shading slab; Brutalist exposed concrete with symbols; sports facility list; site area; street frontages |
 | **B — inferred** | Reasoned from era, style, function and documented constraints | Storey counts, floor heights, footprint shapes and sizes, window grids and proportions, structural bay spacing, roof details, the specific routing of the pergola, terrace levels |
 | **C — generic** | Plausible site dressing, not claimed to match reality | Individual trees, benches, bins, lamps, bollards, planting beds, paving patterns, kerbs, cars, neighbouring houses, exact sign wording beyond the school name |
 

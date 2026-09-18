@@ -45,7 +45,7 @@ def _blob(mb, cx, cy, cz, rx, ry, rz, *, rings=5, seg=8, noise=0.20, rng=None,
 
 
 def _cluster(mb, cx, cy, cz, r, rng, *, mat=M_LEAF, n=3, flat=1.0,
-             spread=0.85, noise=0.24, leaves=True, leaf_size=0.125,
+             spread=0.85, noise=0.24, leaves=True, leaf_size=0.165,
              leaf_density=1.0):
     """A lumpy clump built from several small spheroids.
 
@@ -63,10 +63,10 @@ def _cluster(mb, cx, cy, cz, r, rng, *, mat=M_LEAF, n=3, flat=1.0,
               rings=4, seg=8, noise=noise, rng=rng, mat=mat, squash_bottom=0.85)
         if leaves:
             _leaf_shell(mb, cx + ox, cy + oy, cz + oz, rr, ry_, rz_, rng,
-                        n=int(115 * leaf_density), size=leaf_size, mat=mat)
+                        n=int(38 * leaf_density), size=leaf_size, mat=mat)
 
 
-def _leaf_shell(mb, cx, cy, cz, rx, ry, rz, rng, *, n=70, size=0.13,
+def _leaf_shell(mb, cx, cy, cz, rx, ry, rz, rng, *, n=70, size=0.17,
                 mat=M_LEAF, jitter=0.75):
     """Scatter small leaf cards over a spheroid's surface.
 
@@ -177,7 +177,7 @@ def _branch(mb, p, direction, length, radius, depth, rng, tips, *,
 # species
 # --------------------------------------------------------------------------
 
-def pine_aleppo(height=11.0, seed=0):
+def pine_aleppo(height=11.0, seed=0, leaves=True):
     """Pinus halepensis — the Carmel pine: bare leaning trunk, umbrella crown."""
     rng = random.Random(seed)
     mb = MeshBuilder()
@@ -203,15 +203,15 @@ def pine_aleppo(height=11.0, seed=0):
     crown_r = height * rng.uniform(0.40, 0.52)
     for (p, r, l) in tips:
         _cluster(mb, p[0], p[1], p[2] + 0.30, crown_r * 0.44, rng,
-                 n=rng.randint(4, 7), flat=0.34, spread=1.25, noise=0.30,
-                 leaf_size=0.085, leaf_density=1.15)
+                 n=rng.randint(4, 7), flat=0.34, spread=1.25, noise=0.30, leaves=leaves,
+                 leaf_size=0.115, leaf_density=1.2)
     _cluster(mb, cur[0], cur[1], cur[2] + height * 0.20, crown_r * 0.72, rng,
-             n=4, flat=0.34, spread=1.10, noise=0.34, leaf_size=0.085,
-             leaf_density=1.15)
+             n=4, flat=0.34, spread=1.10, noise=0.34, leaf_size=0.115,
+             leaf_density=1.2, leaves=leaves)
     return mb
 
 
-def cypress(height=12.0, seed=0):
+def cypress(height=12.0, seed=0, leaves=True):
     """Cupressus sempervirens — the dark exclamation mark of the Israeli landscape."""
     rng = random.Random(seed)
     mb = MeshBuilder()
@@ -225,12 +225,13 @@ def cypress(height=12.0, seed=0):
         _blob(mb, rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), z,
               rad, rad * rng.uniform(0.92, 1.08), height * 0.085,
               rings=5, seg=9, noise=0.13, rng=rng)
-        _leaf_shell(mb, rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), z,
-                    rad, rad, height * 0.085, rng, n=42, size=0.07)
+        if leaves:
+            _leaf_shell(mb, rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), z,
+                        rad, rad, height * 0.085, rng, n=16, size=0.10)
     return mb
 
 
-def broadleaf(height=10.0, seed=0, spread=1.0):
+def broadleaf(height=10.0, seed=0, spread=1.0, leaves=True):
     """Ficus / carob — the dense schoolyard shade tree."""
     rng = random.Random(seed)
     mb = MeshBuilder()
@@ -247,12 +248,12 @@ def broadleaf(height=10.0, seed=0, spread=1.0):
                 height * 0.30, r0 * 0.62, 3, rng, tips, split=2, drop=0.18)
     cr = height * 0.24 * spread
     for (p, r, l) in tips:
-        _cluster(mb, p[0], p[1], p[2], cr * rng.uniform(0.55, 0.88), rng,
+        _cluster(mb, p[0], p[1], p[2], cr * rng.uniform(0.55, 0.88), rng, leaves=leaves,
                  n=rng.randint(3, 6), flat=0.80, spread=1.15, noise=0.26)
     return mb
 
 
-def olive(height=6.5, seed=0):
+def olive(height=6.5, seed=0, leaves=True):
     """Olea europaea — multi-stem, gnarled, grey-green."""
     rng = random.Random(seed)
     mb = MeshBuilder()
@@ -272,12 +273,12 @@ def olive(height=6.5, seed=0):
                     r0 * 0.55, 2, rng, tips, split=2, drop=0.10)
     cr = height * 0.32
     for (p, r, l) in tips:
-        _cluster(mb, p[0], p[1], p[2], cr * 0.62, rng, n=rng.randint(2, 3),
+        _cluster(mb, p[0], p[1], p[2], cr * 0.62, rng, n=rng.randint(2, 3), leaves=leaves,
                  flat=0.80, spread=0.9, noise=0.40)
     return mb
 
 
-def palm_washingtonia(height=12.0, seed=0):
+def palm_washingtonia(height=12.0, seed=0, leaves=True):
     """Washingtonia — planted along Israeli institutional drives and forecourts.
 
     A fan palm, not a feather palm: each frond is a long bare petiole carrying a
@@ -344,7 +345,7 @@ def palm_washingtonia(height=12.0, seed=0):
     return mb
 
 
-def flowering_tree(height=8.0, seed=0):
+def flowering_tree(height=8.0, seed=0, leaves=True):
     """Delonix regia / jacaranda — wide flat flowering crown."""
     rng = random.Random(seed)
     mb = MeshBuilder()
@@ -361,7 +362,7 @@ def flowering_tree(height=8.0, seed=0):
     cr = height * 0.34
     for (p, r, l) in tips:
         _cluster(mb, p[0], p[1], p[2] + 0.2, cr * 0.66, rng, n=3, flat=0.34,
-                 spread=1.0, noise=0.32)
+                 spread=1.0, noise=0.32, leaves=leaves)
     return mb
 
 
@@ -369,7 +370,7 @@ def flowering_tree(height=8.0, seed=0):
 # understorey
 # --------------------------------------------------------------------------
 
-def bush(radius=0.55, seed=0, squat=0.92):
+def bush(radius=0.55, seed=0, squat=0.92, leaves=True):
     rng = random.Random(seed)
     mb = MeshBuilder()
     for k in range(rng.randint(3, 5)):
