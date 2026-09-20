@@ -1,5 +1,6 @@
 import type {
-  AppSettings, ExportJobState, JobState, SystemInfo, Timeline, TrackSummary, VideoInfo, Zone,
+  AppSettings, DiscoveredCamera, ExportJobState, JobState, SystemInfo, Timeline,
+  TrackSummary, VideoInfo, Zone,
 } from './types'
 
 export class ApiError extends Error {
@@ -112,6 +113,14 @@ export const api = {
   timeline: (videoId: string) => request<Timeline>(`/api/videos/${videoId}/timeline`),
   clearResults: (videoId: string) =>
     request<void>(`/api/videos/${videoId}/results`, { method: 'DELETE' }),
+
+  discoverCameras: () =>
+    request<{ cameras: DiscoveredCamera[]; hint: string | null }>('/api/cameras/discover'),
+  listCameras: () => request<VideoInfo[]>('/api/cameras'),
+  openCamera: (source: string, label?: string) =>
+    request<VideoInfo>('/api/cameras', json({ source, label: label ?? null })),
+  closeCamera: (cameraId: string) =>
+    request<void>(`/api/cameras/${cameraId}`, { method: 'DELETE' }),
 
   listZones: (videoId: string) =>
     request<{ video_id: string; zones: Zone[] }>(`/api/videos/${videoId}/zones`),

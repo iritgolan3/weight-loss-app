@@ -2,11 +2,12 @@ import { useRef, useState } from 'react'
 
 import { pct } from '../lib/format'
 import { useStore } from '../lib/store'
-import { IconPlayCircle, IconUpload } from './Icons'
+import { IconCamera, IconPlayCircle, IconUpload } from './Icons'
 
 export function Landing() {
   const upload = useStore((s) => s.upload)
   const loadDemo = useStore((s) => s.loadDemo)
+  const openCamera = useStore((s) => s.openCamera)
   const system = useStore((s) => s.system)
   const busy = useStore((s) => s.busy)
   const uploadProgress = useStore((s) => s.uploadProgress)
@@ -68,6 +69,12 @@ export function Landing() {
           </button>
         </div>
 
+        <div className="mt-4 flex justify-center">
+          <button className="btn px-5 py-2.5 text-xs" disabled={Boolean(busy)} onClick={() => openCamera(true)}>
+            <IconCamera /> Connect a camera
+          </button>
+        </div>
+
         {busy && (
           <div className="mx-auto mt-6 w-64">
             <div className="h-1 overflow-hidden rounded-full bg-ink-600">
@@ -93,7 +100,7 @@ export function Landing() {
         )}
 
         <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-700">
-          MP4 · MOV · AVI · MKV · drag &amp; drop supported
+          MP4 · MOV · AVI · MKV · webcam · RTSP · drag &amp; drop
         </p>
       </div>
     </div>

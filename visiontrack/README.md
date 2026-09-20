@@ -30,6 +30,7 @@ video frames — nothing in the UI is simulated or pre-scripted.
 | **Playback** | Play / pause / restart / seek / frame-step, 0.25×–2× speed, fullscreen, and a ribbon showing when each object was on screen. |
 | **Live view** | While an analysis runs, the backend streams preview frames plus detections over a websocket so you watch the pipeline work in real time. |
 | **Export** | Annotated MP4 (boxes, IDs, trails, timers, zones, timestamp HUD), detections CSV, tracks CSV, and a full JSON dump including every trajectory point. |
+| **Live cameras** | A webcam plugged into the PC, or an IP/RTSP stream. Same detection, tracking, zones and timers as a file, with optional recording of the annotated feed. |
 | **Hardware** | CUDA is used automatically when available, otherwise CPU. The device in use is always shown in the UI. |
 
 ---
@@ -120,6 +121,34 @@ npm run dev        # dev server with hot reload at http://localhost:5173
 | `Backspace` | Remove the last zone point |
 | `Esc` | Cancel zone drawing / close a dialog |
 
+### Connecting a camera
+
+Press **Connect camera** (top bar, or on the first-run screen).
+
+1. **A webcam on this PC** — VisionTrack probes device indices 0–4 and lists whatever
+   answers. Click it and the feed is live. If nothing is found, close any other app
+   holding the camera (Teams, Zoom, the Camera app) and press *Scan again*.
+2. **An IP or RTSP camera** — paste the full URL, including credentials if the camera
+   wants them: `rtsp://user:pass@192.168.1.50:554/stream`. An `http://` MJPEG URL works too.
+
+Then press **START ANALYSIS**, exactly as for a file.
+
+Two things differ from a file:
+
+* **A live feed has no end**, so it runs until you press *Stop* or until the
+  **Stop after** limit in the dialog (1 / 5 / 30 minutes, or no limit). Object
+  timers come from the wall clock — how long something has really been in view.
+* **There is nothing to scrub**, so the player controls are inactive. Tick
+  **Record the annotated feed** to write an MP4 into `exports/` as the session
+  runs; that file has the boxes, IDs, trails, timers and zones burned in and can be
+  reviewed afterwards.
+
+Zones work on cameras too, and are remembered per camera: a zone drawn on `Camera 0`
+is still there next time you connect it.
+
+The camera is opened by the Python backend, so it must be attached to the machine
+running VisionTrack — connecting from a phone browser will not use the phone's camera.
+
 ---
 
 ## 4. Demo mode
@@ -191,6 +220,9 @@ pipeline is unchanged.
 | `GET` `PUT` | `/api/settings` | Persisted preferences |
 | `GET` `POST` | `/api/videos` | List / upload |
 | `POST` | `/api/videos/demo` | Register the bundled demo clip |
+| `GET` | `/api/cameras/discover` | Probe device indices 0–4 for local webcams |
+| `GET` `POST` | `/api/cameras` | List connected live sources / connect one |
+| `DELETE` | `/api/cameras/{id}` | Disconnect a live source |
 | `GET` | `/api/videos/{id}` | Metadata (+ last analysis summary) |
 | `GET` | `/api/videos/{id}/stream` | Byte-range video stream for `<video>` |
 | `POST` | `/api/videos/{id}/analyze` | Start an analysis job |
@@ -322,10 +354,12 @@ backend\.venv\Scripts\python.exe backend\smoke_test.py --url http://127.0.0.1:80
   [ok] JSON export — 23 KB
   [ok] CSV export — 128 detection rows
   [ok] annotated MP4 export — sample-traffic_demo_annotated.mp4
+  [ok] camera discovery — 0 local camera(s) detected (none attached)
   All checks passed.
 ```
 
-Add `--video path\to\your.mp4` to run it against your own footage.
+Add `--video path\to\your.mp4` to run it against your own footage, and
+`--camera 0` to include a five-second live-camera run in the checks.
 
 ---
 
@@ -368,6 +402,11 @@ silently.
   web-optimised. It plays fine in VLC, Windows Media Player and most editors.
 * **Browser playback depends on browser codecs.** The analysis pipeline reads
   files through OpenCV and handles far more formats than `<video>` does.
+* **Cameras are read by the backend**, not the browser, so the camera has to be on
+  the machine running VisionTrack. Opening the UI on a phone will not use the
+  phone's camera.
+* **A live session cannot be replayed in-app.** There is no seekable file behind a
+  camera, so review the recording the session wrote to `exports/` instead.
 * **Single machine, single user.** There is no authentication; bind only to
   `127.0.0.1` unless you add your own.
 
@@ -376,6 +415,7 @@ silently.
 * Appearance-based re-identification (BoT-SORT with ReID weights) for stable
   IDs across long occlusions.
 * Line-crossing counters (in/out tallies) on top of the existing zone engine.
+* Per-second and per-minute aggregate counts alongside the per-frame stream.
 * Heatmaps and origin–destination matrices aggregated from stored trajectories.
 * Camera calibration UI (ground-plane homography) to unlock real-world speed.
 * Batch/queue mode for whole folders of footage, and scheduled runs.

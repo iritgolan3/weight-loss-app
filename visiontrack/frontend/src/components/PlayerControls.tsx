@@ -28,7 +28,7 @@ export function PlayerControls({ containerRef }: Props) {
 
   const duration = video?.duration ?? 0
   const fps = video?.fps ?? 30
-  const live = viewMode === 'live'
+  const live = viewMode === 'live' || video?.kind === 'live'
 
   useEffect(() => {
     let raf = 0

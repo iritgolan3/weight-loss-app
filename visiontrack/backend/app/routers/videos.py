@@ -12,9 +12,10 @@ from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
 from ..config import MAX_UPLOAD_BYTES
-from ..errors import NotFoundError, UploadTooLargeError
+from ..errors import NotFoundError, UnsupportedFormatError, UploadTooLargeError
 from ..schemas import VideoInfo
 from ..services import storage
+from ..services.cameras import is_camera, resolve_source
 from ..video import reader
 from .system import demo_file
 
@@ -75,7 +76,16 @@ def load_demo():
 
 @router.get("/{video_id}", response_model=VideoInfo)
 def get_video(video_id: str):
-    return storage.get_video(video_id)
+    return resolve_source(video_id)
+
+
+def _require_file(video_id: str) -> None:
+    """File-only operations: a live feed has no seekable file behind it."""
+    if is_camera(video_id):
+        raise UnsupportedFormatError(
+            "This is a live camera, not a stored video file.",
+            hint="Record the session while it runs, then work with the recording.",
+        )
 
 
 @router.delete("/{video_id}", status_code=204)
@@ -87,6 +97,7 @@ def delete_video(video_id: str):
 @router.get("/{video_id}/stream")
 def stream_video(video_id: str, request: Request):
     """Serve the source file with HTTP Range support so <video> can seek."""
+    _require_file(video_id)
     path = storage.video_path(video_id)
     file_size = path.stat().st_size
     media_type = MIME_TYPES.get(path.suffix.lower(), "application/octet-stream")

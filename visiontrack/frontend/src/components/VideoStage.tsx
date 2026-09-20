@@ -40,7 +40,8 @@ export function VideoStage({ containerRef }: Props) {
   const [stale, setStale] = useState(false)
 
   const trackMap = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks])
-  const isLive = viewMode === 'live'
+  // A camera has no seekable file, so it always uses the streamed preview.
+  const isLive = viewMode === 'live' || video?.kind === 'live'
   const source = useMemo(
     () => ({ width: video?.width ?? 16, height: video?.height ?? 9 }),
     [video?.width, video?.height],
@@ -215,11 +216,16 @@ export function VideoStage({ containerRef }: Props) {
         <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-1">
           <div className="flex items-center gap-2 rounded bg-black/55 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-neon backdrop-blur-sm">
             <span className={`h-1.5 w-1.5 rounded-full ${running ? 'animate-pulseDot bg-neon' : 'bg-slate-500'}`} />
-            {running ? 'Analysing' : isLive ? 'Live feed' : 'Playback'}
+            {running ? 'Analysing' : video.kind === 'live' ? 'Camera idle' : isLive ? 'Live feed' : 'Playback'}
           </div>
           {!isLive && !timeline && (
             <div className="rounded bg-black/55 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber backdrop-blur-sm">
               No analysis data — press start analysis
+            </div>
+          )}
+          {video.kind === 'live' && !running && (
+            <div className="rounded bg-black/55 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber backdrop-blur-sm">
+              Camera connected — press start analysis to see the feed
             </div>
           )}
           {!isLive && stale && (
@@ -230,7 +236,8 @@ export function VideoStage({ containerRef }: Props) {
         </div>
 
         <div className="pointer-events-none absolute right-3 top-3 rounded bg-black/55 px-2 py-1 font-mono text-[10px] tabular-nums text-slate-300 backdrop-blur-sm">
-          {video.width}×{video.height} · {video.fps.toFixed(0)} FPS · {clock(video.duration)}
+          {video.width}×{video.height} · {video.fps.toFixed(0)} FPS
+          {video.kind === 'live' ? ' · LIVE' : ` · ${clock(video.duration)}`}
         </div>
 
         {zoneEditing && (

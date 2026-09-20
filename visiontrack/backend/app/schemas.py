@@ -14,6 +14,8 @@ DeviceChoice = Literal["auto", "cpu", "cuda"]
 
 class VideoInfo(BaseModel):
     id: str
+    kind: Literal["file", "live"] = "file"
+    source: Optional[str] = None
     filename: str
     size_bytes: int
     width: int
@@ -43,6 +45,10 @@ class AnalysisConfig(BaseModel):
     imgsz: Optional[int] = Field(None, ge=160, le=1920)
     detect_every_n: Optional[int] = Field(None, ge=1, le=15)
     preview: bool = True
+    # Stop after this many seconds of source time. None means "the whole video";
+    # for a live camera it is the only thing that ends the run besides Stop.
+    max_duration: Optional[float] = Field(None, gt=0, le=86400)
+    record: bool = False  # live sources only: write the annotated stream to exports/
     stationary_speed_px: float = Field(
         18.0, ge=0.0, description="Centre movement (px/s at source resolution) below which an object counts as stationary"
     )
@@ -133,6 +139,8 @@ class JobStats(BaseModel):
 class JobState(BaseModel):
     id: str
     video_id: str
+    live: bool = False
+    recording: Optional[str] = None
     status: Literal["queued", "running", "stopping", "stopped", "completed", "failed"]
     progress: float = 0.0
     stats: JobStats = Field(default_factory=JobStats)

@@ -2,8 +2,8 @@ import { create } from 'zustand'
 
 import { ApiError, api } from '../api/client'
 import type {
-  AppSettings, ExportJobState, JobState, LiveObject, SystemInfo, Timeline,
-  TrackSummary, VideoInfo, Zone,
+  AppSettings, DiscoveredCamera, ExportJobState, JobState, LiveObject, LiveOptions,
+  SystemInfo, Timeline, TrackSummary, VideoInfo, Zone,
 } from '../api/types'
 import { frameBuffer } from './frameBuffer'
 
@@ -49,6 +49,11 @@ interface State {
   selectedId: number | null
   zoneEditing: boolean
   settingsOpen: boolean
+  cameraOpen: boolean
+  cameras: DiscoveredCamera[]
+  cameraHint: string | null
+  scanning: boolean
+  liveOptions: LiveOptions
   exportOpen: boolean
   exportJob: ExportJobState | null
   busy: string | null
@@ -78,6 +83,11 @@ interface State {
   setPlaybackTime: (t: number) => void
   setZoneEditing: (on: boolean) => void
   openSettings: (open: boolean) => void
+  openCamera: (open: boolean) => void
+  scanCameras: () => Promise<void>
+  connectCamera: (source: string, label?: string) => Promise<void>
+  disconnectCamera: (id: string) => Promise<void>
+  setLiveOptions: (patch: Partial<LiveOptions>) => void
   openExport: (open: boolean) => void
   setExportJob: (job: ExportJobState | null) => void
   toast: (kind: Toast['kind'], title: string, body?: string) => void
@@ -102,6 +112,11 @@ export const useStore = create<State>((set, get) => ({
   selectedId: null,
   zoneEditing: false,
   settingsOpen: false,
+  cameraOpen: false,
+  cameras: [],
+  cameraHint: null,
+  scanning: false,
+  liveOptions: { maxDuration: 300, record: true },
   exportOpen: false,
   exportJob: null,
   busy: null,
@@ -130,6 +145,7 @@ export const useStore = create<State>((set, get) => ({
       viewMode: 'playback',
     })
     if (!video) return
+    if (video.kind === 'live') set({ viewMode: 'live' })
     await get().refreshZones(video.id)
     if (video.analyzed) {
       await get().loadResults(video.id)
@@ -186,8 +202,9 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async startAnalysis() {
-    const { video, settings } = get()
+    const { video, settings, liveOptions } = get()
     if (!video) return
+    const live = video.kind === 'live'
     frameBuffer.reset()
     frameBuffer.trailLength = settings.trajectory_length
     set({ busy: 'Starting analysis…', liveObjects: [], selectedId: null, zoneLog: [] })
@@ -205,6 +222,9 @@ export const useStore = create<State>((set, get) => ({
         imgsz: settings.imgsz,
         detect_every_n: settings.detect_every_n,
         preview: settings.preview,
+        // A live feed runs until stopped; the limit is the only other end.
+        max_duration: live ? liveOptions.maxDuration : null,
+        record: live ? liveOptions.record : false,
       })
       set({ job, viewMode: 'live', timeline: null, tracks: [] })
     } catch (error) {
@@ -306,6 +326,51 @@ export const useStore = create<State>((set, get) => ({
     } catch (error) {
       get().reportError(error, 'Could not save settings.')
     }
+  },
+
+  openCamera(cameraOpen) {
+    set({ cameraOpen })
+    if (cameraOpen && get().cameras.length === 0) void get().scanCameras()
+  },
+
+  async scanCameras() {
+    set({ scanning: true })
+    try {
+      const { cameras, hint } = await api.discoverCameras()
+      set({ cameras, cameraHint: hint })
+    } catch (error) {
+      get().reportError(error, 'Could not scan for cameras.')
+    } finally {
+      set({ scanning: false })
+    }
+  },
+
+  async connectCamera(source, label) {
+    set({ busy: 'Connecting to the camera…' })
+    try {
+      const camera = await api.openCamera(source, label)
+      await get().selectVideo(camera)
+      set({ cameraOpen: false })
+      get().toast('success', `${camera.filename} connected`,
+        `${camera.width}×${camera.height} · ${camera.fps.toFixed(0)} fps · press START ANALYSIS`)
+    } catch (error) {
+      get().reportError(error, 'Could not connect to that camera.')
+    } finally {
+      set({ busy: null })
+    }
+  },
+
+  async disconnectCamera(id) {
+    try {
+      await api.closeCamera(id)
+      if (get().video?.id === id) await get().selectVideo(null)
+    } catch (error) {
+      get().reportError(error, 'Could not disconnect the camera.')
+    }
+  },
+
+  setLiveOptions(patch) {
+    set({ liveOptions: { ...get().liveOptions, ...patch } })
   },
 
   setViewMode(viewMode) { set({ viewMode }) },

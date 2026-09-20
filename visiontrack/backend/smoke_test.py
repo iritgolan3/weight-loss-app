@@ -55,6 +55,7 @@ def main() -> int:
     parser.add_argument("--url", default="http://127.0.0.1:8000")
     parser.add_argument("--video", help="video file to upload (defaults to the demo clip)")
     parser.add_argument("--mode", default="fast", choices=["fast", "balanced", "high_accuracy"])
+    parser.add_argument("--camera", help="also test a live source: a device index ('0') or an rtsp:// URL")
     args = parser.parse_args()
     base = args.url.rstrip("/")
 
@@ -133,6 +134,29 @@ def main() -> int:
         out = Path(export["output"])
         check("MP4 file on disk", out.exists() and out.stat().st_size > 0,
               f"{out.stat().st_size // 1024} KB" if out.exists() else "missing")
+
+    found = call("GET", f"{base}/api/cameras/discover")["cameras"]
+    print(f"{PASS}camera discovery — {len(found)} local camera(s) detected"
+          + (f": {', '.join(c['label'] for c in found)}" if found else " (none attached)"))
+
+    if args.camera:
+        camera = call("POST", f"{base}/api/cameras", {"source": args.camera})
+        check("live source connected", camera["kind"] == "live",
+              f"{camera['filename']} {camera['width']}x{camera['height']} @ {camera['fps']:.0f}fps")
+        live = call("POST", f"{base}/api/videos/{camera['id']}/analyze",
+                    {"mode": args.mode, "preview": False, "max_duration": 5, "record": False})
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            live = call("GET", f"{base}/api/jobs/{live['id']}")
+            if live["status"] in ("completed", "failed", "stopped"):
+                break
+            time.sleep(1)
+        check("live analysis ran", live["status"] == "completed" and live["live"],
+              f"{live['stats']['frames_processed']} frames in "
+              f"{live['stats']['elapsed']:.1f}s · {live['stats']['unique_objects']} objects")
+        call("DELETE", f"{base}/api/cameras/{camera['id']}")
+    else:
+        print("  [--] live source check skipped (pass --camera 0 to include it)")
 
     call("DELETE", f"{base}/api/videos/{vid}/zones/{zone['id']}")
     check("zone deleted", all(z["id"] != zone["id"]

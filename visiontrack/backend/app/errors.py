@@ -59,6 +59,11 @@ class ModelUnavailableError(VisionTrackError):
     code = "model_unavailable"
 
 
+class CameraLostError(VisionTrackError):
+    status_code = 503
+    code = "camera_lost"
+
+
 class InvalidZoneError(VisionTrackError):
     status_code = 422
     code = "invalid_zone"

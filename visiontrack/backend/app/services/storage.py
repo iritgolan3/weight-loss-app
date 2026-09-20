@@ -66,6 +66,7 @@ def video_path(video_id: str) -> Path:
 
 def _decorate(record: dict) -> dict:
     out = dict(record)
+    out.setdefault("kind", "file")
     summary = results_summary(record["id"])
     out["analyzed"] = summary is not None
     out["analysis"] = summary

@@ -21,6 +21,7 @@ export function StatsBar() {
 
   const stats = job?.stats
   const running = job?.status === 'running' || job?.status === 'stopping'
+  const live = Boolean(job?.live || video?.kind === 'live')
   const tracked = viewMode === 'live' ? liveObjects.length : tracks.length
   const device = (job?.device ?? system?.device_in_use ?? 'cpu').toUpperCase()
 
@@ -32,8 +33,9 @@ export function StatsBar() {
       <Stat label={viewMode === 'live' ? 'Tracked now' : 'Objects'} value={String(tracked)} tone="neon" />
       <Stat label="Unique IDs" value={stats ? String(stats.unique_objects) : String(tracks.length)} />
       <Stat label="Device" value={device} tone="dim" />
+      {live && stats && <Stat label="Elapsed" value={clock(stats.elapsed)} />}
       {stats && stats.eta !== null && running && (
-        <Stat label="ETA" value={clock(stats.eta)} />
+        <Stat label={live ? 'Stops in' : 'ETA'} value={clock(stats.eta)} />
       )}
 
       {job && (
@@ -50,7 +52,7 @@ export function StatsBar() {
             )}
           </div>
           <span className="font-mono text-[11px] tabular-nums text-slate-400">
-            {pct(job.progress)}
+            {live && job.progress === 0 ? '—' : pct(job.progress)}
           </span>
           <span className={`chip ${
             job.status === 'failed' ? 'border-danger/50 text-danger'

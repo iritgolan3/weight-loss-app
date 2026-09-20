@@ -81,8 +81,12 @@ export function useJobSocket(jobId: string | null): void {
               `${event.job.stats.unique_objects} objects tracked on ${event.job.device.toUpperCase()}`,
             )
             void store().loadResults(event.job.video_id).then(() => {
-              store().setViewMode('playback')
+              // A camera has no file to replay; stay on the live canvas.
+              if (store().video?.kind !== 'live') store().setViewMode('playback')
             })
+            if (event.job.recording) {
+              store().toast('success', 'Recording saved', event.job.recording)
+            }
           }
           break
         }

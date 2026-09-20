@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { CameraDialog } from './components/CameraDialog'
 import { ExportDialog } from './components/ExportDialog'
 import { Landing } from './components/Landing'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -28,6 +29,7 @@ export default function App() {
       <TopBar onOpenLibrary={() => setLibraryOpen(true)} />
       {video ? <Dashboard /> : <Landing />}
       <VideoLibrary open={libraryOpen} onClose={() => setLibraryOpen(false)} />
+      <CameraDialog />
       <SettingsDialog />
       <ExportDialog />
       <Toasts />

@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import PROJECT_ROOT
 from .errors import VisionTrackError
-from .routers import analysis, exports, system, videos, zones
+from .routers import analysis, cameras, exports, system, videos, zones
 from .services.events import hub
 
 logging.basicConfig(
@@ -72,6 +72,7 @@ def health():
 
 app.include_router(system.router)
 app.include_router(videos.router)
+app.include_router(cameras.router)
 app.include_router(analysis.router)
 app.include_router(zones.router)
 app.include_router(exports.router)

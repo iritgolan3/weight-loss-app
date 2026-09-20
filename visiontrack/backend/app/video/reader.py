@@ -157,3 +157,129 @@ def encode_jpeg(frame: np.ndarray, width: Optional[int] = None, quality: int = 7
     if not ok:
         raise CorruptVideoError("Failed to JPEG-encode a frame for the live preview.")
     return buf.tobytes()
+
+
+# --------------------------------------------------------------------- live
+
+# Backends worth trying for a local camera, most reliable first per platform.
+def _camera_backends() -> list:
+    import sys
+    if sys.platform.startswith("win"):
+        return [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+    if sys.platform == "darwin":
+        return [cv2.CAP_AVFOUNDATION, cv2.CAP_ANY]
+    return [cv2.CAP_V4L2, cv2.CAP_ANY]
+
+
+def parse_source(source: str):
+    """'0' -> device index 0; anything else -> a stream URL or file path."""
+    text = str(source).strip()
+    if text.isdigit():
+        return int(text)
+    return text
+
+
+def open_source(source: str, *, width: Optional[int] = None, height: Optional[int] = None):
+    """Open a camera index or a stream URL, trying platform backends in turn."""
+    target = parse_source(source)
+
+    if isinstance(target, int):
+        attempts = [(target, backend) for backend in _camera_backends()]
+    else:
+        attempts = [(target, cv2.CAP_ANY)]
+
+    last_error = ""
+    for spec, backend in attempts:
+        try:
+            cap = cv2.VideoCapture(spec, backend)
+        except Exception as exc:  # some builds reject a backend outright
+            last_error = str(exc)
+            continue
+        if cap.isOpened():
+            if width:
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            if height:
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            # Keep latency down on live feeds where the backend supports it.
+            try:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
+            ok, _ = cap.read()
+            if ok:
+                return cap
+            cap.release()
+            last_error = "opened but produced no frames"
+        else:
+            cap.release()
+
+    raise CorruptVideoError(
+        f"Could not open '{source}' as a live source.",
+        hint=(
+            "For a webcam try index 0, 1 or 2 and close any other app using it "
+            "(Teams, Zoom, the Camera app). For an IP camera use the full "
+            "rtsp:// or http:// URL including any username and password."
+        ),
+        details=last_error or None,
+    )
+
+
+def probe_source(source: str) -> VideoMetadata:
+    """Open a live source briefly and report what it actually delivers."""
+    cap = open_source(source)
+    try:
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            raise EmptyVideoError(
+                f"'{source}' opened but delivered no frames.",
+                hint="Another application may be holding the camera.",
+            )
+        height, width = frame.shape[:2]
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        if not np.isfinite(fps) or fps <= 0.1 or fps > 240:
+            fps = _measure_fps(cap) or 15.0
+        codec = _fourcc_to_str(cap.get(cv2.CAP_PROP_FOURCC))
+        # A live feed has no length: frame_count and duration stay 0.
+        return VideoMetadata(width, height, round(fps, 2), 0, 0.0, codec)
+    finally:
+        cap.release()
+
+
+def _measure_fps(cap, samples: int = 8) -> Optional[float]:
+    """Time a few grabs when the driver does not report a usable FPS."""
+    import time
+    start = time.perf_counter()
+    grabbed = 0
+    for _ in range(samples):
+        if not cap.grab():
+            break
+        grabbed += 1
+    elapsed = time.perf_counter() - start
+    if grabbed < 2 or elapsed <= 0:
+        return None
+    return grabbed / elapsed
+
+
+def discover_cameras(max_index: int = 5) -> list:
+    """Probe device indices so the user does not have to guess one."""
+    found = []
+    # Probing absent devices makes OpenCV shout on stderr; that noise is expected
+    # here and would only alarm someone reading the console.
+    previous = cv2.getLogLevel()
+    cv2.setLogLevel(0)
+    try:
+        for index in range(max_index):
+            try:
+                meta = probe_source(str(index))
+            except Exception:
+                continue
+            found.append({
+                "source": str(index),
+                "label": f"Camera {index}",
+                "width": meta.width,
+                "height": meta.height,
+                "fps": meta.fps,
+            })
+    finally:
+        cv2.setLogLevel(previous)
+    return found

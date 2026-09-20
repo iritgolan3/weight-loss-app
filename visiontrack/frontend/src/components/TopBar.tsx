@@ -2,7 +2,7 @@ import { useRef } from 'react'
 
 import { useStore } from '../lib/store'
 import {
-  IconExport, IconFolder, IconPlayCircle, IconSettings, IconStop, IconUpload,
+  IconCamera, IconExport, IconFolder, IconPlayCircle, IconSettings, IconStop, IconUpload,
 } from './Icons'
 
 export function TopBar({ onOpenLibrary }: { onOpenLibrary: () => void }) {
@@ -14,6 +14,7 @@ export function TopBar({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const startAnalysis = useStore((s) => s.startAnalysis)
   const stopAnalysis = useStore((s) => s.stopAnalysis)
   const openSettings = useStore((s) => s.openSettings)
+  const openCamera = useStore((s) => s.openCamera)
   const openExport = useStore((s) => s.openExport)
   const viewMode = useStore((s) => s.viewMode)
   const setViewMode = useStore((s) => s.setViewMode)
@@ -55,6 +56,9 @@ export function TopBar({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         <button className="btn" onClick={onOpenLibrary}>
           <IconFolder className="h-3.5 w-3.5" /> Open video
         </button>
+        <button className="btn" onClick={() => openCamera(true)}>
+          <IconCamera className="h-3.5 w-3.5" /> Connect camera
+        </button>
         <button
           className="btn btn-primary"
           disabled={!video || running || Boolean(busy)}
@@ -68,7 +72,7 @@ export function TopBar({ onOpenLibrary }: { onOpenLibrary: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {video?.analyzed && (
+        {video?.analyzed && video.kind !== 'live' && (
           <div className="mr-1 hidden items-center rounded-md border border-ink-600 bg-ink-900 p-0.5 sm:flex">
             {(['live', 'playback'] as const).map((mode) => (
               <button

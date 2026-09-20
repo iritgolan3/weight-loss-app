@@ -4,6 +4,9 @@ export type DeviceChoice = 'auto' | 'cpu' | 'cuda'
 
 export interface VideoInfo {
   id: string
+  /** 'live' is a camera or stream; 'file' is an uploaded video. */
+  kind: 'file' | 'live'
+  source?: string | null
   filename: string
   size_bytes: number
   width: number
@@ -20,6 +23,8 @@ export interface VideoInfo {
 export interface AnalysisSummary {
   video_id: string
   video_filename: string
+  kind?: 'file' | 'live'
+  recording?: string | null
   job_id: string
   completed_at: number
   stopped_early: boolean
@@ -130,6 +135,8 @@ export type JobStatus = 'queued' | 'running' | 'stopping' | 'stopped' | 'complet
 export interface JobState {
   id: string
   video_id: string
+  live: boolean
+  recording: string | null
   status: JobStatus
   progress: number
   stats: JobStats
@@ -204,3 +211,17 @@ export type SocketEvent =
   | { type: 'error'; error: ApiErrorBody }
   | { type: 'done'; job: JobState }
   | { type: 'export'; job: ExportJobState }
+
+export interface DiscoveredCamera {
+  source: string
+  label: string
+  width: number
+  height: number
+  fps: number
+}
+
+/** Options that only apply to a live run. */
+export interface LiveOptions {
+  maxDuration: number | null
+  record: boolean
+}
