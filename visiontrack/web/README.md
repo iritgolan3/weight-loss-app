@@ -6,7 +6,7 @@ no network. Built for machines where Windows App Control or SmartScreen refuses
 to run the desktop launcher, and it works on a phone as well.
 
 ```bash
-python build.py          # writes dist/VisionTrack-Live.html (~26 MB)
+python build.py          # writes dist/VisionTrack-Live.html (~39 MB)
 ```
 
 Then double-click the file. It opens in the browser, asks for camera permission
@@ -14,11 +14,23 @@ and starts tracking.
 
 ## The access gate
 
-The app opens on a GDA-branded sign-in card. **It is a demo prop, not security.**
-The code runs in the page, so the expected value is readable by anyone who opens
-the file; `123` in all three fields lets you through. Real access control needs a
-server that holds the check. Treat this as the product shell's front door, not a
-lock.
+The app opens on a GDA-branded sign-in card, then starts the camera by itself as
+soon as the card clears — clearing it is the user gesture that camera permission
+and autoplay require, so no second click is needed.
+
+**The gate is a demo prop, not security.** The code runs in the page, so the
+expected value is readable by anyone who opens the file; `123` in all three
+fields lets you through. Real access control needs a server that holds the
+check. Treat this as the product shell's front door, not a lock.
+
+### About the crest
+
+The card's layout, palette and wording follow the reference that was supplied,
+but the crest on it is an **original GDA mark drawn for this project** — a gold
+ring, a navy field and a camera glyph. The reference carried the seal of a real
+federal agency. Those seals identify a specific government body, their use is
+restricted by law, and a sign-in screen that wears one is claiming to be that
+agency. GDA is a fictional brand, so it gets a mark of its own.
 
 ## What it does
 
@@ -76,13 +88,37 @@ and press **כייל** — afterwards others get an estimate, valid only at roug
 the same distance from the camera. This is the same reason the desktop edition
 reports image-space speed in px/s and refuses to convert it to km/h.
 
+## Owner enrolment (face recognition, opt-in)
+
+The `☻` button enrols **one** face — the person holding the device — and marks
+them on screen with a black box keylined in white and an `OWNER` chip. It is the
+only face recognition in the app, and it is off until you press the button.
+
+How it works: five 128-float descriptors are taken from the live camera
+(`face_recognition` + `face_landmark_68_tiny`), averaged, and compared each
+1.2 s against the largest face in frame; under a Euclidean distance of 0.52 the
+enclosing track is flagged as the owner. Press the button again to erase it.
+
+What it does **not** do, by construction:
+
+* **No photographs are shipped in the file.** The distributed `.html` contains
+  model weights only. The enrolment is made on your machine, from your camera.
+* **Nothing is uploaded.** The descriptor is written to `localStorage` in your
+  own browser and never leaves it. There is no server to send it to.
+* **One person, not a watchlist.** There is a single slot, and the only thing
+  stored is a vector of 128 numbers — no image is kept.
+
+This is still biometric processing. If you deploy it beyond your own device,
+notice, a lawful basis, retention limits and a DPIA under GDPR apply, and
+stricter rules again under laws like Illinois BIPA.
+
 ### What it deliberately does not do
 
-It does not identify anyone. There is no face recognition, no matching against a
-database, no re-identification of a person after the tracker drops them, and no
-lookup of a detected person on the internet. Marking is a handle on a live
-track, not on a human being. It reports what the camera can see about an
-unidentified figure, and nothing that would attach a name to them.
+Beyond that single opt-in slot it does not identify anyone: no matching against
+a database, no watchlist, and no lookup of a detected person on the internet.
+Marking is a handle on a live track, not on a human being. For everyone who is
+not the enrolled owner, it reports what the camera can see about an unidentified
+figure, and nothing that would attach a name to them.
 
 ### What the detector cannot name
 
@@ -99,7 +135,13 @@ and year the practical route is the one real systems use: read the number plate
 (ANPR) and look the registration up. Vendors in that space include Plate
 Recognizer, Spectrico's make/model classifier and Sighthound.
 
-**Weapons.** There is no COCO firearm class. Public options are the UGR/Sohas
+**Weapons — the red box is wired, the detector is not.** A track whose class is
+a firearm draws in red, and `WEAPON_CLASSES` in `app.js` is the list it checks.
+Nothing fires today, because there is no COCO firearm class and no firearm model
+is bundled: the hook is there so a swapped-in model lights it up, not so the app
+can pretend to see guns.
+
+There is no COCO firearm class. Public options are the UGR/Sohas
 handgun-and-knife sets and the various gun datasets on Roboflow Universe, fine-
 tuned into YOLOv8/YOLO11. Be aware of the failure mode before deploying in a
 mall: open weapon detectors routinely fire on phones, umbrellas, power tools and

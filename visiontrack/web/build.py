@@ -44,6 +44,13 @@ FACE_WEIGHTS = {
                      "package/model/tiny_face_detector_model-weights_manifest.json"),
     "ageGender": ("package/model/age_gender_model.bin",
                   "package/model/age_gender_model-weights_manifest.json"),
+    # Landmarks align the crop; the recognition net turns it into a 128-D
+    # descriptor. No face data ships in this file - enrolment happens on the
+    # operator's own machine and stays in their browser.
+    "landmarks": ("package/model/face_landmark_68_tiny_model.bin",
+                  "package/model/face_landmark_68_tiny_model-weights_manifest.json"),
+    "recognition": ("package/model/face_recognition_model.bin",
+                    "package/model/face_recognition_model-weights_manifest.json"),
 }
 
 

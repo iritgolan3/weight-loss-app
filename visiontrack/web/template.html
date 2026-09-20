@@ -108,40 +108,63 @@
 
   /* ---------- access gate ---------- */
   .gate{
-    position:fixed;inset:0;z-index:20;background:#05070b;display:flex;flex-direction:column;
+    position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;
     direction:ltr;text-align:left;overflow:auto;
     padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
   }
   .gate-bar{
-    position:relative;display:flex;align-items:center;gap:18px;flex:none;
-    background:#122a4f;border-bottom:4px solid #c9a227;padding:14px 20px 14px 96px;min-height:92px;
+    position:relative;display:flex;align-items:center;flex:none;
+    background:linear-gradient(180deg,#16386c 0%,#0f2a54 100%);
+    border-bottom:6px solid #f5c518;
+    padding:16px 24px 16px clamp(110px,15vw,180px);min-height:clamp(96px,13vw,150px);
   }
-  .gate-seal{position:absolute;inset-inline-start:12px;top:8px;width:76px;height:76px}
-  .gate-word{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .gate-seal{
+    position:absolute;inset-inline-start:clamp(10px,2vw,28px);top:50%;transform:translateY(-42%);
+    width:clamp(84px,12vw,150px);height:clamp(84px,12vw,150px);z-index:2;
+    filter:drop-shadow(0 3px 6px rgba(0,0,0,.5));
+  }
+  .gate-word{display:flex;align-items:center;gap:clamp(10px,1.6vw,22px);flex-wrap:nowrap}
   .gate-abbr{
-    font-family:var(--sans);font-weight:800;font-size:clamp(30px,7vw,52px);color:#fff;
-    letter-spacing:.02em;border-inline-end:3px solid #fff;padding-inline-end:16px;line-height:1;
+    font-family:var(--sans);font-weight:800;font-size:clamp(34px,7.4vw,74px);color:#fff;
+    letter-spacing:-.01em;line-height:.92;
   }
   .gate-full{
-    font-family:var(--sans);font-weight:600;font-size:clamp(12px,2.6vw,22px);color:#fff;
-    line-height:1.15;letter-spacing:.04em;
+    font-family:var(--sans);font-weight:400;font-size:clamp(15px,3.3vw,34px);color:#fff;
+    line-height:1.08;letter-spacing:.005em;
   }
+  .gate-body{flex:1;display:grid;place-items:center;padding:24px 16px 40px}
   .gate-card{
-    margin:auto;width:min(560px,92vw);background:#123163;border-radius:16px;padding:26px 30px 30px;
-    display:flex;flex-direction:column;gap:6px;
+    width:min(600px,94vw);background:#14336b;border-radius:20px;
+    padding:clamp(22px,3vw,34px) clamp(22px,4vw,46px) clamp(26px,3.4vw,38px);
+    display:flex;flex-direction:column;
   }
-  .gate-card label{font-family:var(--sans);font-size:clamp(17px,3.4vw,26px);color:#fff;font-weight:500;margin-top:10px}
+  .gate-card label{
+    font-family:var(--sans);font-size:clamp(18px,3.1vw,30px);color:#fff;font-weight:500;
+    margin:14px 0 8px;
+  }
+  .gate-card label:first-child{margin-top:0}
   .gate-card input{
-    width:100%;border:0;border-radius:9px;background:#e9edf3;color:#0b1d3a;
-    font-family:var(--sans);font-size:17px;padding:11px 14px;outline:none;
+    width:100%;border:0;border-radius:10px;background:#e9edf3;color:#12305f;
+    font-family:var(--sans);font-size:clamp(15px,2.2vw,20px);padding:13px 16px;outline:none;
   }
-  .gate-card input:focus{box-shadow:0 0 0 3px rgba(57,255,20,.45)}
+  .gate-card input::placeholder{color:#39424a;letter-spacing:2px}
+  .gate-card input:focus{box-shadow:0 0 0 3px rgba(245,197,24,.6)}
+  .gate-field{position:relative;display:flex;align-items:center}
+  .gate-field input{padding-inline-end:52px}
+  .eye{
+    position:absolute;inset-inline-end:8px;width:34px;height:34px;padding:6px;
+    background:transparent;border:0;cursor:pointer;color:#20325a;
+  }
+  .eye svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+  .eye.shown svg .slash{display:none}
   #gateBtn{
-    margin-top:22px;background:transparent;border:2px solid #fff;color:#fff;border-radius:9px;
-    font-family:var(--sans);font-size:clamp(16px,3vw,22px);letter-spacing:.06em;padding:11px 0;cursor:pointer;
+    margin-top:clamp(22px,3vw,34px);background:transparent;border:2px solid #fff;color:#fff;
+    border-radius:10px;font-family:var(--sans);font-weight:400;
+    font-size:clamp(17px,2.7vw,26px);letter-spacing:.03em;padding:12px 0;cursor:pointer;
   }
-  #gateBtn:hover{background:rgba(255,255,255,.12)}
-  .gate-note{margin:14px 0 0;font-family:var(--mono);font-size:11px;color:#9db4d8;text-align:center}
+  #gateBtn:hover{background:rgba(255,255,255,.14)}
+  .gate-note{margin:16px 0 0;font-family:var(--mono);font-size:11px;color:#8fa8cf;text-align:center}
+  .gate-err{margin:8px 0 0;font-family:var(--mono);font-size:14px;color:#ff7b7b;text-align:center;letter-spacing:.25em}
   .gate-card.shake{animation:shake .4s}
   @keyframes shake{
     0%,100%{transform:translateX(0)}
@@ -279,33 +302,65 @@
 <div class="gate" id="gate">
   <div class="gate-bar">
     <div class="gate-seal" aria-hidden="true">
-      <svg viewBox="0 0 100 100" width="100%" height="100%">
-        <circle cx="50" cy="50" r="47" fill="#0b1d3a" stroke="#c9a227" stroke-width="3"/>
-        <circle cx="50" cy="50" r="38" fill="none" stroke="#c9a227" stroke-width="1.5"/>
-        <rect x="38" y="34" width="24" height="30" rx="2" fill="none" stroke="#e8edf5" stroke-width="3"/>
-        <circle cx="50" cy="49" r="7" fill="#39ff14"/>
-        <path d="M50 12 L53 20 L61 20 L55 25 L57 33 L50 28 L43 33 L45 25 L39 20 L47 20 Z" fill="#c9a227"/>
-        <text x="50" y="80" font-size="9" fill="#c9a227" text-anchor="middle"
-              font-family="monospace" letter-spacing="1">ANALYTICS</text>
+      <svg viewBox="0 0 200 200" width="100%" height="100%">
+        <defs>
+          <radialGradient id="gdaGold" cx="50%" cy="38%">
+            <stop offset="0%" stop-color="#ffe89a"/><stop offset="55%" stop-color="#e8c25a"/>
+            <stop offset="100%" stop-color="#b8892a"/>
+          </radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="98" fill="url(#gdaGold)"/>
+        <circle cx="100" cy="100" r="88" fill="#0d2350" stroke="#f0d68a" stroke-width="2"/>
+        <circle cx="100" cy="100" r="62" fill="#12305f" stroke="#e8c25a" stroke-width="2"/>
+        <g fill="#e8c25a">
+          <circle cx="100" cy="26" r="3"/><circle cx="152" cy="48" r="3"/>
+          <circle cx="174" cy="100" r="3"/><circle cx="152" cy="152" r="3"/>
+          <circle cx="100" cy="174" r="3"/><circle cx="48" cy="152" r="3"/>
+          <circle cx="26" cy="100" r="3"/><circle cx="48" cy="48" r="3"/>
+        </g>
+        <path d="M100 52 L128 66 L128 104 C128 126 114 140 100 148 C86 140 72 126 72 104 L72 66 Z"
+              fill="#0d2350" stroke="#f0d68a" stroke-width="3"/>
+        <rect x="86" y="86" width="28" height="22" rx="2" fill="none" stroke="#eaf3ef" stroke-width="3"/>
+        <path d="M92 86 L96 79 L104 79 L108 86" fill="none" stroke="#eaf3ef" stroke-width="3"/>
+        <circle cx="100" cy="97" r="6.5" fill="#39ff14"/>
+        <text x="100" y="72" font-size="11" fill="#f0d68a" text-anchor="middle"
+              font-family="Georgia,serif" letter-spacing="2">GDA</text>
+        <text x="100" y="166" font-size="10" fill="#f0d68a" text-anchor="middle"
+              font-family="Georgia,serif" letter-spacing="1.5">VIGILANCE</text>
       </svg>
     </div>
     <div class="gate-word">
       <span class="gate-abbr">GDA</span>
-      <span class="gate-full">GLOBAL DETECTION<br>ANALYTICS</span>
+      <span class="gate-full">GLOBAL DEFENSE<br>AGENCY</span>
     </div>
   </div>
 
-  <form class="gate-card" id="gateForm" autocomplete="off">
-    <label for="gUser" id="lblUser">user name</label>
-    <input id="gUser" type="text" autocomplete="off" />
-    <label for="gPass1" id="lblPass1">User password</label>
-    <input id="gPass1" type="password" autocomplete="new-password" />
-    <label for="gPass2" id="lblPass2">password</label>
-    <input id="gPass2" type="password" autocomplete="new-password" />
-    <button type="submit" id="gateBtn">SUBMIT ACCESS</button>
-    <p class="gate-note" id="gateNote">Demo gate — enter 123 in all three fields</p>
-    <p class="gate-err" id="gateErr" hidden>ACCESS DENIED</p>
-  </form>
+  <div class="gate-body">
+    <form class="gate-card" id="gateForm" autocomplete="off">
+      <label for="gUser">user name</label>
+      <input id="gUser" type="text" autocomplete="off" />
+
+      <label for="gPass1">User password</label>
+      <div class="gate-field">
+        <input id="gPass1" type="password" autocomplete="new-password" placeholder="•••••••••" />
+        <button type="button" class="eye" data-for="gPass1" aria-label="show">
+          <svg viewBox="0 0 24 24"><path class="slash" d="M3 3l18 18"/><path d="M2 12s3.6-6.8 10-6.8S22 12 22 12s-3.6 6.8-10 6.8S2 12 2 12z"/><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6z"/></svg>
+        </button>
+      </div>
+
+      <label for="gPass2">password</label>
+      <div class="gate-field">
+        <input id="gPass2" type="password" autocomplete="new-password" placeholder="•••••••••" />
+        <button type="button" class="eye" data-for="gPass2" aria-label="show">
+          <svg viewBox="0 0 24 24"><path class="slash" d="M3 3l18 18"/><path d="M2 12s3.6-6.8 10-6.8S22 12 22 12s-3.6 6.8-10 6.8S2 12 2 12z"/><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6z"/></svg>
+        </button>
+      </div>
+
+      <button type="submit" id="gateBtn">SUBMIT ACCESS</button>
+      <p class="gate-note" id="gateNote">Demo gate — 123 in all three fields</p>
+      <p class="gate-err" id="gateErr" hidden>ACCESS DENIED</p>
+    </form>
+  </div>
 </div>
 
 <header>
@@ -336,6 +391,7 @@
       <div class="zoomlevel" id="zoomLevel">1.0x</div>
       <button id="zoomOut" title="הקטן">−</button>
       <button id="follow" title="עקוב אחרי הנבחר">⌖</button>
+      <button id="ownerBtn" title="רישום בעלים / מחיקה">☻</button>
       <button id="segBtn" title="ריבוע / צללית">▣</button>
       <button id="recBtn" title="הקלטה ידנית">●</button>
     </div>

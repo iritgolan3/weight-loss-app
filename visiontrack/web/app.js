@@ -23,6 +23,14 @@
   var MAX_LOST = 18;
   var TRAIL_MAX = 45;
   var STATIONARY_PX_S = 22;
+
+  /* If a swapped-in model ever reports one of these, it is drawn in red. The
+     bundled detector has no firearm class, so nothing here fires today - this
+     is the hook a weapon model plugs into, not a detector. */
+  var WEAPON_CLASSES = {
+    gun: 1, handgun: 1, pistol: 1, rifle: 1, firearm: 1, weapon: 1,
+    knife: 1, shotgun: 1
+  };
   var FACE_EVERY_MS = 700;     // at most one face inference this often
   var FACE_REFRESH_MS = 4000;  // re-estimate a known face this often
   var ZOOM_MIN = 1, ZOOM_MAX = 6, ZOOM_STEP = 1.35;
@@ -37,6 +45,16 @@
   var REID_MAX_GHOSTS = 40;
   var REID_THRESHOLD = 0.19;    // descriptor distance below which it is the same figure
   var SIG_EVERY_MS = 900;
+
+  /* Owner recognition. The operator enrols their own face from the live camera;
+     the 128-D descriptor is averaged over a few samples and kept in this
+     browser's localStorage. No face data ships inside this file, nothing is
+     uploaded, and only enrolled descriptors are ever compared against - an
+     unknown face stays unknown. Enrolling anyone other than yourself is
+     biometric processing of another person and needs their consent. */
+  var FACE_MATCH_MAX = 0.52;    // descriptor distance below which it is a match
+  var ENROL_SAMPLES = 5;
+  var RECOG_EVERY_MS = 1200;
 
   // Tamper watch: a struck, covered or re-aimed camera all show up as a sudden
   // whole-frame change that object motion never produces.
@@ -64,7 +82,9 @@
       moving: 'בתנועה', still: 'עומד', male: 'גבר', female: 'אישה',
       nothing: 'לא זוהה כלום כרגע.', hint: 'נסה להתקרב או להאיר את החדר.',
       press: 'לחץ "הפעל מצלמה" כדי להתחיל', marked: 'מסומן',
-      about: 'מידע', measurements: 'מדידות'
+      about: 'מידע', measurements: 'מדידות',
+      tZoomIn: 'הגדל', tZoomOut: 'הקטן', tFollow: 'עקוב אחרי הנבחר',
+      tOwner: 'רישום בעלים / מחיקה', tSeg: 'ריבוע / צללית', tRec: 'הקלטה ידנית'
     },
     en: {
       start: 'Start camera', stop: 'Stop', flip: 'Flip camera',
@@ -80,7 +100,9 @@
       moving: 'moving', still: 'stationary', male: 'male', female: 'female',
       nothing: 'Nothing detected right now.', hint: 'Move closer or add light.',
       press: 'Press "Start camera" to begin', marked: 'marked',
-      about: 'About', measurements: 'measurements'
+      about: 'About', measurements: 'measurements',
+      tZoomIn: 'Zoom in', tZoomOut: 'Zoom out', tFollow: 'Follow the selection',
+      tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record'
     }
   };
   function T(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
@@ -126,7 +148,7 @@
   ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop','flip',
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
-   'recBtn','recbar','recDot','recTime','alertMsg','clips',
+   'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn',
    'lang','boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
    'gate','gateForm','gUser','gPass1','gPass2','gateErr','gateNote','gateBtn','segBtn']
     .forEach(function (id) { els[id] = document.getElementById(id); });
@@ -138,6 +160,9 @@
   var view = { zoom: 1, cx: 0.5, cy: 0.5, follow: true };
   var calib = null;               // {px, cm} from a user-supplied reference
   var faceCanvas = document.createElement('canvas');
+
+  var recogReady = false, enrolled = null, enrolling = 0, enrolBuf = [];
+  var recogBusy = false, recogAt = 0;
 
   var segNet = null, segMask = null, segBusy = false, segAt = 0;
   var segOn = false;
@@ -254,6 +279,7 @@
       id: track.id, cls: track.cls, sig: track.sig, at: performance.now(),
       firstSeen: track.firstSeen, ageSum: track.ageSum, ageN: track.ageN,
       gender: track.gender, genderProb: track.genderProb, marked: track.marked,
+      owner: track.owner, ownerDist: track.ownerDist,
       cx: track.cx, cy: track.cy
     });
     if (ghosts.length > REID_MAX_GHOSTS) ghosts.length = REID_MAX_GHOSTS;
@@ -322,7 +348,8 @@
         cx: ncx, cy: ncy, speed: 0, firstSeen: now, lastSeen: now,
         lost: 0, matched: true, trail: [[ncx, ncy]],
         ageSum: 0, ageN: 0, gender: null, genderProb: 0, faceAt: 0, faceTried: 0,
-        marked: false, sig: null, sigAt: 0, reclaimed: false
+        marked: false, sig: null, sigAt: 0, reclaimed: false,
+        owner: false, ownerDist: null
       };
       fresh.sig = describe(fresh);
       var ghost = reclaim(fresh.cls, fresh.sig);
@@ -335,6 +362,8 @@
         fresh.gender = ghost.gender;
         fresh.genderProb = ghost.genderProb;
         fresh.marked = ghost.marked;
+        fresh.owner = ghost.owner;
+        fresh.ownerDist = ghost.ownerDist;
         fresh.reclaimed = true;
       } else {
         fresh.id = nextId++;
@@ -613,6 +642,111 @@
     ctx.restore();
   }
 
+  // ------------------------------------------------------------ recognition
+
+  function loadEnrolment() {
+    try {
+      var raw = localStorage.getItem('vt_owner');
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return (parsed && parsed.length === 128) ? Float32Array.from(parsed) : null;
+    } catch (e) { return null; }
+  }
+
+  function saveEnrolment(vec) {
+    try { localStorage.setItem('vt_owner', JSON.stringify(Array.from(vec))); }
+    catch (e) { /* private mode: the enrolment lasts this session only */ }
+  }
+
+  function faceDistance(a, b) {
+    var sum = 0;
+    for (var i = 0; i < a.length; i++) { var d = a[i] - b[i]; sum += d * d; }
+    return Math.sqrt(sum);
+  }
+
+  /* One descriptor from the largest face currently in frame. */
+  function currentDescriptor() {
+    var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 });
+    return faceapi.detectSingleFace(els.video, opts)
+      .withFaceLandmarks(true)
+      .withFaceDescriptor();
+  }
+
+  function startEnrolment() {
+    if (!recogReady) {
+      showAlert(lang === 'he' ? 'מודל הזיהוי לא נטען' : 'Recognition model not loaded');
+      return;
+    }
+    if (enrolled) {
+      enrolled = null;
+      try { localStorage.removeItem('vt_owner'); } catch (e) { /* ignore */ }
+      tracks.forEach(function (t) { t.owner = false; });
+      showAlert(lang === 'he' ? 'הרישום נמחק' : 'Enrolment cleared');
+      els.ownerBtn.classList.remove('on');
+      return;
+    }
+    enrolBuf = [];
+    enrolling = ENROL_SAMPLES;
+    showAlert(lang === 'he' ? 'הבט למצלמה…' : 'Look at the camera…');
+  }
+
+  /* Runs at most once per RECOG_EVERY_MS: collects enrolment samples, or checks
+     whether the person on screen is the enrolled operator. */
+  function maybeRecognise() {
+    if (!recogReady || recogBusy) return;
+    if (!enrolling && !enrolled) return;
+    var wall = performance.now();
+    if (wall - recogAt < RECOG_EVERY_MS) return;
+    recogAt = wall;
+    recogBusy = true;
+
+    currentDescriptor().then(function (res) {
+      recogBusy = false;
+      if (!res || !res.descriptor) return;
+
+      if (enrolling > 0) {
+        enrolBuf.push(res.descriptor);
+        enrolling--;
+        showAlert((lang === 'he' ? 'נרשם ' : 'Captured ') +
+                  enrolBuf.length + '/' + ENROL_SAMPLES);
+        if (enrolling === 0 && enrolBuf.length) {
+          var mean = new Float32Array(128);
+          enrolBuf.forEach(function (v) {
+            for (var i = 0; i < 128; i++) mean[i] += v[i] / enrolBuf.length;
+          });
+          enrolled = mean;
+          saveEnrolment(mean);
+          els.ownerBtn.classList.add('on');
+          showAlert(lang === 'he' ? 'זוהה כבעלים' : 'Enrolled as owner');
+        }
+        return;
+      }
+
+      /* Attribute the match to exactly one person. Boxes overlap, so a face
+         centre can sit inside several of them; the tightest one is the body
+         that face belongs to. Anything else loses the flag, which is also how
+         a stale owner mark clears once that person walks off. */
+      var d = faceDistance(enrolled, res.descriptor);
+      var box = res.detection && res.detection.box;
+      if (!box) return;
+      var fx = box.x + box.width / 2, fy = box.y + box.height / 2;
+      var host = null, hostArea = Infinity;
+      tracks.forEach(function (t) {
+        if (t.cls !== 'person' || t.lost > 0) return;
+        var b = t.bbox;
+        if (fx >= b[0] && fx <= b[0] + b[2] && fy >= b[1] && fy <= b[1] + b[3]) {
+          var area = b[2] * b[3];
+          if (area < hostArea) { hostArea = area; host = t; }
+        }
+      });
+      var hit = host && d < FACE_MATCH_MAX;
+      tracks.forEach(function (t) {
+        if (hit && t === host) { t.owner = true; t.ownerDist = d; }
+        else if (t.owner) { t.owner = false; t.ownerDist = null; }
+      });
+    }).catch(function () { recogBusy = false; });
+  }
+
   // ----------------------------------------------------------------- drawing
 
   function draw(ctx, w, h, scale) {
@@ -642,11 +776,21 @@
     var fs = Math.round(13 * scale);
     visible.forEach(function (t) {
       var b = t.bbox, sel = t.id === selectedId, mk = t.marked;
-      var color = mk ? '#ff3b30' : sel ? '#ff2bd1' : '#39ff14';
+      var weapon = WEAPON_CLASSES[t.cls];
+      var color = weapon ? '#ff1f1f'
+                : t.owner ? '#000000'
+                : mk ? '#ff3b30'
+                : sel ? '#ff2bd1' : '#39ff14';
 
-      if (!segOn || sel || mk) {
+      if (!segOn || sel || mk || t.owner || weapon) {
+        if (t.owner) {
+          // A black box needs a light keyline to stay visible on dark footage.
+          ctx.strokeStyle = 'rgba(255,255,255,.85)';
+          ctx.lineWidth = (4.5) * scale;
+          ctx.strokeRect(b[0], b[1], b[2], b[3]);
+        }
         ctx.strokeStyle = color;
-        ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
+        ctx.lineWidth = (sel || mk || t.owner || weapon ? 3 : 2) * scale;
         ctx.strokeRect(b[0], b[1], b[2], b[3]);
       }
 
@@ -666,7 +810,8 @@
       ctx.arc(t.cx, t.cy, 3 * scale, 0, Math.PI * 2);
       ctx.fill();
 
-      var label = t.cls + ' ID:' + t.id + ' ' + t.score.toFixed(2);
+      var label = t.owner ? ('OWNER · ID:' + t.id)
+                          : (t.cls + ' ID:' + t.id + ' ' + t.score.toFixed(2));
       ctx.font = '600 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
       var padX = 5 * scale, padY = 4 * scale;
       var tw = ctx.measureText(label).width;
@@ -674,7 +819,7 @@
       var ly = Math.max(fs + padY * 2, b[1]);
       ctx.fillStyle = color;
       ctx.fillRect(lx, ly - fs - padY * 2, tw + padX * 2, fs + padY * 2);
-      ctx.fillStyle = (sel || mk) ? '#1a0014' : '#04160a';
+      ctx.fillStyle = t.owner ? '#ffffff' : (weapon ? '#ffffff' : ((sel || mk) ? '#1a0014' : '#04160a'));
       ctx.textBaseline = 'middle';
       ctx.fillText(label, lx + padX, ly - (fs + padY * 2) / 2);
 
@@ -1026,6 +1171,7 @@
       }), now);
 
       maybeEstimateFace(now);
+      maybeRecognise();
       maybeSegment();
 
       var breach = checkTamper();
@@ -1277,6 +1423,11 @@
       await faceapi.nets.tinyFaceDetector.loadFromWeightMap(decodeFaceWeights(spec.faceDetector));
       await faceapi.nets.ageGenderNet.loadFromWeightMap(decodeFaceWeights(spec.ageGender));
       faceReady = true;
+      if (spec.landmarks && spec.recognition) {
+        await faceapi.nets.faceLandmark68TinyNet.loadFromWeightMap(decodeFaceWeights(spec.landmarks));
+        await faceapi.nets.faceRecognitionNet.loadFromWeightMap(decodeFaceWeights(spec.recognition));
+        recogReady = true;
+      }
     } catch (e) {
       // Detection and tracking still work; only age/gender is lost.
       console.warn('face models unavailable:', e);
@@ -1355,6 +1506,8 @@
     els.stop.disabled = els.flip.disabled = false;
     els.hudState.textContent = faceReady ? 'מזהה · פנים פעיל' : 'מזהה';
 
+    enrolled = loadEnrolment();
+    els.ownerBtn.classList.toggle('on', !!enrolled);
     tracks = []; nextId = 1; fps = 0; lastFrame = 0; selectedId = null;
     view = { zoom: 1, cx: 0.5, cy: 0.5, follow: true };
     els.follow.classList.add('on');
@@ -1413,6 +1566,11 @@
     els.stop.textContent = T('stop');
     els.flip.textContent = T('flip');
     els.startBig.textContent = T('startBig');
+    [['zoomIn', 'tZoomIn'], ['zoomOut', 'tZoomOut'], ['follow', 'tFollow'],
+     ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec']
+    ].forEach(function (pair) {
+      if (els[pair[0]]) els[pair[0]].title = T(pair[1]);
+    });
     var h = document.querySelector('.panel-h span');
     if (h) h.textContent = T('tracked');
     var dts = document.querySelectorAll('.stats .stat dt');
@@ -1436,6 +1594,8 @@
     if (saved === 'en' || saved === 'he') lang = saved;
   } catch (e) { /* private mode */ }
   applyLang();
+
+  els.ownerBtn.addEventListener('click', startEnrolment);
 
   els.segBtn.addEventListener('click', function () {
     if (!segNet) {
@@ -1515,10 +1675,27 @@
      access control has to sit on a server. */
   var GATE_CODE = '123';
 
-  function unlockGate() {
+  function unlockGate(autostart) {
     els.gate.hidden = true;
     els.gate.style.display = 'none';
+    /* Clearing the gate is a user gesture, which is what getUserMedia and
+       autoplay need - so the camera can come straight up without a second
+       click. The big start button stays for anyone who stops the feed. */
+    if (autostart !== false && !running) startCamera();
   }
+
+  /* Show/hide toggles on the two password fields. */
+  Array.prototype.forEach.call(document.querySelectorAll('.eye'), function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-for'));
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.classList.toggle('shown', show);
+      btn.setAttribute('aria-label', show ? 'hide' : 'show');
+      input.focus();
+    });
+  });
 
   els.gateForm.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1526,7 +1703,7 @@
              els.gPass1.value === GATE_CODE &&
              els.gPass2.value === GATE_CODE;
     if (ok) {
-      unlockGate();
+      unlockGate(true);
     } else {
       els.gateErr.hidden = false;
       els.gateForm.classList.remove('shake');
@@ -1543,6 +1720,8 @@
       tracks: tracks.length, selected: selectedId, zoom: view.zoom,
       marked: tracks.filter(function(t){return t.marked}).map(function(t){return t.id}),
       faceReady: faceReady, armed: tamper.armed,
+      recogReady: recogReady, enrolled: !!enrolled, enrolling: enrolling,
+      owners: tracks.filter(function (t) { return t.owner; }).map(function (t) { return t.id; }),
       segReady: !!segNet, segOn: segOn, ghosts: ghosts.length,
       reclaimed: tracks.filter(function (t) { return t.reclaimed; }).map(function (t) { return t.id; }),
       recording: !!rec.recorder, clips: clips.length,
