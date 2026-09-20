@@ -24,13 +24,15 @@
   var EP_ORDER = ['webgpu', 'wasm'];
   /* Zones. Points are normalised 0..1 against the frame, so a zone drawn at one
      camera resolution still lines up after the camera switches to another. */
-  var ZONE_REFINE_MS = 500;     // how often the close-up pass may run
+  var ZONE_REFINE_MS = 500;     // floor on how often the close-up pass may run
+  var ZONE_REFINE_RATIO = 5;    // and never more than one pass in five detections
   var ZONE_MERGE_IOU = 0.5;     // above this, a close-up hit is the same object
   var ZONE_PAD = 0.06;          // context around the zone for the crop
   var IOU_MATCH = 0.3;
   var MAX_LOST = 18;
   var TRAIL_MAX = 45;
   var STATIONARY_PX_S = 22;
+  var PREDICT_MAX_S = 0.5;      // cap on carrying a box forward between detections
 
   /* If a swapped-in model ever reports one of these, it is drawn in red. The
      bundled detector has no firearm class, so nothing here fires today - this
@@ -149,7 +151,95 @@
 
   var model = null, faceReady = false, stream = null, running = false;
   var session = null, backend = null, inputName = null, outputName = null;
+  var lastDraw = 0, drawFps = 0, detAt = 0;
   var ORT = null, YOLO_NAMES = [];
+  var worker = null, workerReady = null, jobId = 0, jobs = Object.create(null);
+
+  /* Runs inside the worker. Kept as one string so the whole app stays a single
+     file. It imports onnxruntime-web from a blob URL it creates itself, which
+     is the only form a file:// page allows. */
+  var WORKER_SRC = [
+    'var ort = null, session = null, inName = null, outName = null;',
+    'self.onmessage = async function (e) {',
+    '  var m = e.data;',
+    '  try {',
+    '    if (m.cmd === "init") {',
+    '      var u = URL.createObjectURL(new Blob([m.ortSrc], {type:"text/javascript"}));',
+    '      ort = await import(u);',
+    '      ort.env.wasm.wasmBinary = m.wasm;',
+    '      ort.env.wasm.numThreads = 1;',
+    '      ort.env.logLevel = "error";',
+    '      var tried = [], used = null;',
+    '      for (var i = 0; i < m.eps.length; i++) {',
+    '        var ep = m.eps[i];',
+    '        if (ep === "webgpu" && !self.navigator.gpu) { tried.push("webgpu: unavailable"); continue; }',
+    '        try {',
+    '          session = await ort.InferenceSession.create(new Uint8Array(m.model), {',
+    '            executionProviders: [ep], graphOptimizationLevel: "all"',
+    '          });',
+    '          used = ep; break;',
+    '        } catch (err) { tried.push(ep + ": " + String((err && err.message) || err).slice(0,120)); }',
+    '      }',
+    '      if (!session) { self.postMessage({cmd:"init", ok:false, err:tried.join(" | ")}); return; }',
+    '      inName = session.inputNames[0]; outName = session.outputNames[0];',
+    '      self.postMessage({cmd:"init", ok:true, backend:used});',
+    '      return;',
+    '    }',
+    '    if (m.cmd === "run") {',
+    '      var feeds = {};',
+    '      feeds[inName] = new ort.Tensor("float32", m.data, [1, 3, m.size, m.size]);',
+    '      var t0 = performance.now();',
+    '      var out = await session.run(feeds);',
+    '      var o = out[outName];',
+    '      var copy = new Float32Array(o.data);',
+    '      // hand the input buffer back so the page can refill it next frame',
+    '      self.postMessage({cmd:"run", id:m.id, out:copy, back:m.data, ms:performance.now()-t0},',
+    '                       [copy.buffer, m.data.buffer]);',
+    '      return;',
+    '    }',
+    '  } catch (err) {',
+    '    self.postMessage({cmd:m.cmd, id:m.id, ok:false, err:String((err && err.message) || err)});',
+    '  }',
+    '};'
+  ].join('\n');
+
+  var freeBufs = [];
+
+  function onWorkerMessage(e) {
+    var m = e.data;
+    if (m.cmd === 'init') {
+      if (m.ok) workerReady.resolve(m.backend);
+      else workerReady.reject(new Error('No execution provider worked - ' + m.err));
+      return;
+    }
+    var job = jobs[m.id];
+    if (!job) return;
+    delete jobs[m.id];
+    if (m.back) freeBufs.push(m.back);
+    if (m.ok === false) job.reject(new Error(m.err));
+    else { mark('infer', m.ms); job.resolve(m.out); }
+  }
+
+  function runOnWorker(data, size) {
+    var id = ++jobId;
+    return new Promise(function (resolve, reject) {
+      jobs[id] = { resolve: resolve, reject: reject };
+      // data.buffer moves to the worker; a fresh one is built next frame.
+      worker.postMessage({ cmd: 'run', id: id, data: data, size: size }, [data.buffer]);
+    });
+  }
+  /* Per-stage timings, exponentially smoothed. Cheap enough to leave on, and
+     without it "it is slow" has no address. */
+  var prof = {};
+  function mark(name, ms) {
+    prof[name] = prof[name] ? prof[name] * 0.85 + ms * 0.15 : ms;
+  }
+  function timed(name, fn) {
+    var t = performance.now();
+    var r = fn();
+    mark(name, performance.now() - t);
+    return r;
+  }
   var zones = [], drawing = null, zoneMode = false;
   var refineAt = 0, refineTurn = 0, refineBusy = false, refineHits = [];
   var letterCv = null, letterCx = null, inputBuf = null;
@@ -325,6 +415,10 @@
       var dt = now - t.lastSeen;
       if (dt > 0.01) {
         t.speed = 0.6 * t.speed + 0.4 * (Math.hypot(cx - t.cx, cy - t.cy) / dt);
+        // Per-axis velocity, smoothed, so the overlay can carry the box
+        // forward between detections instead of holding it still.
+        t.vx = 0.5 * (t.vx || 0) + 0.5 * ((cx - t.cx) / dt);
+        t.vy = 0.5 * (t.vy || 0) + 0.5 * ((cy - t.cy) / dt);
       }
       t.bbox = d.bbox; t.cx = cx; t.cy = cy; t.score = d.score;
       t.lastSeen = now; t.lost = 0; t.matched = true;
@@ -343,7 +437,7 @@
       var ncx = nd.bbox[0] + nd.bbox[2] / 2, ncy = nd.bbox[1] + nd.bbox[3] / 2;
       var fresh = {
         id: 0, cls: nd.class, bbox: nd.bbox, score: nd.score,
-        cx: ncx, cy: ncy, speed: 0, firstSeen: now, lastSeen: now,
+        cx: ncx, cy: ncy, speed: 0, vx: 0, vy: 0, firstSeen: now, lastSeen: now,
         lost: 0, matched: true, trail: [[ncx, ncy]],
         ageSum: 0, ageN: 0, gender: null, genderProb: 0, faceAt: 0, faceTried: 0,
         marked: false, sig: null, sigAt: 0, reclaimed: false,
@@ -812,9 +906,14 @@
      difference between a miss and a detection. This runs the same model a
      second time over the zone alone, on a budget, and merges what it finds. */
   function refineZones(video) {
-    if (refineBusy || !zones.length || !session) return;
+    if (refineBusy || !zones.length || !worker) return;
+    if (pending) return;            // one lane: never race the main pass
+    /* The worker has one lane, so a close-up pass costs a whole detection.
+       Spacing it at several times the measured inference keeps that cost to a
+       predictable slice rather than half the frame rate. */
+    var gap = Math.max(ZONE_REFINE_MS, (prof.infer || 0) * ZONE_REFINE_RATIO);
     var wall = performance.now();
-    if (wall - refineAt < ZONE_REFINE_MS) return;
+    if (wall - refineAt < gap) return;
     refineAt = wall;
     refineBusy = true;
 
@@ -826,10 +925,8 @@
     var sw = Math.max(32, Math.round(b.w * vw)), sh = Math.max(32, Math.round(b.h * vh));
 
     var fit = letterbox(video, sx, sy, sw, sh);
-    var feeds = {};
-    feeds[inputName] = new ORT.Tensor('float32', toTensorData(), [1, 3, YOLO_SIZE, YOLO_SIZE]);
-    session.run(feeds).then(function (out) {
-      refineHits = decode(out[outputName], fit, vw, vh);
+    runOnWorker(toTensorData(), YOLO_SIZE).then(function (out) {
+      refineHits = decode({ data: out }, fit, vw, vh);
       refineBusy = false;
     }).catch(function () { refineBusy = false; refineHits = []; });
   }
@@ -961,13 +1058,16 @@
   function toTensorData() {
     var px = letterCx.getImageData(0, 0, YOLO_SIZE, YOLO_SIZE).data;
     var n = YOLO_SIZE * YOLO_SIZE;
-    if (!inputBuf) inputBuf = new Float32Array(3 * n);
+    /* Buffers round-trip: transferred to the worker, handed back when it is
+       done, refilled here. Allocating 4.9 MB a frame instead cost 6ms of
+       needless GC churn. */
+    var buf = freeBufs.pop() || new Float32Array(3 * n);
     for (var i = 0, j = 0; i < n; i++, j += 4) {
-      inputBuf[i] = px[j] / 255;
-      inputBuf[n + i] = px[j + 1] / 255;
-      inputBuf[2 * n + i] = px[j + 2] / 255;
+      buf[i] = px[j] / 255;
+      buf[n + i] = px[j + 1] / 255;
+      buf[2 * n + i] = px[j + 2] / 255;
     }
-    return inputBuf;
+    return buf;
   }
 
   /* YOLO26 has an end-to-end head: the output is already decoded and sorted,
@@ -991,14 +1091,29 @@
   }
 
   async function detectFrame(video) {
+    var t0 = performance.now();
     var fit = letterbox(video);
-    var feeds = {};
-    feeds[inputName] = new ORT.Tensor('float32', toTensorData(), [1, 3, YOLO_SIZE, YOLO_SIZE]);
-    var out = await session.run(feeds);
-    return decode(out[outputName], fit, video.videoWidth, video.videoHeight);
+    var data = toTensorData();
+    mark('pre', performance.now() - t0);
+
+    var out = await runOnWorker(data, YOLO_SIZE);
+
+    var t2 = performance.now();
+    var r = decode({ data: out }, fit, video.videoWidth, video.videoHeight);
+    mark('decode', performance.now() - t2);
+    return r;
   }
 
   // ----------------------------------------------------------------- drawing
+
+  /* How far a track has travelled since the detection that placed it. Capped,
+     because extrapolating a stale velocity for long invents motion that is not
+     there. Purely cosmetic: hit-testing and zone occupancy use the real box. */
+  function shown(t) {
+    var dt = detAt ? Math.min(PREDICT_MAX_S, (performance.now() - detAt) / 1000) : 0;
+    if (!dt || t.lost > 0 || !t.vx && !t.vy) return t.bbox;
+    return [t.bbox[0] + t.vx * dt, t.bbox[1] + t.vy * dt, t.bbox[2], t.bbox[3]];
+  }
 
   function draw(ctx, w, h, scale) {
     ctx.clearRect(0, 0, w, h);
@@ -1028,7 +1143,7 @@
 
     var fs = Math.round(13 * scale);
     visible.forEach(function (t) {
-      var b = t.bbox, sel = t.id === selectedId, mk = t.marked;
+      var b = shown(t), sel = t.id === selectedId, mk = t.marked;
       var weapon = WEAPON_CLASSES[t.cls];
       var color = boxColor(t, sel, mk, weapon);
 
@@ -1430,51 +1545,66 @@
       applyView();
     }
 
-    if (pending) return;
-    pending = true;
+    /* Rendering no longer waits for detection. The worker answers a couple of
+       times a second; this runs every animation frame, so the overlay tracks
+       the video instead of stepping through it. */
+    var now = (performance.now() - startedAt) / 1000;
+    var t0 = performance.now();
+    if (lastDraw) {
+      var inst = 1000 / Math.max(1, t0 - lastDraw);
+      drawFps = drawFps ? drawFps * 0.9 + inst * 0.1 : inst;
+    }
+    lastDraw = t0;
 
-    detectFrame(v).then(function (predictions) {
-      pending = false;
-      if (!running) return;
-      predictions = mergeRefined(predictions);
+    if (!pending) {
+      pending = true;
+      detectFrame(v).then(function (predictions) {
+        pending = false;
+        if (!running) return;
+        predictions = mergeRefined(predictions);
 
-      var now = (performance.now() - startedAt) / 1000;
-      var t0 = performance.now();
-      if (lastFrame) {
-        var inst = 1000 / Math.max(1, t0 - lastFrame);
-        fps = fps ? fps * 0.8 + inst * 0.2 : inst;
-      }
-      lastFrame = t0;
-
-      updateTracks(predictions, now);
-
-      updateZoneOccupancy(now);
-      refineZones(v);
-      maybeEstimateFace(now);
-      maybeRecognise();
-      maybeSegment();
-
-      var breach = checkTamper();
-      if (breach) {
-        if (rec.recorder && rec.auto) {
-          rec.stopAt = performance.now() + CLIP_SECONDS * 1000;   // extend the clip
-          showAlert(T(breach) + ' — ' + T('recCont'));
-        } else if (!rec.recorder) {
-          startRecording(true, breach);
+        var dnow = (performance.now() - startedAt) / 1000;
+        var dt0 = performance.now();
+        if (lastFrame) {
+          var dinst = 1000 / Math.max(1, dt0 - lastFrame);
+          fps = fps ? fps * 0.8 + dinst * 0.2 : dinst;
         }
-      }
-      if (rec.recorder && rec.auto && rec.stopAt && performance.now() > rec.stopAt) {
-        stopRecording();
-      }
-      updateRecUi();
+        lastFrame = dt0;
+        detAt = dt0;
 
+        updateTracks(predictions, dnow);
+
+        timed('zones', function () { updateZoneOccupancy(dnow); refineZones(v); });
+        timed('face', function () { maybeEstimateFace(dnow); });
+        timed('recog', function () { maybeRecognise(); });
+        timed('seg', function () { maybeSegment(); });
+
+        var breach = checkTamper();
+        if (breach) {
+          if (rec.recorder && rec.auto) {
+            rec.stopAt = performance.now() + CLIP_SECONDS * 1000;   // extend the clip
+            showAlert(T(breach) + ' — ' + T('recCont'));
+          } else if (!rec.recorder) {
+            startRecording(true, breach);
+          }
+        }
+        if (rec.recorder && rec.auto && rec.stopAt && performance.now() > rec.stopAt) {
+          stopRecording();
+        }
+        updateRecUi();
+      }).catch(function (e) {
+        pending = false;
+        log('detect failed: ' + ((e && e.message) || e));
+      });
+    }
+
+    {
       var ctx = els.overlay.getContext('2d');
       var scale = Math.max(0.7, Math.min(2, els.overlay.width / 900));
-      renderPanel(draw(ctx, els.overlay.width, els.overlay.height, scale), now);
-    }).catch(function (e) {
-      pending = false;
-      console.error(e);
-    });
+      timed('draw', function () {
+        renderPanel(draw(ctx, els.overlay.width, els.overlay.height, scale), now);
+      });
+    }
   }
 
   // ------------------------------------------------------------------ startup
@@ -1725,41 +1855,38 @@
     setProgress(15, T('bootDetector'));
     await new Promise(function (r) { setTimeout(r, 30); });
 
-    /* onnxruntime-web ships as an ES module. Importing it from a blob URL is
-       what lets a file:// page load it at all - a relative import of the same
-       text is blocked as a cross-origin request. */
+    /* Inference runs in a worker, not here. The model takes hundreds of
+       milliseconds a frame on the WASM backend, and on the main thread that
+       is not slowness, it is a freeze: nothing renders, no click lands, the
+       video does not repaint. The worker makes the same work invisible.
+
+       Getting there needs two tricks a file:// page forces. A module worker
+       cannot be constructed at all (which is why onnxruntime-web's own proxy
+       mode hangs here), so this is a classic worker. And a blob URL minted on
+       the page cannot be imported from inside it, so the worker is handed the
+       runtime as text and mints its own. Both were measured, not assumed. */
     var ortSrc = document.getElementById('ortsrc').textContent;
-    ORT = await import(URL.createObjectURL(
-      new Blob([ortSrc], { type: 'text/javascript' })));
-    var ort = ORT;
     YOLO_NAMES = spec.names;
 
-    ort.env.wasm.wasmBinary = await unpack(spec.ortWasm);
-    ort.env.wasm.numThreads = 1;   // threads need headers a file:// page has none of
-    ort.env.logLevel = 'error';
-
     setProgress(30, T('bootDetector'));
-    var weights = new Uint8Array(await unpack(spec.yolo));
+    var wasmBin = await unpack(spec.ortWasm);
+    var weights = await unpack(spec.yolo);
 
-    /* WebGPU first. This model is 68 GFLOPs; on the WASM CPU backend that is
-       seconds per frame, so the fallback keeps the app working rather than
-       keeping it fast, and the HUD says which one is live. */
-    var tried = [];
-    for (var ei = 0; ei < EP_ORDER.length; ei++) {
-      var ep = EP_ORDER[ei];
-      if (ep === 'webgpu' && !navigator.gpu) { tried.push('webgpu: unavailable'); continue; }
-      try {
-        session = await ort.InferenceSession.create(weights, { executionProviders: [ep] });
-        backend = ep;
-        break;
-      } catch (e) {
-        tried.push(ep + ': ' + String((e && e.message) || e).slice(0, 120));
-      }
-    }
-    if (!session) throw new Error('No execution provider worked - ' + tried.join(' | '));
-    inputName = session.inputNames[0];
-    outputName = session.outputNames[0];
-    model = session;
+    worker = new Worker(URL.createObjectURL(
+      new Blob([WORKER_SRC], { type: 'text/javascript' })));
+    worker.onmessage = onWorkerMessage;
+
+    var ready = new Promise(function (resolve, reject) {
+      workerReady = { resolve: resolve, reject: reject };
+    });
+    // Both buffers move rather than copy; neither is touched here again.
+    worker.postMessage({
+      cmd: 'init', ortSrc: ortSrc, wasm: wasmBin, model: weights,
+      eps: navigator.gpu ? EP_ORDER : ['wasm']
+    }, [wasmBin, weights]);
+
+    backend = await ready;
+    model = true;
     log('detector on ' + backend);
 
     setProgress(60, T('bootFace'));
@@ -2128,6 +2255,12 @@
       zones: zones.length, zoneMode: zoneMode, drawingPts: drawing ? drawing.pts.length : 0,
       inZone: tracks.filter(function (t) { return t.zoneId; }).map(function (t) { return t.id; }),
       refined: refineHits.length,
+      drawFps: Math.round(drawFps * 10) / 10,
+      prof: Object.keys(prof).reduce(function (o, k) {
+        o[k] = Math.round(prof[k] * 10) / 10; return o;
+      }, {}),
+      threads: (typeof SharedArrayBuffer !== 'undefined'),
+      isolated: !!self.crossOriginIsolated,
       feet: tracks.filter(function (t) { return t.cls === 'person' && t.lost === 0; })
         .map(function (t) {
           return [t.id,

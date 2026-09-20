@@ -141,6 +141,49 @@ Marking is a handle on a live track, not on a human being. For everyone who is
 not the enrolled owner, it reports what the camera can see about an unidentified
 figure, and nothing that would attach a name to them.
 
+### Why it feels fast at two detections a second
+
+Detection runs in a worker, and rendering does not wait for it.
+
+The measurement that decided this: of a 451ms frame, inference was 444ms and
+everything else — preprocessing, decoding, drawing, the face pass — was under
+9ms put together. There is no fat to trim. Worse, that 444ms ran on the main
+thread, so it was not slowness but a freeze: nothing repainted, no click
+landed, the video itself stopped updating.
+
+So the work moved rather than shrank:
+
+| | before | after |
+| --- | --- | --- |
+| Rendering | 2.1 FPS | **62 FPS** |
+| Detection | 2.1 FPS | 2.1 FPS |
+| Detection, with a zone | 1.1 FPS | 1.8 FPS |
+
+The model is untouched and detection is unchanged — the same weights at the
+same input size finding the same objects. What changed is that the overlay now
+redraws every animation frame, carrying each box forward along its measured
+velocity (capped at half a second, so a stale velocity cannot invent motion)
+while the worker thinks. Hit-testing and zone occupancy still use the real
+detected box, never the extrapolated one.
+
+Two constraints shaped the worker, both measured rather than assumed:
+
+* **A `file://` page cannot construct a module worker.** That is exactly why
+  onnxruntime-web's own `proxy` mode hangs here rather than failing loudly. The
+  worker is a classic one.
+* **A blob URL minted on the page cannot be imported from inside the worker.**
+  So the worker receives the runtime as text and mints its own blob URL.
+
+`SharedArrayBuffer` is absent on `file://`, so WASM threads are not available
+and inference stays single-threaded. That is the ceiling on detection rate, and
+only WebGPU or a smaller model lifts it.
+
+Two smaller fixes came out of the same profile: the input buffer round-trips to
+the worker and back rather than being reallocated every frame (6ms of GC churn),
+and the zone close-up pass is spaced at five times the measured inference
+instead of a fixed interval, so it costs about 15% of the detection rate rather
+than half of it.
+
 ### Zones
 
 The `⬠` button starts a zone. Click to place corners, click the first corner
