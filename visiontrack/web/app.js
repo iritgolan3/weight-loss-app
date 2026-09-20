@@ -27,6 +27,17 @@
   var FACE_REFRESH_MS = 4000;  // re-estimate a known face this often
   var ZOOM_MIN = 1, ZOOM_MAX = 6, ZOOM_STEP = 1.35;
 
+  /* Appearance re-identification. When the tracker drops someone - a pillar,
+     a doorway, a moment out of frame - a naive tracker hands back a brand new
+     id and the same shopper is counted twice. A coarse colour descriptor
+     (torso, legs, whole box) lets a reappearing figure inherit its old id.
+     It is deliberately NOT biometric: it reads clothing colour, not the face,
+     it is scoped to this session, and a change of clothes breaks it. */
+  var REID_WINDOW_MS = 45000;   // how long a dropped track stays claimable
+  var REID_MAX_GHOSTS = 40;
+  var REID_THRESHOLD = 0.19;    // descriptor distance below which it is the same figure
+  var SIG_EVERY_MS = 900;
+
   // Tamper watch: a struck, covered or re-aimed camera all show up as a sudden
   // whole-frame change that object motion never produces.
   var TAMPER_GRID_W = 32, TAMPER_GRID_H = 24;
@@ -116,7 +127,8 @@
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
    'recBtn','recbar','recDot','recTime','alertMsg','clips',
-   'lang','boot','bootLog','bootGrid','bootStatus']
+   'lang','boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
+   'gate','gateForm','gUser','gPass1','gPass2','gateErr','gateNote','gateBtn','segBtn']
     .forEach(function (id) { els[id] = document.getElementById(id); });
 
   var model = null, faceReady = false, stream = null, running = false;
@@ -126,6 +138,14 @@
   var view = { zoom: 1, cx: 0.5, cy: 0.5, follow: true };
   var calib = null;               // {px, cm} from a user-supplied reference
   var faceCanvas = document.createElement('canvas');
+
+  var segNet = null, segMask = null, segBusy = false, segAt = 0;
+  var segOn = false;
+  var SEG_EVERY_MS = 450;       // segmentation is the expensive pass; throttle it
+  var segCanvas = document.createElement('canvas');
+
+  var ghosts = [];              // recently dropped tracks, waiting to be reclaimed
+  var sigCanvas = document.createElement('canvas');
 
   var tamper = {
     canvas: document.createElement('canvas'), prev: null, prevLuma: 0,
@@ -181,6 +201,80 @@
     els.bar.hidden = true;
   }
 
+  // --------------------------------------------------- appearance descriptor
+
+  /* Mean colour of the upper band (torso), lower band (legs) and the whole box,
+     normalised so overall brightness changes matter less than hue. */
+  function describe(t) {
+    var v = els.video;
+    if (!v.videoWidth) return null;
+    var b = t.bbox;
+    if (b[2] < 12 || b[3] < 24) return null;
+
+    var W = 12, H = 24;
+    sigCanvas.width = W; sigCanvas.height = H;
+    var ctx = sigCanvas.getContext('2d', { willReadFrequently: true });
+    try {
+      ctx.drawImage(v, b[0], b[1], b[2], b[3], 0, 0, W, H);
+    } catch (e) { return null; }
+    var px = ctx.getImageData(0, 0, W, H).data;
+
+    var bands = [[2, 10], [12, 21], [0, H]];   // torso, legs, whole
+    var out = [];
+    bands.forEach(function (band) {
+      var r = 0, g = 0, bl = 0, n = 0;
+      for (var y = band[0]; y < band[1]; y++) {
+        for (var x = 0; x < W; x++) {
+          var o = (y * W + x) * 4;
+          r += px[o]; g += px[o + 1]; bl += px[o + 2]; n++;
+        }
+      }
+      if (!n) { out.push(0, 0, 0); return; }
+      r /= n; g /= n; bl /= n;
+      var sum = r + g + bl + 1e-6;
+      out.push(r / sum, g / sum, bl / sum);      // chromaticity, not brightness
+    });
+    out.push(Math.min(3, b[3] / Math.max(1, b[2])) / 3);   // build, roughly
+    return out;
+  }
+
+  function sigDistance(a, b) {
+    if (!a || !b || a.length !== b.length) return Infinity;
+    var sum = 0;
+    for (var i = 0; i < a.length; i++) {
+      var d = a[i] - b[i];
+      sum += d * d;
+    }
+    return Math.sqrt(sum / a.length);
+  }
+
+  function retire(track, now) {
+    if (!track.sig) return;
+    ghosts.unshift({
+      id: track.id, cls: track.cls, sig: track.sig, at: performance.now(),
+      firstSeen: track.firstSeen, ageSum: track.ageSum, ageN: track.ageN,
+      gender: track.gender, genderProb: track.genderProb, marked: track.marked,
+      cx: track.cx, cy: track.cy
+    });
+    if (ghosts.length > REID_MAX_GHOSTS) ghosts.length = REID_MAX_GHOSTS;
+  }
+
+  /* Returns the ghost this detection most likely is, or null for a stranger. */
+  function reclaim(cls, sig) {
+    if (!sig) return null;
+    var wall = performance.now();
+    var best = null, bestD = REID_THRESHOLD, bestIdx = -1;
+    for (var i = 0; i < ghosts.length; i++) {
+      var g = ghosts[i];
+      if (wall - g.at > REID_WINDOW_MS) continue;
+      if (g.cls !== cls) continue;
+      var d = sigDistance(g.sig, sig);
+      if (d < bestD) { bestD = d; best = g; bestIdx = i; }
+    }
+    if (bestIdx >= 0) ghosts.splice(bestIdx, 1);
+    return best;
+  }
+
   // ------------------------------------------------------------- the tracker
 
   function updateTracks(detections, now) {
@@ -212,19 +306,40 @@
       t.lastSeen = now; t.lost = 0; t.matched = true;
       t.trail.push([cx, cy]);
       if (t.trail.length > TRAIL_MAX) t.trail.shift();
+      var wallNow = performance.now();
+      if (wallNow - t.sigAt > SIG_EVERY_MS) {
+        var sg = describe(t);
+        if (sg) { t.sig = sg; t.sigAt = wallNow; }
+      }
     }
 
     for (i = 0; i < detections.length; i++) {
       if (usedDet[i]) continue;
       var nd = detections[i];
       var ncx = nd.bbox[0] + nd.bbox[2] / 2, ncy = nd.bbox[1] + nd.bbox[3] / 2;
-      tracks.push({
-        id: nextId++, cls: nd.class, bbox: nd.bbox, score: nd.score,
+      var fresh = {
+        id: 0, cls: nd.class, bbox: nd.bbox, score: nd.score,
         cx: ncx, cy: ncy, speed: 0, firstSeen: now, lastSeen: now,
         lost: 0, matched: true, trail: [[ncx, ncy]],
         ageSum: 0, ageN: 0, gender: null, genderProb: 0, faceAt: 0, faceTried: 0,
-        marked: false
-      });
+        marked: false, sig: null, sigAt: 0, reclaimed: false
+      };
+      fresh.sig = describe(fresh);
+      var ghost = reclaim(fresh.cls, fresh.sig);
+      if (ghost) {
+        // Same figure returning: keep the id and everything already learned.
+        fresh.id = ghost.id;
+        fresh.firstSeen = ghost.firstSeen;
+        fresh.ageSum = ghost.ageSum;
+        fresh.ageN = ghost.ageN;
+        fresh.gender = ghost.gender;
+        fresh.genderProb = ghost.genderProb;
+        fresh.marked = ghost.marked;
+        fresh.reclaimed = true;
+      } else {
+        fresh.id = nextId++;
+      }
+      tracks.push(fresh);
     }
 
     var kept = [];
@@ -232,6 +347,7 @@
       if (!tracks[i].matched) {
         tracks[i].lost++;
         if (tracks[i].lost > MAX_LOST) {
+          retire(tracks[i], now);       // claimable for REID_WINDOW_MS
           if (tracks[i].id === selectedId) selectedId = null;
           continue;
         }
@@ -442,12 +558,68 @@
     }).join('');
   }
 
+  /* Person segmentation, when the operator turns it on. It costs real frame
+     rate, which is why it is off by default and has its own button. */
+  function maybeSegment() {
+    if (!segOn || !segNet || segBusy) return;
+    var wall = performance.now();
+    if (wall - segAt < SEG_EVERY_MS) return;
+    segAt = wall;
+    segBusy = true;
+    segNet.segmentPerson(els.video, {
+      internalResolution: 'low',
+      segmentationThreshold: 0.65,
+      maxDetections: 8
+    }).then(function (res) {
+      segMask = res;
+      segBusy = false;
+    }).catch(function (e) {
+      segBusy = false;
+      console.warn('segment failed:', e);
+    });
+  }
+
+  /* Paints the cached mask as a translucent green silhouette with a bright
+     edge, the look of the reference frame. */
+  function drawMask(ctx, w, h) {
+    if (!segOn || !segMask || !segMask.data) return;
+    var mw = segMask.width, mh = segMask.height;
+    if (!mw || !mh) return;
+
+    if (segCanvas.width !== mw || segCanvas.height !== mh) {
+      segCanvas.width = mw; segCanvas.height = mh;
+    }
+    var mctx = segCanvas.getContext('2d', { willReadFrequently: true });
+    var img = mctx.createImageData(mw, mh);
+    var d = img.data, src = segMask.data;
+    for (var i = 0; i < src.length; i++) {
+      var on = src[i] === 1;
+      var o = i * 4;
+      if (!on) { d[o + 3] = 0; continue; }
+      // edge check against the four neighbours, for the bright outline
+      var x = i % mw, y = (i / mw) | 0;
+      var edge = (x === 0 || y === 0 || x === mw - 1 || y === mh - 1) ||
+                 src[i - 1] === 0 || src[i + 1] === 0 ||
+                 src[i - mw] === 0 || src[i + mw] === 0;
+      d[o] = edge ? 120 : 57;
+      d[o + 1] = 255;
+      d[o + 2] = edge ? 90 : 20;
+      d[o + 3] = edge ? 235 : 105;
+    }
+    mctx.putImageData(img, 0, 0);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(segCanvas, 0, 0, w, h);
+    ctx.restore();
+  }
+
   // ----------------------------------------------------------------- drawing
 
   function draw(ctx, w, h, scale) {
     ctx.clearRect(0, 0, w, h);
     ctx.direction = 'ltr';
     ctx.textAlign = 'left';
+    drawMask(ctx, w, h);
     var visible = tracks.filter(function (t) { return t.lost === 0; });
 
     visible.forEach(function (t) {
@@ -472,9 +644,11 @@
       var b = t.bbox, sel = t.id === selectedId, mk = t.marked;
       var color = mk ? '#ff3b30' : sel ? '#ff2bd1' : '#39ff14';
 
-      ctx.strokeStyle = color;
-      ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
-      ctx.strokeRect(b[0], b[1], b[2], b[3]);
+      if (!segOn || sel || mk) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
+        ctx.strokeRect(b[0], b[1], b[2], b[3]);
+      }
 
       if (sel || mk) {
         var len = Math.min(18 * scale, b[2] / 3, b[3] / 3);
@@ -852,6 +1026,7 @@
       }), now);
 
       maybeEstimateFace(now);
+      maybeSegment();
 
       var breach = checkTamper();
       if (breach) {
@@ -882,58 +1057,186 @@
      does take a while to come up, so the log lines are timed against that work
      rather than being pure theatre: each stage line is printed when that stage
      actually starts. */
-  var BOOT_LINES = [
-    '$ visiontrack --init --device=auto',
-    'probing runtime ................. <b>tfjs 4.22.0</b>',
-    'webgl backend ................... <b>ok</b>',
-    'loading detector <i>ssdlite_mobilenet_v2</i>',
-    'decoding weights ................ <b>18.0 MB</b>',
-    'loading face detector <i>tiny_face_detector</i>',
-    'loading attribute head <i>age_gender</i>',
-    'tracker ......................... <b>IoU / lost-buffer</b>',
-    'tamper watch .................... <b>armed</b>',
-    'requesting camera ...'
+  /* A 17-second boot in the shape of the reference clip: a dense install log
+     with a progress line, then a mosaic of terminal panes, then a clear green
+     banner. It also waits for the real model load, so the camera starts when
+     both the sequence and the work behind it are done. */
+  var BOOT_SECONDS = 17;
+
+  var PKGS = ['apg', 'atop', 'bmon', 'byobu', 'hollywood', 'jp2a', 'libconfuse2',
+    'pastebinit', 'python3-newt', 'speedometer', 'libcaca0', 'ttf-ubuntu-font-family',
+    'update-notifier-common', 'libsixel1', 'ncurses-term', 'mlocate'];
+
+  function bootScript() {
+    var out = [];
+    out.push('$ gda-vision --init --device=auto');
+    out.push('Reading package lists... <b>Done</b>');
+    out.push('Building dependency tree... <b>Done</b>');
+    out.push('The following NEW packages will be installed:');
+    out.push('  ' + PKGS.join(' '));
+    out.push('0 upgraded, ' + PKGS.length + ' newly installed, 0 to remove.');
+    out.push('Need to get 2,979 kB of archives.');
+    PKGS.forEach(function (n, i) {
+      out.push('Get:' + (i + 1) + ' mirror/main amd64 <i>' + n +
+        '</i> [' + (18 + i * 7) + '.' + (i % 9) + ' kB]');
+    });
+    PKGS.forEach(function (n) { out.push('Unpacking <i>' + n + '</i> ...'); });
+    PKGS.forEach(function (n) { out.push('Setting up <i>' + n + '</i> ...'); });
+    out.push('Processing triggers for libc-bin (2.31-2) ...');
+    out.push('');
+    out.push('$ gda-vision --load-models');
+    out.push('runtime ......................... <b>tfjs 4.22.0</b>');
+    out.push('backend ......................... <b>webgl</b>');
+    out.push('detector <i>ssdlite_mobilenet_v2</i> ..... <b>18.0 MB</b>');
+    out.push('face detector <i>tiny_face_detector</i>');
+    out.push('attribute head <i>age_gender</i>');
+    out.push('segmentation <i>bodypix_mobilenet_050</i>');
+    out.push('tracker ......................... <b>IoU + appearance re-id</b>');
+    out.push('tamper watch .................... <b>armed</b>');
+    out.push('camera .......................... <b>requesting</b>');
+    return out;
+  }
+
+  var PANES = [
+    { t: 'NET', c: 'cyan', body: function (k) {
+        var rows = ['iface     rx        tx'];
+        ['eth0', 'wlan0', 'lo'].forEach(function (n, i) {
+          rows.push(n.padEnd(9) + ((k * 7 + i * 31) % 900 + 100) + ' kB/s  ' +
+            ((k * 3 + i * 17) % 400 + 40) + ' kB/s');
+        });
+        return rows.join('\n');
+      } },
+    { t: 'HEXDUMP', c: '', body: function (k) {
+        var rows = [];
+        for (var i = 0; i < 6; i++) {
+          var addr = (0x1a0 + (k + i) * 16).toString(16).padStart(8, '0');
+          var hx = [];
+          for (var j = 0; j < 8; j++) hx.push((((k * 13 + i * 7 + j * 29) % 256)).toString(16).padStart(2, '0'));
+          rows.push(addr + '  ' + hx.join(' '));
+        }
+        return rows.join('\n');
+      } },
+    { t: 'PROC', c: 'amber', body: function (k) {
+        var rows = ['pid   cpu   rss   cmd'];
+        ['gda-vision', 'tfjs-wrk', 'v4l2', 'render'].forEach(function (n, i) {
+          rows.push(String(1200 + i * 37).padEnd(6) +
+            (((k * 5 + i * 11) % 60) + '%').padEnd(6) +
+            (((k + i * 40) % 300 + 60) + 'M').padEnd(6) + n);
+        });
+        return rows.join('\n');
+      } },
+    { t: 'TREE', c: '', body: function () {
+        return ' └─ /models\n    ├─ detector\n    │   └─ ssdlite_v2\n    ├─ face\n    │   ├─ tiny_fd\n    │   └─ age_gender\n    └─ seg\n        └─ bodypix';
+      } },
+    { t: 'SIGNAL', c: 'cyan', body: function (k) {
+        var rows = [];
+        for (var r = 0; r < 5; r++) {
+          var line = '';
+          for (var c = 0; c < 26; c++) {
+            var v = Math.sin((c + k) * 0.5 + r) * 2 + 2;
+            line += (Math.round(v) === r) ? '█' : ((c + k) % 9 === 0 ? '·' : ' ');
+          }
+          rows.push(line);
+        }
+        return rows.join('\n');
+      } },
+    { t: 'STATUS', c: 'amber', body: function (k) {
+        return 'uptime    ' + String(k).padStart(4, '0') + 's\n' +
+               'frames    ' + (k * 13) + '\n' +
+               'queue     ' + (k % 4) + '\n' +
+               'errors    0\n' +
+               'state     ' + (k % 2 ? 'SCAN' : 'IDLE');
+      } }
   ];
-  var bootCells = [], bootTimer = 0, bootLine = 0;
+
+  var bootCells = [], bootTimer = 0, bootTick = 0, bootLine = 0;
+  var bootLines = [], bootStartedAt = 0, bootResolve = null;
 
   function bootStart() {
     els.boot.hidden = false;
+    els.bootDone.hidden = true;
+    els.bootMosaic.hidden = true;
+    els.bootLog.hidden = false;
     els.bootLog.innerHTML = '';
     els.bootGrid.innerHTML = '';
+    els.bootMosaic.innerHTML = '';
     bootCells = [];
     for (var i = 0; i < 96; i++) {
       var c = document.createElement('span');
       els.bootGrid.appendChild(c);
       bootCells.push(c);
     }
+    PANES.forEach(function (pane, i) {
+      var el = document.createElement('div');
+      el.className = 'pane ' + pane.c + (i === 0 ? ' wide' : '');
+      el.innerHTML = '<h4>' + pane.t + '</h4><div></div>';
+      els.bootMosaic.appendChild(el);
+    });
+
+    bootLines = bootScript();
     bootLine = 0;
+    bootTick = 0;
+    bootStartedAt = performance.now();
+
     clearInterval(bootTimer);
-    bootTimer = setInterval(function () {
-      if (bootLine < BOOT_LINES.length) {
-        els.bootLog.innerHTML += BOOT_LINES[bootLine] + '\n';
-        bootLine++;
-        els.bootLog.scrollTop = els.bootLog.scrollHeight;
-      }
-    }, 320);
+    bootTimer = setInterval(bootFrame, 100);
+    return new Promise(function (res) { bootResolve = res; });
   }
 
-  function bootProgress(pct, label) {
-    var upto = Math.round(bootCells.length * Math.min(1, Math.max(0, pct / 100)));
+  function bootFrame() {
+    bootTick++;
+    var elapsed = (performance.now() - bootStartedAt) / 1000;
+    var f = Math.min(1, elapsed / BOOT_SECONDS);
+
+    // Act 1 + 2: the log races ahead of the clock so it feels like real output.
+    var want = Math.floor(bootLines.length * Math.min(1, f / 0.62));
+    while (bootLine < want && bootLine < bootLines.length) {
+      els.bootLog.innerHTML += bootLines[bootLine] + '\n';
+      bootLine++;
+    }
+    els.bootLog.scrollTop = els.bootLog.scrollHeight;
+
+    var pct = Math.round(f * 100);
+    els.bootPct.textContent = 'Progress: [' + String(pct).padStart(3, ' ') + '%]';
+    var width = 46;
+    var filled = Math.round(width * f);
+    els.bootTrack.textContent = '[' + '#'.repeat(filled) + '.'.repeat(width - filled) + ']';
+
+    var upto = Math.round(bootCells.length * f);
     for (var i = 0; i < bootCells.length; i++) bootCells[i].classList.toggle('on', i < upto);
-    if (label) els.bootStatus.textContent = label;
+
+    // Act 3: the pane mosaic takes over for the last third.
+    if (f > 0.62) {
+      els.bootMosaic.hidden = false;
+      els.bootLog.hidden = true;        // the mosaic takes the stage
+      var panes = els.bootMosaic.children;
+      for (var j = 0; j < panes.length; j++) {
+        panes[j].lastChild.textContent = PANES[j].body(bootTick);
+      }
+    }
+
+    els.bootStatus.textContent =
+      f < 0.35 ? 'INSTALLING DEPENDENCIES' :
+      f < 0.62 ? 'DECODING MODEL WEIGHTS' :
+      f < 0.92 ? 'CALIBRATING PIPELINE' : 'HANDING OVER TO CAMERA';
+
+    if (f >= 1) {
+      clearInterval(bootTimer);
+      els.bootDone.hidden = false;
+      setTimeout(function () {
+        els.boot.hidden = true;
+        if (bootResolve) { bootResolve(); bootResolve = null; }
+      }, 900);
+    }
   }
 
-  function bootEnd() {
-    clearInterval(bootTimer);
-    bootProgress(100, 'READY');
-    setTimeout(function () { els.boot.hidden = true; }, 450);
-  }
+  function bootProgress() { /* the clock drives the bar; real load is awaited separately */ }
 
   function setProgress(pct, msg) {
     els.bar.hidden = false;
     els.barFill.style.width = pct + '%';
     if (msg) els.splashMsg.textContent = msg;
-    bootProgress(pct, msg ? msg.toUpperCase() : null);
+
   }
 
   function b64ToBuffer(b64) {
@@ -979,6 +1282,23 @@
       console.warn('face models unavailable:', e);
       faceReady = false;
     }
+    try {
+      if (spec.seg && window.bodyPix) {
+        var segSpecs = [];
+        spec.seg.manifest.forEach(function (g) { segSpecs = segSpecs.concat(g.weights); });
+        segNet = await bodyPix.load({
+          architecture: 'MobileNetV1', outputStride: 16, multiplier: 0.5, quantBytes: 4,
+          modelUrl: tf.io.fromMemory({
+            modelTopology: spec.seg.topology,
+            weightSpecs: segSpecs,
+            weightData: b64ToBuffer(spec.seg.weights)
+          })
+        });
+      }
+    } catch (e) {
+      console.warn('segmentation unavailable:', e);
+      segNet = null;
+    }
     setProgress(85, 'מתחבר למצלמה…');
   }
 
@@ -992,11 +1312,11 @@
       return;
     }
 
-    bootStart();
+    var sequence = bootStart();
     try {
-      await loadModels();
+      await Promise.all([loadModels(), sequence]);
     } catch (e) {
-      bootEnd();
+      els.boot.hidden = true;
       fail('טעינת מנוע הזיהוי נכשלה.', String((e && e.message) || e));
       els.start.disabled = els.startBig.disabled = false;
       return;
@@ -1013,12 +1333,13 @@
       if (n === 'NotAllowedError') hint = 'הגישה נדחתה. לחץ על סמל המצלמה בשורת הכתובת, אפשר גישה, ורענן.';
       if (n === 'NotFoundError') hint = 'לא נמצאה מצלמה מחוברת למכשיר.';
       if (n === 'NotReadableError') hint = 'תוכנה אחרת תופסת את המצלמה. סגור אותה ונסה שוב.';
-      bootEnd();
+      els.boot.hidden = true;
       fail('לא הצלחתי לפתוח את המצלמה.', hint);
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
-    bootEnd();
+    // The boot sequence has already handed over by this point.
+    els.boot.hidden = true;
 
     els.video.srcObject = stream;
     await els.video.play().catch(function () {});
@@ -1116,6 +1437,17 @@
   } catch (e) { /* private mode */ }
   applyLang();
 
+  els.segBtn.addEventListener('click', function () {
+    if (!segNet) {
+      showAlert(lang === 'he' ? 'מודל הצללית לא נטען' : 'Segmentation model not loaded');
+      return;
+    }
+    segOn = !segOn;
+    els.segBtn.classList.toggle('on', segOn);
+    els.segBtn.textContent = segOn ? '◧' : '▣';
+    if (!segOn) segMask = null;
+  });
+
   els.recBtn.addEventListener('click', function () {
     if (rec.recorder) stopRecording();
     else startRecording(false, 'הקלטה ידנית');
@@ -1178,12 +1510,41 @@
     if (e.key === 'Escape') select(null);
   });
 
+  /* Demo access gate. This is a front-door prop for the product shell, not a
+     security boundary: the code lives in the page, so anyone can read it. Real
+     access control has to sit on a server. */
+  var GATE_CODE = '123';
+
+  function unlockGate() {
+    els.gate.hidden = true;
+    els.gate.style.display = 'none';
+  }
+
+  els.gateForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var ok = els.gUser.value.trim() === GATE_CODE &&
+             els.gPass1.value === GATE_CODE &&
+             els.gPass2.value === GATE_CODE;
+    if (ok) {
+      unlockGate();
+    } else {
+      els.gateErr.hidden = false;
+      els.gateForm.classList.remove('shake');
+      void els.gateForm.offsetWidth;
+      els.gateForm.classList.add('shake');
+      setTimeout(function () { els.gateErr.hidden = true; }, 2600);
+    }
+  });
+
+  window.__VT_UNLOCK__ = unlockGate;
   window.__VT_READY__ = true;
   window.__VT_DEBUG__ = function () {
     return {
       tracks: tracks.length, selected: selectedId, zoom: view.zoom,
       marked: tracks.filter(function(t){return t.marked}).map(function(t){return t.id}),
       faceReady: faceReady, armed: tamper.armed,
+      segReady: !!segNet, segOn: segOn, ghosts: ghosts.length,
+      reclaimed: tracks.filter(function (t) { return t.reclaimed; }).map(function (t) { return t.id; }),
       recording: !!rec.recorder, clips: clips.length,
       people: tracks.filter(function (t) { return t.cls === 'person'; }).map(function (t) {
         return { id: t.id, ageN: t.ageN, age: t.ageN ? Math.round(t.ageSum / t.ageN) : null,

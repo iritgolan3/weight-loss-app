@@ -31,7 +31,12 @@ FACE_API = "@vladmandic/face-api@1.7.15"
 PACKAGES = {
     "faceapi": (FACE_API, "package/dist/face-api.js"),
     "cocossd": ("@tensorflow-models/coco-ssd@2.2.3", "package/dist/coco-ssd.min.js"),
+    "bodypix": ("@tensorflow-models/body-pix@2.2.1", "package/dist/body-pix.min.umd.js"),
 }
+# Person segmentation: MobileNetV1, stride 16, multiplier 0.5 - the smallest
+# BodyPix variant, since this runs alongside detection on the same GPU.
+SEG_BASE = ("https://storage.googleapis.com/tfjs-models/savedmodel/bodypix"
+            "/mobilenet/float/050")
 # The .bin files hold uint8-quantized weights, so the manifest that describes
 # the scale and zero point travels with them.
 FACE_WEIGHTS = {
@@ -88,6 +93,7 @@ def main() -> int:
     npm_files(FACE_API, face_members)
     faceapi_js = (CACHE / "face-api.js").read_text()
     coco = npm_file(*PACKAGES["cocossd"], CACHE / "coco-ssd.min.js").read_text()
+    bodypix_js = npm_file(*PACKAGES["bodypix"], CACHE / "body-pix.min.umd.js").read_text()
 
     print("Collecting the model...")
     manifest_path = fetch(f"{MODEL_BASE}/model.json", CACHE / "model" / "model.json")
@@ -113,7 +119,21 @@ def main() -> int:
         }
 
     html = (HERE / "template.html").read_text()
+    seg_manifest_path = fetch(f"{SEG_BASE}/model-stride16.json", CACHE / "seg" / "model.json")
+    seg_manifest = json.loads(seg_manifest_path.read_text())
+    seg_shards = [p for g in seg_manifest["weightsManifest"] for p in g["paths"]]
+    seg_blob = b"".join(
+        fetch(f"{SEG_BASE}/{sname}", CACHE / "seg" / sname).read_bytes() for sname in seg_shards
+    )
+    print(f"  segmentation: {len(seg_blob) / 1e6:.1f} MB")
+    payload["seg"] = {
+        "topology": seg_manifest["modelTopology"],
+        "manifest": seg_manifest["weightsManifest"],
+        "weights": base64.b64encode(seg_blob).decode("ascii"),
+    }
+
     html = html.replace("/*__FACEAPI__*/", faceapi_js)
+    html = html.replace("/*__BODYPIX__*/", bodypix_js)
     html = html.replace("/*__COCOSSD__*/", coco)
     html = html.replace("/*__MODELDATA__*/",
                         "window.__VT_MODEL__=" + json.dumps(payload, separators=(",", ":")) + ";")

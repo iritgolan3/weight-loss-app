@@ -12,6 +12,14 @@ python build.py          # writes dist/VisionTrack-Live.html (~26 MB)
 Then double-click the file. It opens in the browser, asks for camera permission
 and starts tracking.
 
+## The access gate
+
+The app opens on a GDA-branded sign-in card. **It is a demo prop, not security.**
+The code runs in the page, so the expected value is readable by anyone who opens
+the file; `123` in all three fields lets you through. Real access control needs a
+server that holds the check. Treat this as the product shell's front door, not a
+lock.
+
 ## What it does
 
 * **Persistent ids.** Every detected object keeps its id while the tracker
@@ -34,6 +42,24 @@ and starts tracking.
   the panel. It does not identify species beyond those ten.
 * **English / Hebrew toggle**, remembered per browser. The terminal boot screen
   stays left-to-right in both, because a terminal does.
+* **Silhouette mode.** The `▣` button swaps bounding boxes for a segmented green
+  silhouette (BodyPix MobileNet 0.5, stride 16). It costs real frame rate, so it
+  is off by default and one press turns it back off.
+* **Appearance re-identification.** When the tracker drops someone behind a
+  pillar or out of frame, a naive tracker returns a new id and the same shopper
+  is counted twice. A coarse colour descriptor — torso band, leg band, whole box,
+  build — lets a reappearing figure inherit its old id within 45 seconds.
+
+### What re-identification here is, and is not
+
+It reads **clothing colour and proportion**, not faces. It is scoped to the
+current session, stored only in memory, and it breaks the moment someone changes
+clothes. That is deliberate: it solves the double-counting problem without
+building a biometric identity record. Recognising a person across a change of
+clothes means storing face templates, which is biometric processing and carries
+obligations — notice, lawful basis, retention limits, DPIA under GDPR, and
+stricter rules again under laws like Illinois BIPA. That is a decision for the
+operator and their counsel, not something to switch on by default.
 * **Tamper watch.** A struck, re-aimed or covered camera changes nearly the
   whole frame at once, which object motion never does. That, a collapse in
   brightness, or an accelerometer shock on a phone starts a recording by itself.
@@ -61,9 +87,31 @@ unidentified figure, and nothing that would attach a name to them.
 ### What the detector cannot name
 
 COCO-SSD knows 80 coarse classes. It reports `car`, never a make, model or year,
-and it has no firearm class at all, so weapon detection and gun-type
-identification are not available here. Adding either means training or sourcing
-a model for it; printing a guess would be a fabricated detection.
+and it has no firearm class at all. Adding either means a second model; printing
+a guess would be a fabricated detection.
+
+**Vehicle make / model / year.** Public fine-grained datasets are
+Stanford Cars (196 classes, nothing after 2012), CompCars (~1,700 models),
+VMMRdb (~9,000 classes, 1950–2016) and BoxCars116k (surveillance viewpoints).
+None covers 2025 model years, so a purely visual classifier cannot name a 2025
+Audi A5 — the training data does not exist publicly. For an exact make, model
+and year the practical route is the one real systems use: read the number plate
+(ANPR) and look the registration up. Vendors in that space include Plate
+Recognizer, Spectrico's make/model classifier and Sighthound.
+
+**Weapons.** There is no COCO firearm class. Public options are the UGR/Sohas
+handgun-and-knife sets and the various gun datasets on Roboflow Universe, fine-
+tuned into YOLOv8/YOLO11. Be aware of the failure mode before deploying in a
+mall: open weapon detectors routinely fire on phones, umbrellas, power tools and
+dark clothing folds, and a false gun alert is not a harmless error — it triggers
+an evacuation or an armed response. The commercial vendors in this space
+(ZeroEyes, Omnilert, Actuate, Evolv) exist because clearing that accuracy bar is
+the hard part, not the detection itself.
+
+Either model belongs in the **Python edition**, not this one:
+`backend/app/models/detector.py` is the single swap point, it already accepts any
+Ultralytics-format weights, and a GPU there will carry two models where a browser
+will not.
 
 ## How it differs from the desktop app
 
