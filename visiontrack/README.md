@@ -42,6 +42,8 @@ video frames — nothing in the UI is simulated or pre-scripted.
 1. **Python 3.10 – 3.12** — <https://www.python.org/downloads/>
    During setup, tick **“Add python.exe to PATH”**.
 2. **Node.js LTS (20 or newer)** — <https://nodejs.org/>
+   Only needed to build the UI. The distributed zip already ships `frontend/dist`,
+   so running from that zip needs Python alone.
 3. ~3 GB of free disk space (PyTorch and the model weights).
 4. A GPU is optional. Without one, everything runs on the CPU.
 
@@ -396,6 +398,7 @@ Add `--video path\to\your.mp4` to run it against your own footage, and
 | *“The annotated video came out empty”* | The source file moved or was deleted after analysis. Re-upload it. |
 | Port 8000 already in use | Start the backend with `--port 8010` and set `VISIONTRACK_BACKEND=http://127.0.0.1:8010` for the dev server. |
 | `windows-powershell.ps1` refuses to run | Use `powershell -ExecutionPolicy Bypass -File .\windows-powershell.ps1`. |
+| Windows blocks the launcher (App Control, SmartScreen, "Windows protected your PC") | Files downloaded from the internet carry a blocked mark. Delete what you extracted, right-click the **.zip** → Properties → tick **Unblock** → Apply, then extract again. If it is still blocked, follow `manual-commands.txt`: typed commands are not subject to script blocking. |
 
 Backend errors always come back as `{"error": {"code", "message", "hint"}}` and
 are surfaced in the UI as a toast with an actionable hint — nothing fails
