@@ -17,3 +17,6 @@ data/settings.json
 # Rendered exports
 exports/*
 !exports/.gitkeep
+
+# TypeScript build cache
+frontend/tsconfig.tsbuildinfo
