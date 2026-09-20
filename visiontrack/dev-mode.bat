@@ -7,7 +7,7 @@ REM ============================================================
 cd /d "%~dp0"
 
 if not exist "backend\.venv\Scripts\python.exe" (
-    echo Run start.bat once first to set everything up.
+    echo Run START-HERE.bat once first to set everything up.
     pause
     exit /b 1
 )

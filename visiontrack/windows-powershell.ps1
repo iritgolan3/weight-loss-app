@@ -1,7 +1,7 @@
 <#
     VisionTrack - one-click start for Windows PowerShell.
     Usage:  Right-click -> "Run with PowerShell", or in a terminal:
-              powershell -ExecutionPolicy Bypass -File .\start.ps1
+              powershell -ExecutionPolicy Bypass -File .\windows-powershell.ps1
             Add -Dev to run the Vite dev server with hot reload instead.
 #>
 param([switch]$Dev)

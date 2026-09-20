@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VisionTrack - one-click start for macOS / Linux.
-#   ./start.sh         build the UI and serve everything on :8000
-#   ./start.sh --dev   run the backend plus the Vite dev server on :5173
+#   ./mac-linux.sh         build the UI and serve everything on :8000
+#   ./mac-linux.sh --dev   run the backend plus the Vite dev server on :5173
 set -euo pipefail
 cd "$(dirname "$0")"
 

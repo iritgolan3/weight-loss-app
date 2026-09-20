@@ -49,20 +49,20 @@ video frames — nothing in the UI is simulated or pre-scripted.
 
 1. Download/clone this repository.
 2. Open the `visiontrack` folder.
-3. Double-click **`start.bat`**.
+3. Double-click **`START-HERE.bat`**. (Windows hides file extensions, so look for the one whose type is **Windows Batch File** — it is the only .bat at the top level besides `dev-mode.bat`.)
 4. Wait for the first-run setup (it downloads PyTorch — several minutes).
 5. Your browser opens at <http://localhost:8000>.
 6. **A camera is connected and analysis starts by itself.**
 7. No camera attached? Click **Load demo**, or **Upload video** and pick an MP4,
    then click **START ANALYSIS**.
 
-`start.bat` creates the Python environment, installs the dependencies, builds
+`START-HERE.bat` creates the Python environment, installs the dependencies, builds
 the UI and starts the server. Later runs skip straight to the last step.
 
 PowerShell users can run the same thing with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\start.ps1
+powershell -ExecutionPolicy Bypass -File .\windows-powershell.ps1
 ```
 
 ### Manual steps (any OS)
@@ -85,7 +85,7 @@ npm run dev        # dev server with hot reload at http://localhost:5173
 * **`npm run dev`** → open <http://localhost:5173> (proxies the API to :8000).
 * **`npm run build`** → open <http://localhost:8000> (backend serves the built UI).
 
-`start-dev.bat` / `./start.sh --dev` launch both in development mode.
+`dev-mode.bat` / `./mac-linux.sh --dev` launch both in development mode.
 
 ---
 
@@ -125,7 +125,7 @@ npm run dev        # dev server with hot reload at http://localhost:5173
 ### Opening straight into the camera
 
 **By default the app connects a camera and starts analysing by itself.** Launch
-`start.bat`, wait for the browser to open, and the live feed is already running —
+`START-HERE.bat`, wait for the browser to open, and the live feed is already running —
 no buttons to press.
 
 If no camera answers, you get the normal start screen with a message saying so;
@@ -182,8 +182,10 @@ and asks you to upload a video instead; it never shows fabricated results.
 
 ```
 visiontrack/
-├── start.bat / start.ps1 / start.sh    one-click launchers
-├── start-dev.bat                       backend + Vite dev server
+├── START-HERE.bat                       one-click launcher (Windows)
+├── windows-powershell.ps1 / mac-linux.sh   the same for PowerShell / macOS / Linux
+├── dev-mode.bat                        backend + Vite dev server
+├── instructions-hebrew.txt             quick-start notes in Hebrew
 ├── backend/
 │   ├── requirements.txt
 │   └── app/
@@ -385,7 +387,7 @@ Add `--video path\to\your.mp4` to run it against your own footage, and
 
 | Symptom | Cause / fix |
 | --- | --- |
-| *“Cannot reach the VisionTrack backend”* | The Python server is not running. Start `start.bat` again, or check the console window for a traceback. |
+| *“Cannot reach the VisionTrack backend”* | The Python server is not running. Start `START-HERE.bat` again, or check the console window for a traceback. |
 | *“Could not download model weights”* | No internet on first run. Download e.g. `yolov8n.pt` from the Ultralytics assets releases manually and place it in `data/models/`. |
 | *“OpenCV could not open …”* | The file is corrupt, or your OpenCV build lacks that codec. Re-encode to MP4/H.264. |
 | Video is black but overlays appear | The **browser** cannot decode the file (common for MKV/AVI, and for H.264 in Chromium builds without proprietary codecs). Analysis and export are unaffected; re-encode to MP4/H.264 or WebM for in-browser playback. |
@@ -393,7 +395,7 @@ Add `--video path\to\your.mp4` to run it against your own footage, and
 | Analysis is very slow | CPU inference. Switch to Fast mode, lower the resolution, or raise *detect every N frames*. |
 | *“The annotated video came out empty”* | The source file moved or was deleted after analysis. Re-upload it. |
 | Port 8000 already in use | Start the backend with `--port 8010` and set `VISIONTRACK_BACKEND=http://127.0.0.1:8010` for the dev server. |
-| `start.ps1` refuses to run | Use `powershell -ExecutionPolicy Bypass -File .\start.ps1`. |
+| `windows-powershell.ps1` refuses to run | Use `powershell -ExecutionPolicy Bypass -File .\windows-powershell.ps1`. |
 
 Backend errors always come back as `{"error": {"code", "message", "hint"}}` and
 are surfaced in the UI as a toast with an actionable hint — nothing fails
