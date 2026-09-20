@@ -48,16 +48,54 @@
   main{flex:1;display:flex;min-height:0;overflow:hidden}
   @media (max-width:860px){main{flex-direction:column}}
 
-  .stage{flex:1;min-width:0;min-height:0;position:relative;background:#000;display:grid;place-items:center}
-  .frame{position:relative;display:flex;max-width:100%;max-height:100%}
+  .stage{flex:1;min-width:0;min-height:0;position:relative;background:#000;overflow:hidden}
+  .viewport{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
+  .frame{position:relative;display:flex;max-width:100%;max-height:100%;
+         transform-origin:0 0;will-change:transform}
   video{display:block;width:auto;height:auto;max-width:100%;max-height:100%;background:#000}
-  canvas.overlay{position:absolute;inset:0;width:100%;height:100%}
+  canvas.overlay{position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
 
   .hud{
     position:absolute;top:10px;inset-inline-start:10px;display:flex;flex-direction:column;gap:5px;
     pointer-events:none;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
   }
-  .hud div{background:rgba(0,0,0,.6);padding:4px 8px;border-radius:3px;color:var(--neon);backdrop-filter:blur(3px)}
+  .hud div{background:rgba(0,0,0,.6);padding:4px 8px;border-radius:3px;color:var(--neon)}
+
+  .zoombox{
+    position:absolute;inset-inline-end:10px;top:10px;display:flex;flex-direction:column;gap:6px;
+    align-items:stretch;z-index:3;
+  }
+  .zoombox button{
+    width:38px;height:38px;padding:0;font-size:17px;line-height:1;
+    background:rgba(0,0,0,.66);border-color:rgba(255,255,255,.14);color:#eaf3ef;
+  }
+  .zoombox button.on{border-color:rgba(57,255,20,.6);background:rgba(57,255,20,.16);color:var(--neon)}
+  .recbar{
+    position:absolute;inset-inline-start:10px;bottom:10px;display:flex;gap:8px;align-items:center;
+    z-index:3;flex-wrap:wrap;max-width:calc(100% - 20px);
+  }
+  .recdot{
+    display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.72);
+    border:1px solid rgba(255,77,77,.5);color:#ff6b6b;border-radius:4px;padding:5px 9px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+  }
+  .recdot i{width:8px;height:8px;border-radius:50%;background:#ff4d4d;animation:blip 1s infinite}
+  .alert{
+    background:rgba(255,176,32,.14);border:1px solid rgba(255,176,32,.5);color:#ffce7a;
+    border-radius:4px;padding:5px 9px;font-family:var(--mono);font-size:10px;
+  }
+  .clips{border-top:1px solid var(--line);background:#0c1113;flex:none;max-height:130px;overflow-y:auto}
+  .clip{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line-soft)}
+  .clip .cl{font-family:var(--mono);font-size:10px;color:var(--muted);flex:1;min-width:0}
+  .clip .cl b{color:#eaf3ef;display:block}
+  .clip a{
+    font-family:var(--mono);font-size:10px;color:var(--neon);text-decoration:none;
+    border:1px solid rgba(57,255,20,.4);border-radius:4px;padding:4px 8px;background:rgba(57,255,20,.1);
+  }
+  .zoomlevel{
+    text-align:center;font-family:var(--mono);font-size:10px;color:var(--neon);
+    background:rgba(0,0,0,.66);border-radius:4px;padding:3px 0;direction:ltr;
+  }
   #hudRes{direction:ltr;unicode-bidi:isolate}
   .stat dd{direction:ltr;unicode-bidi:isolate}
   .row .n span,.row .m{unicode-bidi:isolate}
@@ -90,6 +128,29 @@
     letter-spacing:.18em;text-transform:uppercase;color:var(--muted);flex:none;
   }
   .panel-h b{color:var(--neon);font-weight:700}
+  #detail{border-bottom:1px solid var(--line);background:#111618;flex:none;max-height:46%;overflow-y:auto}
+  .detail-h{
+    display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line-soft);
+    position:sticky;top:0;background:#111618;
+  }
+  .detail-h .t{font-family:var(--mono);font-size:12px;color:var(--magenta);font-weight:700}
+  .detail-h button{margin-inline-start:auto;padding:3px 8px;font-size:10px}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 12px;border-bottom:1px solid rgba(31,42,44,.45)}
+  .kv dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0}
+  .kv dd{font-family:var(--mono);font-size:11px;color:#eaf3ef;margin:0;text-align:end;direction:ltr;unicode-bidi:isolate}
+  .kv dd.est{color:var(--amber)}
+  .kv dd.na{color:var(--faint)}
+  .note{padding:8px 12px;font-size:10.5px;line-height:1.65;color:var(--muted);background:rgba(255,176,32,.06);
+        border-top:1px solid rgba(255,176,32,.18)}
+  .calib{padding:9px 12px;display:flex;gap:6px;align-items:center;border-top:1px solid var(--line-soft)}
+  .calib input{
+    flex:1;min-width:0;background:#07090a;border:1px solid var(--line);color:#eaf3ef;
+    font-family:var(--mono);font-size:11px;padding:6px 8px;border-radius:4px;direction:ltr;text-align:center;
+  }
+  .row.sel{background:rgba(255,43,209,.12)}
+  .row.sel .pip{background:var(--magenta)}
+  .row{cursor:pointer}
+  .row:hover{background:rgba(255,255,255,.03)}
   #list{overflow-y:auto;flex:1;min-height:0}
   .row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line-soft)}
   .pip{width:3px;height:30px;border-radius:2px;background:var(--neon);flex:none}
@@ -124,9 +185,24 @@
 
 <main>
   <div class="stage">
-    <div class="frame">
-      <video id="video" playsinline muted autoplay></video>
-      <canvas id="overlay" class="overlay"></canvas>
+    <div class="viewport" id="viewport">
+      <div class="frame" id="frame">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="overlay" class="overlay"></canvas>
+      </div>
+    </div>
+
+    <div class="zoombox" id="zoombox" hidden>
+      <button id="zoomIn" title="הגדל">+</button>
+      <div class="zoomlevel" id="zoomLevel">1.0x</div>
+      <button id="zoomOut" title="הקטן">−</button>
+      <button id="follow" title="עקוב אחרי הנבחר">⌖</button>
+      <button id="recBtn" title="הקלטה ידנית">●</button>
+    </div>
+
+    <div class="recbar" id="recbar" hidden>
+      <span class="recdot" id="recDot" hidden><i></i><span id="recTime">0:00</span></span>
+      <span class="alert" id="alertMsg" hidden></span>
     </div>
 
     <div class="hud" id="hud" hidden>
@@ -150,8 +226,10 @@
   </div>
 
   <aside>
+    <div id="detail" hidden></div>
     <div class="panel-h"><span>אובייקטים במעקב</span><b id="count">0</b></div>
     <div id="list"><div class="empty">לחץ "הפעל מצלמה" כדי להתחיל</div></div>
+    <div class="clips" id="clips" hidden></div>
     <dl class="stats">
       <div class="stat"><dt>FPS</dt><dd id="sFps">—</dd></div>
       <div class="stat"><dt>על המסך</dt><dd id="sNow">0</dd></div>
@@ -161,7 +239,8 @@
   </aside>
 </main>
 
-<script>/*__TFJS__*/</script>
+<script>/*__FACEAPI__*/</script>
+<script>window.tf=faceapi.tf;</script>
 <script>/*__COCOSSD__*/</script>
 <script>/*__MODELDATA__*/</script>
 <script>/*__APP__*/</script>
