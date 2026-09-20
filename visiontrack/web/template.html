@@ -451,11 +451,8 @@
     </div>
   </div>
   <div class="toolbar">
-    <button id="lang" title="English / עברית">EN</button>
-    <div class="sep"></div>
-    <button id="flip" disabled data-i18n="flip">הפוך מצלמה</button>
-    <button id="stop" class="danger" disabled data-i18n="stop">עצור</button>
-    <button id="start" class="primary" data-i18n="start">הפעל מצלמה</button>
+    <button id="stop" class="danger" disabled data-i18n="stop">Stop</button>
+    <button id="start" class="primary" data-i18n="start">Start camera</button>
   </div>
 </header>
 
@@ -469,15 +466,15 @@
     </div>
 
     <div class="zoombox" id="zoombox" hidden>
-      <button id="zoomIn" title="הגדל">+</button>
+      <button id="zoomIn" title="Zoom in">+</button>
       <div class="zoomlevel" id="zoomLevel">1.0x</div>
-      <button id="zoomOut" title="הקטן">−</button>
+      <button id="zoomOut" title="Zoom out">−</button>
       <div class="sep"></div>
-      <button id="follow" title="עקוב אחרי הנבחר">⌖</button>
-      <button id="ownerBtn" title="רישום בעלים / מחיקה">☻</button>
-      <button id="segBtn" title="ריבוע / צללית">▣</button>
+      <button id="follow" title="Follow the selection">⌖</button>
+      <button id="ownerBtn" title="Enrol / clear owner">☻</button>
+      <button id="segBtn" title="Box / silhouette">▣</button>
       <div class="sep"></div>
-      <button id="recBtn" title="הקלטה ידנית">●</button>
+      <button id="recBtn" title="Record">●</button>
     </div>
 
     <div class="recbar" id="recbar" hidden>
@@ -486,7 +483,7 @@
     </div>
 
     <div class="hud" id="hud" hidden>
-      <div><span class="dot"></span><span id="hudState">מזהה</span></div>
+      <div><span class="dot"></span><span id="hudState">Detecting</span></div>
       <div id="hudRes">—</div>
     </div>
 
@@ -508,11 +505,11 @@
       <div class="splash-inner">
         <h2>VISIONTRACK</h2>
         <p id="splashMsg">
-          זיהוי ומעקב אחרי אנשים ורכבים — ישירות בדפדפן.<br>
-          שום דבר לא מותקן, שום דבר לא נשלח לאינטרנט.<br>
-          הכל רץ על המכשיר שלך.
+          Detects and tracks people and vehicles, straight in the browser.<br>
+          Nothing is installed, nothing is sent to the internet.<br>
+          It all runs on your own device.
         </p>
-        <button class="primary" id="startBig" style="padding:11px 22px;font-size:13px">הפעל את המצלמה</button>
+        <button class="primary" id="startBig" style="padding:11px 22px;font-size:13px">Start the camera</button>
         <div class="bar" id="bar" hidden><i id="barFill"></i></div>
         <div class="err" id="err" hidden></div>
       </div>
@@ -521,25 +518,25 @@
 
   <aside>
     <div id="detail" hidden></div>
-    <div class="panel-h"><span data-i18n="tracked">אובייקטים במעקב</span><b id="count">0</b></div>
-    <div id="list"><div class="empty">לחץ "הפעל מצלמה" כדי להתחיל</div></div>
+    <div class="panel-h"><span data-i18n="tracked">Tracked objects</span><b id="count">0</b></div>
+    <div id="list"><div class="empty">Press "Start camera" to begin</div></div>
     <div class="clips" id="clips" hidden></div>
-    <div class="panel-h"><span data-i18n="legend">מקרא</span></div>
+    <div class="panel-h"><span data-i18n="legend">Legend</span></div>
     <div class="legend" id="legend">
-      <span><i style="background:#39ff14"></i><b data-k="male">גבר</b></span>
-      <span><i style="background:#ff5fbf"></i><b data-k="female">אישה</b></span>
-      <span><i style="background:#e8eef5"></i><b data-k="unknownG">לא נקרא</b></span>
-      <span><i style="background:#00e5ff"></i><b data-k="objectG">חפץ</b></span>
-      <span><i style="background:#ff3b30"></i><b data-k="markedG">מסומן</b></span>
-      <span><i style="background:#ff2bd1"></i><b data-k="selectedG">נבחר</b></span>
-      <span><i style="background:#ff1f1f"></i><b data-k="weaponG">נשק</b></span>
-      <span><i style="background:#000;box-shadow:0 0 0 1px #fff inset"></i><b data-k="ownerG">בעלים</b></span>
+      <span><i style="background:#39ff14"></i><b data-k="male">Male</b></span>
+      <span><i style="background:#ff5fbf"></i><b data-k="female">Female</b></span>
+      <span><i style="background:#e8eef5"></i><b data-k="unknownG">Unread</b></span>
+      <span><i style="background:#00e5ff"></i><b data-k="objectG">Object</b></span>
+      <span><i style="background:#ff3b30"></i><b data-k="markedG">Marked</b></span>
+      <span><i style="background:#ff2bd1"></i><b data-k="selectedG">Selected</b></span>
+      <span><i style="background:#ff1f1f"></i><b data-k="weaponG">Weapon</b></span>
+      <span><i style="background:#000;box-shadow:0 0 0 1px #fff inset"></i><b data-k="ownerG">Owner</b></span>
     </div>
     <dl class="stats">
       <div class="stat"><dt>FPS</dt><dd id="sFps">—</dd></div>
-      <div class="stat"><dt>על המסך</dt><dd id="sNow">0</dd></div>
-      <div class="stat"><dt>סה״כ</dt><dd id="sTotal">0</dd></div>
-      <div class="stat"><dt>זמן</dt><dd id="sTime">0:00</dd></div>
+      <div class="stat"><dt>On screen</dt><dd id="sNow">0</dd></div>
+      <div class="stat"><dt>Total</dt><dd id="sTotal">0</dd></div>
+      <div class="stat"><dt>Time</dt><dd id="sTime">0:00</dd></div>
     </dl>
   </aside>
 </main>

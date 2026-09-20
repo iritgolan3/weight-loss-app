@@ -69,43 +69,7 @@
   var CLIP_SECONDS = 30;        // auto-clip length, extended by further triggers
 
   // ------------------------------------------------------------------ i18n
-  var lang = 'he';
   var STR = {
-    he: {
-      start: 'הפעל מצלמה', stop: 'עצור', flip: 'הפוך מצלמה',
-      startBig: 'הפעל את המצלמה', tracked: 'אובייקטים במעקב',
-      fps: 'FPS', onScreen: 'על המסך', total: 'סה״כ', time: 'זמן',
-      clear: 'נקה', mark: 'סמן', unmark: 'בטל סימון',
-      cls: 'סוג', conf: 'ודאות זיהוי', first: 'נראה לראשונה', dur: 'זמן במעקב',
-      state: 'מצב', speed: 'מהירות', dir: 'כיוון', pos: 'מיקום בפריים',
-      box: 'גודל תיבה', share: 'חלק מגובה הפריים', pts: 'נקודות מסלול',
-      age: 'גיל משוער', gender: 'מגדר נראה', noface: 'לא נמצאו פנים',
-      computing: 'מחשב…', height: 'גובה משוער', needCal: 'דרוש כיול',
-      calBtn: 'כייל', calReset: 'אפס', calPh: 'גובה אמיתי בס״מ',
-      moving: 'בתנועה', still: 'עומד', male: 'גבר', female: 'אישה',
-      nothing: 'לא זוהה כלום כרגע.', hint: 'נסה להתקרב או להאיר את החדר.',
-      press: 'לחץ "הפעל מצלמה" כדי להתחיל', marked: 'מסומן',
-      about: 'מידע', measurements: 'מדידות',
-      tZoomIn: 'הגדל', tZoomOut: 'הקטן', tFollow: 'עקוב אחרי הנבחר',
-      tOwner: 'רישום בעלים / מחיקה', tSeg: 'ריבוע / צללית', tRec: 'הקלטה ידנית',
-      unknownG: 'לא נקרא', objectG: 'חפץ', markedG: 'מסומן', selectedG: 'נבחר',
-      weaponG: 'נשק', ownerG: 'בעלים', legend: 'מקרא',
-      hudDet: 'מזהה', hudFace: 'מזהה · פנים פעיל',
-      bootDetector: 'טוען את YOLO26m…', slowWarn: 'רץ על מעבד — איטי. נדרש WebGPU',
-      bootCamera: 'מתחבר למצלמה…', bootFace: 'טוען זיהוי פנים…',
-      tMove: 'תזוזה חדה של המצלמה', tCover: 'המצלמה כוסתה', tShock: 'זוהתה פגיעה פיזית',
-      recManual: 'הקלטה ידנית', recOn: 'מקליט', recCont: 'ממשיך להקליט',
-      recNo: 'הדפדפן לא תומך בהקלטה',
-      errNoCam: 'הדפדפן הזה לא תומך בגישה למצלמה.',
-      errNoCamHint: 'נסה לפתוח את הקובץ ב-Chrome או ב-Edge.',
-      errModels: 'טעינת מנוע הזיהוי נכשלה.',
-      errOpen: 'לא הצלחתי לפתוח את המצלמה.',
-      errFlip: 'לא הצלחתי להחליף מצלמה.',
-      hintBusyGeneric: 'אשר את הבקשה לגישה למצלמה, וסגור תוכנות אחרות שמשתמשות בה.',
-      hintDenied: 'הגישה נדחתה. לחץ על סמל המצלמה בשורת הכתובת, אפשר גישה, ורענן.',
-      hintNoDevice: 'לא נמצאה מצלמה מחוברת למכשיר.',
-      hintBusy: 'תוכנה אחרת תופסת את המצלמה. סגור אותה ונסה שוב.'
-    },
     en: {
       start: 'Start camera', stop: 'Stop', flip: 'Flip camera',
       startBig: 'Start the camera', tracked: 'Tracked objects',
@@ -142,57 +106,34 @@
       hintBusy: 'Another app is holding the camera. Close it and try again.'
     }
   };
-  function T(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
+  function T(k) { return STR.en[k] || k; }
 
-  /* The layout is left-to-right in both languages, so a Hebrew word sitting in
-     a string of Latin numbers swallows the separators around it and reorders
-     what follows - "0:20 · stationary · ~55" came out as "0:20 · 55~ · עומד".
-     First-strong isolate + pop marks fence each word into its own run. */
-  function iso(str) { return '\u2068' + str + '\u2069'; }
 
-  var HE = {
-    person: 'אדם', bicycle: 'אופניים', car: 'רכב', motorcycle: 'אופנוע',
-    bus: 'אוטובוס', truck: 'משאית', dog: 'כלב', cat: 'חתול',
-    'traffic light': 'רמזור', 'stop sign': 'תמרור עצור', backpack: 'תיק גב',
-    handbag: 'תיק יד', suitcase: 'מזוודה', chair: 'כיסא',
-    'cell phone': 'טלפון', bottle: 'בקבוק',
-    bird: 'ציפור', horse: 'סוס', sheep: 'כבשה', cow: 'פרה',
-    elephant: 'פיל', bear: 'דוב', zebra: 'זברה', giraffe: 'ג\'ירפה'
-  };
-  function clsName(c) { return lang === 'he' ? (HE[c] || c) : c; }
+
+  function clsName(c) { return c; }
 
   /* Real facts for the animal classes the detector can actually name. The
      model distinguishes these ten and nothing finer, so no species beyond
      them is claimed. */
   var ANIMALS = {
-    dog: { he: 'כלב מבוית. חוש ריח חזק פי אלפי מונים מזה של אדם. תוחלת חיים 10-13 שנה.',
-           en: 'Domestic dog. Sense of smell orders of magnitude sharper than a human\'s. Lifespan 10-13 years.' },
-    cat: { he: 'חתול מבוית. ישן 12-16 שעות ביממה. שומע תדרים גבוהים בהרבה מאדם.',
-           en: 'Domestic cat. Sleeps 12-16 hours a day. Hears far higher frequencies than people do.' },
-    bird: { he: 'ציפור. עצמות חלולות מפחיתות משקל לתעופה. המודל לא מבחין בין מינים.',
-            en: 'Bird. Hollow bones cut weight for flight. The model does not tell species apart.' },
-    horse: { he: 'סוס. ישן בעמידה בזכות מנגנון נעילה בברכיים. שדה ראייה כמעט 360 מעלות.',
-             en: 'Horse. Sleeps standing via a stay apparatus in the legs. Near 360-degree field of view.' },
-    sheep: { he: 'כבשה. מעלת גירה, זיכרון פנים טוב לשנים. עדר חברתי מאוד.',
-             en: 'Sheep. A ruminant with years-long facial memory. Strongly social in flocks.' },
-    cow: { he: 'פרה. קיבה בעלת ארבעה תאים לעיכול צמחים. מעלת גירה שעות ביום.',
-           en: 'Cow. A four-chambered stomach digests plant matter. Chews cud for hours daily.' },
-    elephant: { he: 'פיל. היונק היבשתי הגדול ביותר. חדק עם עשרות אלפי שרירים.',
-                en: 'Elephant. The largest land mammal. A trunk with tens of thousands of muscles.' },
-    bear: { he: 'דוב. אוכל-כול. מינים רבים נכנסים לתרדמת חורף.',
-            en: 'Bear. Omnivore. Many species enter winter dormancy.' },
-    zebra: { he: 'זברה. דגם הפסים ייחודי לכל פרט, כמו טביעת אצבע.',
-             en: 'Zebra. The stripe pattern is unique to each individual, like a fingerprint.' },
-    giraffe: { he: 'ג\'ירפה. היונק הגבוה ביותר. שבע חוליות צוואר, כמו אצל אדם.',
-               en: 'Giraffe. The tallest mammal. Seven neck vertebrae, the same as a human.' }
+    dog: 'Domestic dog. Sense of smell orders of magnitude sharper than a human\'s. Lifespan 10-13 years.',
+    cat: 'Domestic cat. Sleeps 12-16 hours a day. Hears far higher frequencies than people do.',
+    bird: 'Bird. Hollow bones cut weight for flight. The model does not tell species apart.',
+    horse: 'Horse. Sleeps standing via a stay apparatus in the legs. Near 360-degree field of view.',
+    sheep: 'Sheep. A ruminant with years-long facial memory. Strongly social in flocks.',
+    cow: 'Cow. A four-chambered stomach digests plant matter. Chews cud for hours daily.',
+    elephant: 'Elephant. The largest land mammal. A trunk with tens of thousands of muscles.',
+    bear: 'Bear. Omnivore. Many species enter winter dormancy.',
+    zebra: 'Zebra. The stripe pattern is unique to each individual, like a fingerprint.',
+    giraffe: 'Giraffe. The tallest mammal. Seven neck vertebrae, the same as a human.'
   };
 
   var els = {};
-  ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop','flip',
+  ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop',
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
    'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn',
-   'lang','boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
+   'boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
    'gate','gateForm','gUser','gPass1','gPass2','gateErr','gateNote','gateBtn','segBtn']
     .forEach(function (id) { els[id] = document.getElementById(id); });
 
@@ -243,9 +184,7 @@
   }
 
   function human(s) {
-    var U = lang === 'he'
-      ? { s: ' שנ\'', m: ' דק\'', h: ' שע\'' }
-      : { s: ' sec', m: ' min', h: ' hour' };
+    var U = { s: ' sec', m: ' min', h: ' hour' };
     if (s < 60) return Math.round(s) + U.s;
     var m = Math.floor(s / 60);
     if (m < 60) return m + U.m;
@@ -259,8 +198,8 @@
     var dx = b[0] - a[0], dy = b[1] - a[1];
     if (Math.hypot(dx, dy) < 6) return null;
     var deg = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-    var names = ['שמאלה', 'שמאלה-למטה', 'למטה', 'ימינה-למטה',
-                 'ימינה', 'ימינה-למעלה', 'למעלה', 'שמאלה-למעלה'];
+    var names = ['left', 'down-left', 'down', 'down-right',
+                 'right', 'up-right', 'up', 'up-left'];
     // 0deg points right in screen space, but the camera is mirrored for selfies;
     // this is the on-screen direction, which is what the operator sees.
     var idx = Math.round(((deg + 180) % 360) / 45) % 8;
@@ -628,9 +567,9 @@
     els.clips.hidden = false;
     els.clips.innerHTML = clips.map(function (c) {
       return '<div class="clip"><div class="cl"><b>' + T(c.reason) + '</b>' +
-        c.at + ' · ' + Math.round(c.seconds) + ' שנ\' · ' +
+        c.at + ' · ' + Math.round(c.seconds) + ' sec · ' +
         (c.size / 1048576).toFixed(1) + 'MB</div>' +
-        '<a href="' + c.url + '" download="' + c.name + '">שמור</a></div>';
+        '<a href="' + c.url + '" download="' + c.name + '">Save</a></div>';
     }).join('');
   }
 
@@ -721,20 +660,20 @@
 
   function startEnrolment() {
     if (!recogReady) {
-      showAlert(lang === 'he' ? 'מודל הזיהוי לא נטען' : 'Recognition model not loaded');
+      showAlert('Recognition model not loaded');
       return;
     }
     if (enrolled) {
       enrolled = null;
       try { localStorage.removeItem('vt_owner'); } catch (e) { /* ignore */ }
       tracks.forEach(function (t) { t.owner = false; });
-      showAlert(lang === 'he' ? 'הרישום נמחק' : 'Enrolment cleared');
+      showAlert('Enrolment cleared');
       els.ownerBtn.classList.remove('on');
       return;
     }
     enrolBuf = [];
     enrolling = ENROL_SAMPLES;
-    showAlert(lang === 'he' ? 'הבט למצלמה…' : 'Look at the camera…');
+    showAlert('Look at the camera…');
   }
 
   /* Runs at most once per RECOG_EVERY_MS: collects enrolment samples, or checks
@@ -754,7 +693,7 @@
       if (enrolling > 0) {
         enrolBuf.push(res.descriptor);
         enrolling--;
-        showAlert((lang === 'he' ? 'נרשם ' : 'Captured ') +
+        showAlert(('Captured ') +
                   enrolBuf.length + '/' + ENROL_SAMPLES);
         if (enrolling === 0 && enrolBuf.length) {
           var mean = new Float32Array(128);
@@ -764,7 +703,7 @@
           enrolled = mean;
           saveEnrolment(mean);
           els.ownerBtn.classList.add('on');
-          showAlert(lang === 'he' ? 'זוהה כבעלים' : 'Enrolled as owner');
+          showAlert('Enrolled as owner');
         }
         return;
       }
@@ -1064,7 +1003,7 @@
   var detailKey = null, dRefs = null;
 
   function detailSignature(t) {
-    return [selectedId, lang, t.marked ? 1 : 0, calib ? 1 : 0,
+    return [selectedId, t.marked ? 1 : 0, calib ? 1 : 0,
             t.cls === 'person' ? 1 : 0, ANIMALS[t.cls] ? 1 : 0].join('|');
   }
 
@@ -1090,7 +1029,7 @@
     if (animal) {
       html += '<div class="note" style="background:rgba(57,255,20,.06);' +
         'border-top-color:rgba(57,255,20,.2);color:var(--muted)">' +
-        '<b style="color:#eaf3ef">' + T('about') + ':</b> ' + animal[lang] + '</div>';
+        '<b style="color:#eaf3ef">' + T('about') + ':</b> ' + animal + '</div>';
     }
 
     if (isPerson) {
@@ -1098,16 +1037,12 @@
         '<input id="calibCm" type="number" inputmode="numeric" placeholder="' + T('calPh') + '" />' +
         '<button id="calibSet">' + T('calBtn') + '</button>' +
         (calib ? '<button id="calibClear">' + T('calReset') + '</button>' : '') + '</div>';
-      html += '<div class="note">' + (lang === 'he'
-        ? 'גיל ומגדר הם הערכה של מודל ראייה ממוחשבת מתוך תמונת הפנים — לא מסמך מזהה. ' +
-          'המודל טועה, במיוחד בתאורה חלשה, בזווית, או עם מסכה ומשקפיים.<br><br>' +
-          'גובה לא ניתן למדידה ממצלמה אחת בלי נקודת ייחוס. הקלד גובה אמיתי של אדם שנמצא ' +
-          'עכשיו בפריים ולחץ "' + T('calBtn') + '" — אחריו יוצג גובה משוער לאנשים <b>באותו מרחק בערך</b>.'
-        : 'Age and apparent gender are a vision model\'s estimate from the face crop, not an ' +
-          'identity record. It errs in poor light, at an angle, or behind a mask or glasses.' +
-          '<br><br>Height cannot be measured from one uncalibrated camera. Enter a real height ' +
-          'for someone currently in frame and press "' + T('calBtn') + '" — others are then ' +
-          'estimated, valid only at <b>roughly the same distance</b>.') + '</div>';
+      html += '<div class="note">' +
+        'Age and apparent gender are a vision model\'s estimate from the face crop, not an ' +
+        'identity record. It errs in poor light, at an angle, or behind a mask or glasses.' +
+        '<br><br>Height cannot be measured from one uncalibrated camera. Enter a real height ' +
+        'for someone currently in frame and press "' + T('calBtn') + '" — others are then ' +
+        'estimated, valid only at <b>roughly the same distance</b>.' + '</div>';
     }
 
     els.detail.innerHTML = html;
@@ -1162,8 +1097,8 @@
     var frameH = els.overlay.height || 1, frameW = els.overlay.width || 1;
     var seen = t.lastSeen - t.firstSeen;
 
-    dRefs.title.textContent = iso(clsName(t.cls)) + ' · ID ' + t.id +
-      (t.marked ? ' · ' + iso(T('marked')) : '');
+    dRefs.title.textContent = clsName(t.cls) + ' · ID ' + t.id +
+      (t.marked ? ' · ' + T('marked') : '');
     dRefs.title.style.color = t.marked ? '#ff3b30' : '';
     dRefs.mark.textContent = t.marked ? T('unmark') : T('mark');
 
@@ -1262,7 +1197,7 @@
       var seen = t.lastSeen - t.firstSeen;
       var extra = t.ageN > 0 ? ' · ~' + Math.round(t.ageSum / t.ageN) : '';
       var meta = clock(seen) + ' · ' +
-        iso(t.speed > STATIONARY_PX_S ? T('moving') : T('still')) + extra;
+        (t.speed > STATIONARY_PX_S ? T('moving') : T('still')) + extra;
       if (r.meta.textContent !== meta) r.meta.textContent = meta;
       var conf = Math.round(t.score * 100) + '%';
       if (r.conf.textContent !== conf) r.conf.textContent = conf;
@@ -1366,7 +1301,7 @@
      but the component names are this system's own - a boot log that advertises
      a novelty package undercuts the product it is booting. */
   var PKGS = ['gda-core', 'gda-vision-rt', 'libtensor-webgl', 'libcodec-h264',
-    'detector-ssdlite', 'tracker-iou', 'reid-appearance', 'face-tiny-fd',
+    'detector-yolo26m', 'tracker-iou', 'reid-appearance', 'face-tiny-fd',
     'attr-age-gender', 'face-embed-128', 'seg-bodypix', 'zone-engine',
     'tamper-watch', 'clip-recorder', 'gda-telemetry', 'gda-ui'];
 
@@ -1388,9 +1323,9 @@
     out.push('Processing triggers for <i>gda-core</i> (4.2.1) ...');
     out.push('');
     out.push('$ gda-vision --load-models');
-    out.push('runtime ......................... <b>tfjs 4.22.0</b>');
-    out.push('backend ......................... <b>webgl</b>');
-    out.push('detector <i>ssdlite_mobilenet_v2</i> ..... <b>18.0 MB</b>');
+    out.push('runtime ......................... <b>onnxruntime-web 1.30</b>');
+    out.push('backend ......................... <b>' + (backend || 'selecting') + '</b>');
+    out.push('detector <i>yolo26m</i> ................ <b>78.2 MB</b>');
     out.push('face detector <i>tiny_face_detector</i>');
     out.push('attribute head <i>age_gender</i>');
     out.push('segmentation <i>bodypix_mobilenet_050</i>');
@@ -1429,7 +1364,7 @@
         return rows.join('\n');
       } },
     { t: 'TREE', c: '', body: function () {
-        return ' └─ /models\n    ├─ detector\n    │   └─ ssdlite_v2\n    ├─ face\n    │   ├─ tiny_fd\n    │   └─ age_gender\n    └─ seg\n        └─ bodypix';
+        return ' └─ /models\n    ├─ detector\n    │   └─ yolo26m\n    ├─ face\n    │   ├─ tiny_fd\n    │   └─ age_gender\n    └─ seg\n        └─ bodypix';
       } },
     { t: 'SIGNAL', c: 'cyan', body: function (k) {
         var rows = [];
@@ -1726,7 +1661,7 @@
     // Give auto-exposure a moment to settle so the first frames do not look like tampering.
     setTimeout(function () { tamper.armed = true; }, 2500);
     armMotionSensor();
-    els.stop.disabled = els.flip.disabled = false;
+    els.stop.disabled = false;
     els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet') +
       (backend ? ' · ' + backend.toUpperCase() : '');
 
@@ -1753,25 +1688,13 @@
     stopRecording();
     els.splash.hidden = false;
     els.bar.hidden = true;
-    els.splashMsg.textContent = 'הניתוח נעצר. ' + (nextId - 1) + ' אובייקטים זוהו בסך הכל.';
+    els.splashMsg.textContent = 'Analysis stopped. ' + (nextId - 1) +
+      ' objects tracked in total.';
     els.startBig.disabled = els.start.disabled = false;
-    els.stop.disabled = els.flip.disabled = true;
+    els.stop.disabled = true;
     els.frame.style.transform = '';
     var ctx = els.overlay.getContext('2d');
     ctx.clearRect(0, 0, els.overlay.width, els.overlay.height);
-  }
-
-  async function flipCamera() {
-    facing = facing === 'environment' ? 'user' : 'environment';
-    if (!running) return;
-    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
-      els.video.srcObject = stream;
-      await els.video.play().catch(function () {});
-    } catch (e) {
-      fail(T('errFlip'), String((e && e.message) || e));
-    }
   }
 
   // ------------------------------------------------------------------- events
@@ -1779,20 +1702,13 @@
   els.start.addEventListener('click', startCamera);
   els.startBig.addEventListener('click', startCamera);
   els.stop.addEventListener('click', stopCamera);
-  els.flip.addEventListener('click', flipCamera);
   els.zoomIn.addEventListener('click', function () { setZoom(view.zoom * ZOOM_STEP); });
   els.zoomOut.addEventListener('click', function () { setZoom(view.zoom / ZOOM_STEP); });
-  function applyLang() {
-    document.documentElement.lang = lang;
-    /* The layout stays left-to-right in both languages, so the sidebar, the
-       control cluster and the HUD sit on the same side whichever language is
-       selected. Hebrew words still render right-to-left inside their own run;
-       only the frame around them stops flipping. */
+  function applyLabels() {
+    document.documentElement.lang = 'en';
     document.body.dir = 'ltr';
-    els.lang.textContent = lang === 'he' ? 'EN' : 'עב';
     els.start.textContent = T('start');
     els.stop.textContent = T('stop');
-    els.flip.textContent = T('flip');
     els.startBig.textContent = T('startBig');
     [['zoomIn', 'tZoomIn'], ['zoomOut', 'tZoomOut'], ['follow', 'tFollow'],
      ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec']
@@ -1819,23 +1735,13 @@
     renderDetail((performance.now() - startedAt) / 1000);
   }
 
-  els.lang.addEventListener('click', function () {
-    lang = lang === 'he' ? 'en' : 'he';
-    try { localStorage.setItem('vt_lang', lang); } catch (e) { /* private mode */ }
-    applyLang();
-  });
-
-  try {
-    var saved = localStorage.getItem('vt_lang');
-    if (saved === 'en' || saved === 'he') lang = saved;
-  } catch (e) { /* private mode */ }
-  applyLang();
+  applyLabels();
 
   els.ownerBtn.addEventListener('click', startEnrolment);
 
   els.segBtn.addEventListener('click', function () {
     if (!segNet) {
-      showAlert(lang === 'he' ? 'מודל הצללית לא נטען' : 'Segmentation model not loaded');
+      showAlert('Segmentation model not loaded');
       return;
     }
     segOn = !segOn;
