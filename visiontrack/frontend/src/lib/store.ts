@@ -32,7 +32,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   selected_color: '#ff2bd1',
   trajectory_thickness: 2,
   preview: true,
+  auto_start_camera: true,
+  auto_camera_source: null,
 }
+
+// The app boots once; React StrictMode would otherwise run it twice in dev and
+// race two analysis jobs against the same camera.
+let bootstrapped = false
 
 interface State {
   system: SystemInfo | null
@@ -57,11 +63,13 @@ interface State {
   exportOpen: boolean
   exportJob: ExportJobState | null
   busy: string | null
+  autoStarting: boolean
   uploadProgress: number | null
   toasts: Toast[]
   zoneLog: { id: number; text: string; at: number }[]
 
   bootstrap: () => Promise<void>
+  autoStartCamera: () => Promise<void>
   selectVideo: (video: VideoInfo | null) => Promise<void>
   upload: (file: File) => Promise<void>
   loadDemo: () => Promise<void>
@@ -116,15 +124,18 @@ export const useStore = create<State>((set, get) => ({
   cameras: [],
   cameraHint: null,
   scanning: false,
-  liveOptions: { maxDuration: 300, record: true },
+  liveOptions: { maxDuration: null, record: false },
   exportOpen: false,
   exportJob: null,
   busy: null,
+  autoStarting: false,
   uploadProgress: null,
   toasts: [],
   zoneLog: [],
 
   async bootstrap() {
+    if (bootstrapped) return
+    bootstrapped = true
     try {
       const [system, settings, videos] = await Promise.all([
         api.system(), api.getSettings(), api.listVideos(),
@@ -132,8 +143,48 @@ export const useStore = create<State>((set, get) => ({
       set({ system, settings, videos })
       frameBuffer.trailLength = settings.trajectory_length
       for (const warning of system.warnings) get().toast('info', warning)
+      if (settings.auto_start_camera) await get().autoStartCamera()
     } catch (error) {
       get().reportError(error, 'Could not reach the backend.')
+    }
+  },
+
+  /**
+   * Open straight into a live feed: find a camera, connect it and begin
+   * analysing, with no clicks. Falls back to the normal start screen when no
+   * camera answers -- it never pretends to have one.
+   */
+  async autoStartCamera() {
+    const { settings } = get()
+    set({ autoStarting: true })
+    try {
+      let source = settings.auto_camera_source
+      let label: string | undefined
+      if (!source) {
+        const { cameras } = await api.discoverCameras()
+        if (cameras.length === 0) {
+          set({ autoStarting: false })
+          get().toast(
+            'info',
+            'No camera found — start screen instead',
+            'Plug a camera in and reload, or turn auto-start off in Settings.',
+          )
+          return
+        }
+        source = cameras[0].source
+        label = cameras[0].label
+        set({ cameras })
+      }
+
+      const camera = await api.openCamera(source, label)
+      await get().selectVideo(camera)
+      await get().startAnalysis()
+      get().toast('success', `${camera.filename} — analysing`,
+        'Press STOP to end the session, or open a video file instead.')
+    } catch (error) {
+      get().reportError(error, 'Could not start the camera automatically.')
+    } finally {
+      set({ autoStarting: false })
     }
   },
 

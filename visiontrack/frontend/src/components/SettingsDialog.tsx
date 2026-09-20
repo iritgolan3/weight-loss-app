@@ -132,6 +132,34 @@ export function SettingsDialog() {
         </div>
 
         <div>
+          <SectionTitle>Startup</SectionTitle>
+          <div className="space-y-3">
+            <Toggle
+              label="Open straight into the camera"
+              checked={settings.auto_start_camera}
+              onChange={(v) => setSettings({ auto_start_camera: v })}
+            />
+            <p className="text-[10px] leading-relaxed text-slate-600">
+              When the app loads it finds a camera, connects it and begins analysing on its own.
+              If no camera answers you get the normal start screen instead. Save the settings for
+              this to apply next time.
+            </p>
+            <Field
+              label="Camera to use"
+              hint="Leave empty to use the first camera found. Or pin one: a device number like 0, or an rtsp:// URL."
+            >
+              <input
+                className="field"
+                placeholder="first camera found"
+                spellCheck={false}
+                value={settings.auto_camera_source ?? ''}
+                onChange={(e) => setSettings({ auto_camera_source: e.target.value.trim() || null })}
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div>
           <SectionTitle>Performance</SectionTitle>
           <div className="space-y-3">
             <Field label="Analysis mode">

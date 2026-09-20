@@ -52,8 +52,9 @@ video frames — nothing in the UI is simulated or pre-scripted.
 3. Double-click **`start.bat`**.
 4. Wait for the first-run setup (it downloads PyTorch — several minutes).
 5. Your browser opens at <http://localhost:8000>.
-6. Click **Load demo**, or **Upload video** and pick an MP4.
-7. Click **START ANALYSIS**.
+6. **A camera is connected and analysis starts by itself.**
+7. No camera attached? Click **Load demo**, or **Upload video** and pick an MP4,
+   then click **START ANALYSIS**.
 
 `start.bat` creates the Python environment, installs the dependencies, builds
 the UI and starts the server. Later runs skip straight to the last step.
@@ -121,7 +122,24 @@ npm run dev        # dev server with hot reload at http://localhost:5173
 | `Backspace` | Remove the last zone point |
 | `Esc` | Cancel zone drawing / close a dialog |
 
-### Connecting a camera
+### Opening straight into the camera
+
+**By default the app connects a camera and starts analysing by itself.** Launch
+`start.bat`, wait for the browser to open, and the live feed is already running —
+no buttons to press.
+
+If no camera answers, you get the normal start screen with a message saying so;
+it never fakes a feed. To change the behaviour, open **Settings → Startup**:
+
+* **Open straight into the camera** — turn auto-start off to land on the start screen.
+* **Camera to use** — empty means "the first camera found". Pin one by entering a
+  device number (`0`, `1`, …) or an `rtsp://` URL.
+
+Auto-started sessions run **until you press Stop** and do not record by default.
+Change either in the **Connect camera** dialog before starting, or under
+*Live run* there.
+
+### Connecting a camera by hand
 
 Press **Connect camera** (top bar, or on the first-run screen).
 

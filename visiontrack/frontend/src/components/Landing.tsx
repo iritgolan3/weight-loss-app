@@ -10,6 +10,7 @@ export function Landing() {
   const openCamera = useStore((s) => s.openCamera)
   const system = useStore((s) => s.system)
   const busy = useStore((s) => s.busy)
+  const autoStarting = useStore((s) => s.autoStarting)
   const uploadProgress = useStore((s) => s.uploadProgress)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -37,10 +38,16 @@ export function Landing() {
 
         <h1 className="font-mono text-2xl font-bold tracking-[0.3em] text-slate-100">VISIONTRACK</h1>
         <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.35em] text-neon">AI video analysis</p>
-        <p className="mx-auto mt-5 max-w-sm text-[12px] leading-relaxed text-slate-500">
-          Detect and track people and vehicles with persistent IDs, movement trails, dwell-time zones
-          and exportable data. Everything runs locally on your machine.
-        </p>
+        {autoStarting ? (
+          <p className="mx-auto mt-5 max-w-sm text-[12px] leading-relaxed text-neon">
+            Looking for a camera and starting the analysis…
+          </p>
+        ) : (
+          <p className="mx-auto mt-5 max-w-sm text-[12px] leading-relaxed text-slate-500">
+            Detect and track people and vehicles with persistent IDs, movement trails, dwell-time zones
+            and exportable data. Everything runs locally on your machine.
+          </p>
+        )}
 
         <input
           ref={fileRef}
@@ -53,6 +60,15 @@ export function Landing() {
             e.target.value = ''
           }}
         />
+
+        {autoStarting && (
+          <div className="mx-auto mt-6 flex w-52 items-center gap-3">
+            <span className="h-2 w-2 shrink-0 animate-pulseDot rounded-full bg-neon" />
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink-600">
+              <div className="h-full w-1/3 animate-sweep rounded-full bg-neon" />
+            </div>
+          </div>
+        )}
 
         <div className="mt-7 flex flex-col items-center justify-center gap-2 sm:flex-row">
           <button className="btn btn-primary px-5 py-2.5 text-xs" disabled={Boolean(busy)} onClick={() => fileRef.current?.click()}>

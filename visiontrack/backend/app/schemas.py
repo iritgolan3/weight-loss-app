@@ -191,3 +191,8 @@ class AppSettings(BaseModel):
     selected_color: str = "#ff2bd1"
     trajectory_thickness: int = 2
     preview: bool = True
+    # Startup behaviour: connect a camera and begin analysing as soon as the UI
+    # loads, so the app opens straight into a live feed.
+    auto_start_camera: bool = True
+    # Pin a specific source ('0', or an rtsp:// URL). None means "first one found".
+    auto_camera_source: Optional[str] = None

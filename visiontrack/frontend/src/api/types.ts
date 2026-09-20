@@ -192,6 +192,8 @@ export interface AppSettings {
   selected_color: string
   trajectory_thickness: number
   preview: boolean
+  auto_start_camera: boolean
+  auto_camera_source: string | null
 }
 
 export interface ExportJobState {
