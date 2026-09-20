@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07090a">
+<title>VisionTrack Live</title>
+<style>
+  :root{
+    --ground:#07090a; --panel:#0e1214; --line:#1f2a2c; --line-soft:#161e20;
+    --neon:#39ff14; --magenta:#ff2bd1; --amber:#ffb020; --danger:#ff4d4d;
+    --text:#c6d2cd; --muted:#71827c; --faint:#4a5854;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--ground);color:var(--text);font-family:var(--sans);
+    display:flex;flex-direction:column;overflow:hidden;
+    padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+
+  header{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:8px 12px;border-bottom:1px solid var(--line);background:#0a0d0f;flex:none;
+  }
+  .brand{display:flex;align-items:center;gap:8px;margin-inline-end:auto}
+  .mark{
+    width:26px;height:26px;border:1px solid rgba(57,255,20,.4);background:rgba(57,255,20,.1);
+    display:grid;place-items:center;border-radius:4px;flex:none;
+  }
+  .mark span{width:11px;height:11px;border:2px solid var(--neon);border-radius:2px;display:grid;place-items:center}
+  .mark span i{width:3px;height:3px;background:var(--neon);border-radius:50%}
+  h1{font-family:var(--mono);font-size:13px;letter-spacing:.2em;margin:0;color:#eaf3ef;font-weight:700}
+  .sub{font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--faint);margin-top:2px}
+
+  button{
+    font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:5px;cursor:pointer;
+    border:1px solid var(--line);background:#15191c;color:var(--text);transition:.15s;
+  }
+  button:hover:not(:disabled){background:#1d2226;border-color:#39424a}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .primary{border-color:rgba(57,255,20,.45);background:rgba(57,255,20,.12);color:var(--neon)}
+  .danger{border-color:rgba(255,77,77,.45);background:rgba(255,77,77,.1);color:var(--danger)}
+
+  main{flex:1;display:flex;min-height:0;overflow:hidden}
+  @media (max-width:860px){main{flex-direction:column}}
+
+  .stage{flex:1;min-width:0;min-height:0;position:relative;background:#000;display:grid;place-items:center}
+  .frame{position:relative;display:flex;max-width:100%;max-height:100%}
+  video{display:block;width:auto;height:auto;max-width:100%;max-height:100%;background:#000}
+  canvas.overlay{position:absolute;inset:0;width:100%;height:100%}
+
+  .hud{
+    position:absolute;top:10px;inset-inline-start:10px;display:flex;flex-direction:column;gap:5px;
+    pointer-events:none;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  }
+  .hud div{background:rgba(0,0,0,.6);padding:4px 8px;border-radius:3px;color:var(--neon);backdrop-filter:blur(3px)}
+  #hudRes{direction:ltr;unicode-bidi:isolate}
+  .stat dd{direction:ltr;unicode-bidi:isolate}
+  .row .n span,.row .m{unicode-bidi:isolate}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--neon);display:inline-block;margin-inline-end:6px;animation:blip 1.4s infinite}
+  @keyframes blip{0%,100%{opacity:1}50%{opacity:.2}}
+  @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+
+  .splash{
+    position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;
+    background:var(--ground);
+  }
+  .splash-inner{max-width:420px}
+  .splash h2{font-family:var(--mono);font-size:20px;letter-spacing:.26em;margin:0 0 6px;color:#eaf3ef}
+  .splash p{font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 18px}
+  .bar{height:3px;background:var(--line-soft);border-radius:2px;overflow:hidden;margin:16px 0 8px}
+  .bar i{display:block;height:100%;background:var(--neon);width:0;transition:width .25s}
+  .err{border:1px solid rgba(255,77,77,.4);background:rgba(255,77,77,.08);color:#ffb3b3;
+       padding:10px 12px;border-radius:5px;font-size:12px;line-height:1.6;text-align:start;margin-top:14px}
+
+  aside{
+    width:300px;flex:none;border-inline-start:1px solid var(--line);background:var(--panel);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  @media (max-width:860px){
+    aside{width:auto;border-inline-start:none;border-top:1px solid var(--line);max-height:38vh}
+  }
+  .panel-h{
+    display:flex;justify-content:space-between;align-items:center;padding:9px 12px;
+    border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--muted);flex:none;
+  }
+  .panel-h b{color:var(--neon);font-weight:700}
+  #list{overflow-y:auto;flex:1;min-height:0}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line-soft)}
+  .pip{width:3px;height:30px;border-radius:2px;background:var(--neon);flex:none}
+  .row .n{font-family:var(--mono);font-size:11px;color:#eaf3ef;text-transform:uppercase}
+  .row .m{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:2px}
+  .row .c{margin-inline-start:auto;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+  .empty{padding:22px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.8}
+
+  .stats{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-soft);
+    border-top:1px solid var(--line);flex:none;
+  }
+  .stat{background:var(--panel);padding:8px 10px}
+  .stat dt{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0}
+  .stat dd{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--neon);margin:3px 0 0;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark"><span><i></i></span></div>
+    <div>
+      <h1>VISIONTRACK</h1>
+      <div class="sub">LIVE · IN-BROWSER</div>
+    </div>
+  </div>
+  <button id="flip" disabled>הפוך מצלמה</button>
+  <button id="stop" class="danger" disabled>עצור</button>
+  <button id="start" class="primary">הפעל מצלמה</button>
+</header>
+
+<main>
+  <div class="stage">
+    <div class="frame">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay" class="overlay"></canvas>
+    </div>
+
+    <div class="hud" id="hud" hidden>
+      <div><span class="dot"></span><span id="hudState">מזהה</span></div>
+      <div id="hudRes">—</div>
+    </div>
+
+    <div class="splash" id="splash">
+      <div class="splash-inner">
+        <h2>VISIONTRACK</h2>
+        <p id="splashMsg">
+          זיהוי ומעקב אחרי אנשים ורכבים — ישירות בדפדפן.<br>
+          שום דבר לא מותקן, שום דבר לא נשלח לאינטרנט.<br>
+          הכל רץ על המכשיר שלך.
+        </p>
+        <button class="primary" id="startBig" style="padding:11px 22px;font-size:13px">הפעל את המצלמה</button>
+        <div class="bar" id="bar" hidden><i id="barFill"></i></div>
+        <div class="err" id="err" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="panel-h"><span>אובייקטים במעקב</span><b id="count">0</b></div>
+    <div id="list"><div class="empty">לחץ "הפעל מצלמה" כדי להתחיל</div></div>
+    <dl class="stats">
+      <div class="stat"><dt>FPS</dt><dd id="sFps">—</dd></div>
+      <div class="stat"><dt>על המסך</dt><dd id="sNow">0</dd></div>
+      <div class="stat"><dt>סה״כ</dt><dd id="sTotal">0</dd></div>
+      <div class="stat"><dt>זמן</dt><dd id="sTime">0:00</dd></div>
+    </dl>
+  </aside>
+</main>
+
+<script>/*__TFJS__*/</script>
+<script>/*__COCOSSD__*/</script>
+<script>/*__MODELDATA__*/</script>
+<script>/*__APP__*/</script>
+</body>
+</html>

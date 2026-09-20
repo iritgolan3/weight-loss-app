@@ -188,6 +188,7 @@ visiontrack/
 ├── windows-powershell.ps1 / mac-linux.sh   the same for PowerShell / macOS / Linux
 ├── dev-mode.bat                        backend + Vite dev server
 ├── instructions-hebrew.txt             quick-start notes in Hebrew
+├── web/                                browser edition: one self-contained .html
 ├── backend/
 │   ├── requirements.txt
 │   └── app/
@@ -398,6 +399,7 @@ Add `--video path\to\your.mp4` to run it against your own footage, and
 | *“The annotated video came out empty”* | The source file moved or was deleted after analysis. Re-upload it. |
 | Port 8000 already in use | Start the backend with `--port 8010` and set `VISIONTRACK_BACKEND=http://127.0.0.1:8010` for the dev server. |
 | `windows-powershell.ps1` refuses to run | Use `powershell -ExecutionPolicy Bypass -File .\windows-powershell.ps1`. |
+| Windows blocks the launcher and nothing gets it running | Use the browser edition in `web/` instead: one `.html` file, no Python, no install, and Windows does not block opening an HTML file. See `web/README.md`. |
 | Windows blocks the launcher (App Control, SmartScreen, "Windows protected your PC") | Files downloaded from the internet carry a blocked mark. Delete what you extracted, right-click the **.zip** → Properties → tick **Unblock** → Apply, then extract again. If it is still blocked, follow `manual-commands.txt`: typed commands are not subject to script blocking. |
 
 Backend errors always come back as `{"error": {"code", "message", "hint"}}` and
