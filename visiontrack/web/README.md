@@ -141,6 +141,38 @@ Marking is a handle on a live track, not on a human being. For everyone who is
 not the enrolled owner, it reports what the camera can see about an unidentified
 figure, and nothing that would attach a name to them.
 
+### Zones
+
+The `⬠` button starts a zone. Click to place corners, click the first corner
+again (or press Enter) to close it; Escape discards a half-drawn shape. Zones
+are stored normalised 0..1 against the frame, so one drawn at 640x480 still
+lines up after the camera switches resolution, and they survive a reload.
+Holding the button for a second clears all of them.
+
+A zone does three things:
+
+* **Alerts on entry.** Occupancy is tested against the middle of a person's
+  feet, not the centre of their box — a body box leans across a boundary well
+  before the person does. Crossing in raises an alert naming the track id, and
+  the zone counts entries.
+* **Marks who is inside.** An occupant keeps their own colour and gains an
+  `IN ZONE` chip and a dashed green outline, so the gender colours still mean
+  what the legend says they mean.
+* **Looks harder inside it.** A second detection pass runs on a crop of the
+  zone alone, upscaled to the model's full 640px input. Someone forty pixels
+  tall at the back of a zone becomes two hundred pixels in that crop, which is
+  the difference between a miss and a detection. Hits are merged into the
+  full-frame pass and dropped when they duplicate one it already had.
+
+The close-up pass is a second inference, so it costs real frame rate. It is
+capped to once every 500 ms and takes one zone per turn, round-robin, so the
+cost does not grow with the number of zones.
+
+One limit worth knowing: a person close enough that their box is clipped by the
+bottom of the frame has their foot point at the very bottom edge. A zone that
+does not reach the bottom of the frame will not count them, because their feet
+are not in the picture to be counted.
+
 ### The detector: YOLO26m, and what it needs
 
 Detection is YOLO26m (20.4M parameters, 68.4 GFLOPs) exported to ONNX and run by

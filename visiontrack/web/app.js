@@ -22,6 +22,11 @@
   var YOLO_SIZE = 640;          // the size the ONNX graph was exported at
   var YOLO_MAX_DETS = 300;      // rows in the end-to-end head
   var EP_ORDER = ['webgpu', 'wasm'];
+  /* Zones. Points are normalised 0..1 against the frame, so a zone drawn at one
+     camera resolution still lines up after the camera switches to another. */
+  var ZONE_REFINE_MS = 500;     // how often the close-up pass may run
+  var ZONE_MERGE_IOU = 0.5;     // above this, a close-up hit is the same object
+  var ZONE_PAD = 0.06;          // context around the zone for the crop
   var IOU_MATCH = 0.3;
   var MAX_LOST = 18;
   var TRAIL_MAX = 45;
@@ -88,7 +93,12 @@
       tZoomIn: 'Zoom in', tZoomOut: 'Zoom out', tFollow: 'Follow the selection',
       tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record',
       unknownG: 'Unread', objectG: 'Object', markedG: 'Marked', selectedG: 'Selected',
-      weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend',
+      weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend', zoneG: 'Zone',
+      tZone: 'Draw a zone', zoneEnter: 'Entered zone', inZone: 'IN ZONE',
+      zoneStart: 'Click to place corners, click the first one to close',
+      zoneDone: 'Zone saved', zoneCancel: 'Zone discarded',
+      zoneNeed: 'A zone needs at least three corners',
+      zoneCleared: 'All zones cleared',
       hudDet: 'Detecting', hudFace: 'Detecting · face on',
       bootDetector: 'Loading YOLO26m…', slowWarn: 'Running on CPU — slow. WebGPU needed',
       bootCamera: 'Connecting to the camera…', bootFace: 'Loading face models…',
@@ -132,7 +142,7 @@
   ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop',
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
-   'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn',
+   'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn','zoneBtn',
    'boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
    'gate','gateForm','gUser','gPass1','gPass2','gateErr','gateNote','gateBtn','segBtn']
     .forEach(function (id) { els[id] = document.getElementById(id); });
@@ -140,6 +150,8 @@
   var model = null, faceReady = false, stream = null, running = false;
   var session = null, backend = null, inputName = null, outputName = null;
   var ORT = null, YOLO_NAMES = [];
+  var zones = [], drawing = null, zoneMode = false;
+  var refineAt = 0, refineTurn = 0, refineBusy = false, refineHits = [];
   var letterCv = null, letterCx = null, inputBuf = null;
   function log(m) { try { console.log('[visiontrack] ' + m); } catch (e) { /* ignore */ } }
   var facing = 'environment', pending = false, faceBusy = false;
@@ -737,6 +749,7 @@
      neither can double as the default: a person the face model has not read yet
      is white, and everything that is not a person is cyan. Without that, every
      car and every unread figure would read as "male". */
+  var ZONE_COLOR = '#00e676';
   var COL = {
     weapon: '#ff1f1f', owner: '#000000', marked: '#ff3b30', selected: '#ff2bd1',
     male: '#39ff14', female: '#ff5fbf', unknown: '#e8eef5', object: '#00e5ff'
@@ -758,25 +771,190 @@
     return COL.unknown;
   }
 
+  // -------------------------------------------------------------------- zones
+
+  function loadZones() {
+    try {
+      var raw = JSON.parse(localStorage.getItem('vt_zones') || '[]');
+      return raw.filter(function (z) { return z && z.pts && z.pts.length >= 3; });
+    } catch (e) { return []; }
+  }
+
+  function saveZones() {
+    try { localStorage.setItem('vt_zones', JSON.stringify(zones)); }
+    catch (e) { /* private mode: zones last this session only */ }
+  }
+
+  /* Ray casting. Points are normalised, so this is resolution independent. */
+  function inZone(z, nx, ny) {
+    var p = z.pts, hit = false;
+    for (var i = 0, j = p.length - 1; i < p.length; j = i++) {
+      var xi = p[i][0], yi = p[i][1], xj = p[j][0], yj = p[j][1];
+      if (((yi > ny) !== (yj > ny)) &&
+          (nx < (xj - xi) * (ny - yi) / ((yj - yi) || 1e-9) + xi)) hit = !hit;
+    }
+    return hit;
+  }
+
+  function zoneBounds(z) {
+    var x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+    z.pts.forEach(function (p) {
+      x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+      x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+    });
+    x0 = Math.max(0, x0 - ZONE_PAD); y0 = Math.max(0, y0 - ZONE_PAD);
+    x1 = Math.min(1, x1 + ZONE_PAD); y1 = Math.min(1, y1 + ZONE_PAD);
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /* A person standing at the back of a zone can be forty pixels tall in the
+     full frame and two hundred in a crop of just that zone, which is the
+     difference between a miss and a detection. This runs the same model a
+     second time over the zone alone, on a budget, and merges what it finds. */
+  function refineZones(video) {
+    if (refineBusy || !zones.length || !session) return;
+    var wall = performance.now();
+    if (wall - refineAt < ZONE_REFINE_MS) return;
+    refineAt = wall;
+    refineBusy = true;
+
+    var z = zones[refineTurn % zones.length];
+    refineTurn++;
+    var vw = video.videoWidth, vh = video.videoHeight;
+    var b = zoneBounds(z);
+    var sx = Math.round(b.x * vw), sy = Math.round(b.y * vh);
+    var sw = Math.max(32, Math.round(b.w * vw)), sh = Math.max(32, Math.round(b.h * vh));
+
+    var fit = letterbox(video, sx, sy, sw, sh);
+    var feeds = {};
+    feeds[inputName] = new ORT.Tensor('float32', toTensorData(), [1, 3, YOLO_SIZE, YOLO_SIZE]);
+    session.run(feeds).then(function (out) {
+      refineHits = decode(out[outputName], fit, vw, vh);
+      refineBusy = false;
+    }).catch(function () { refineBusy = false; refineHits = []; });
+  }
+
+  function iou(a, b) {
+    var x = Math.max(a[0], b[0]), y = Math.max(a[1], b[1]);
+    var r = Math.min(a[0] + a[2], b[0] + b[2]), t = Math.min(a[1] + a[3], b[1] + b[3]);
+    if (r <= x || t <= y) return 0;
+    var i = (r - x) * (t - y);
+    return i / (a[2] * a[3] + b[2] * b[3] - i);
+  }
+
+  /* Keep a close-up hit only when the full-frame pass did not already have it. */
+  function mergeRefined(base) {
+    if (!refineHits.length) return base;
+    var out = base.slice();
+    refineHits.forEach(function (r) {
+      for (var i = 0; i < base.length; i++) {
+        if (base[i].class === r.class && iou(base[i].bbox, r.bbox) > ZONE_MERGE_IOU) return;
+      }
+      r.fromZone = true;
+      out.push(r);
+    });
+    return out;
+  }
+
+  /* A person is "in" a zone when the middle of their feet is, not their centre:
+     a body box leans over a boundary long before the person crosses it. */
+  function updateZoneOccupancy(now) {
+    if (!zones.length) return;
+    var w = els.overlay.width, h = els.overlay.height;
+    if (!w || !h) return;
+    tracks.forEach(function (t) {
+      if (t.cls !== 'person' || t.lost > 0) return;
+      var nx = (t.bbox[0] + t.bbox[2] / 2) / w;
+      var ny = (t.bbox[1] + t.bbox[3]) / h;
+      var found = null;
+      for (var i = 0; i < zones.length; i++) {
+        if (inZone(zones[i], nx, ny)) { found = zones[i]; break; }
+      }
+      var was = t.zoneId || null;
+      var isIn = found ? found.id : null;
+      if (isIn && isIn !== was) {
+        t.zoneId = isIn;
+        t.zoneSince = now;
+        found.flash = performance.now();
+        found.entries = (found.entries || 0) + 1;
+        showAlert(T('zoneEnter') + ' — ID ' + t.id);
+      } else if (!isIn && was) {
+        t.zoneId = null;
+        t.zoneSince = 0;
+      }
+    });
+  }
+
+  function zoneOccupants(z) {
+    var n = 0;
+    tracks.forEach(function (t) { if (t.lost === 0 && t.zoneId === z.id) n++; });
+    return n;
+  }
+
+  function drawZones(ctx, w, h, scale) {
+    var live = drawing ? zones.concat([drawing]) : zones;
+    live.forEach(function (z) {
+      var open = z === drawing;
+      var pts = z.pts;
+      if (!pts.length) return;
+      var busy = !open && zoneOccupants(z) > 0;
+      var flash = !open && z.flash && performance.now() - z.flash < 900;
+      ctx.save();
+      ctx.lineJoin = ctx.lineCap = 'round';
+      ctx.setLineDash(open ? [6 * scale, 5 * scale] : []);
+      ctx.lineWidth = (busy || flash ? 3.5 : 2) * scale;
+      ctx.strokeStyle = flash ? '#ffffff' : ZONE_COLOR;
+      ctx.fillStyle = busy ? 'rgba(0,230,118,.20)' : 'rgba(0,230,118,.08)';
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0] * w, pts[0][1] * h);
+      for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0] * w, pts[i][1] * h);
+      if (!open) ctx.closePath();
+      if (!open) ctx.fill();
+      ctx.stroke();
+      // vertices, so a half-drawn shape shows where its corners landed
+      ctx.fillStyle = ZONE_COLOR;
+      pts.forEach(function (p) {
+        ctx.beginPath();
+        ctx.arc(p[0] * w, p[1] * h, (open ? 4 : 3) * scale, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      if (!open) {
+        var label = (z.name || 'ZONE') + ' · ' + zoneOccupants(z) +
+                    (z.entries ? ' · ' + z.entries + ' in' : '');
+        var fs = Math.round(12 * scale);
+        ctx.font = '600 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
+        var tw = ctx.measureText(label).width, pad = 5 * scale;
+        var lx = pts[0][0] * w, ly = pts[0][1] * h;
+        ctx.fillStyle = ZONE_COLOR;
+        ctx.fillRect(lx, ly - fs - pad * 2, tw + pad * 2, fs + pad * 2);
+        ctx.fillStyle = '#04160a';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, lx + pad, ly - (fs + pad * 2) / 2);
+      }
+      ctx.restore();
+    });
+  }
+
   // ---------------------------------------------------------------- detection
 
   /* YOLO wants a square 640x640 image with the aspect ratio preserved, so the
      frame is scaled to fit and the leftover margin filled with grey. The offsets
      are kept so detections can be mapped back to frame pixels afterwards. */
-  function letterbox(video) {
-    var vw = video.videoWidth, vh = video.videoHeight;
+  function letterbox(video, sx, sy, sw, sh) {
+    if (sx === undefined) { sx = 0; sy = 0; sw = video.videoWidth; sh = video.videoHeight; }
     if (!letterCv) {
       letterCv = document.createElement('canvas');
       letterCv.width = letterCv.height = YOLO_SIZE;
       letterCx = letterCv.getContext('2d', { willReadFrequently: true });
     }
-    var k = Math.min(YOLO_SIZE / vw, YOLO_SIZE / vh);
-    var nw = Math.round(vw * k), nh = Math.round(vh * k);
+    var k = Math.min(YOLO_SIZE / sw, YOLO_SIZE / sh);
+    var nw = Math.round(sw * k), nh = Math.round(sh * k);
     var dx = ((YOLO_SIZE - nw) / 2) | 0, dy = ((YOLO_SIZE - nh) / 2) | 0;
     letterCx.fillStyle = '#727272';          // 114,114,114, the value YOLO trains with
     letterCx.fillRect(0, 0, YOLO_SIZE, YOLO_SIZE);
-    letterCx.drawImage(video, 0, 0, vw, vh, dx, dy, nw, nh);
-    return { k: k, dx: dx, dy: dy };
+    letterCx.drawImage(video, sx, sy, sw, sh, dx, dy, nw, nh);
+    // sx/sy shift the result back into full-frame coordinates afterwards.
+    return { k: k, dx: dx, dy: dy, ox: sx, oy: sy };
   }
 
   /* RGBA bytes -> planar RGB floats in 0..1, the layout the graph expects. */
@@ -802,8 +980,8 @@
       if (score < SCORE_MIN) break;
       var name = YOLO_NAMES[d[b + 5] | 0];
       if (!name || !WANTED[name]) continue;
-      var x1 = (d[b] - fit.dx) / fit.k, y1 = (d[b + 1] - fit.dy) / fit.k;
-      var x2 = (d[b + 2] - fit.dx) / fit.k, y2 = (d[b + 3] - fit.dy) / fit.k;
+      var x1 = (d[b] - fit.dx) / fit.k + fit.ox, y1 = (d[b + 1] - fit.dy) / fit.k + fit.oy;
+      var x2 = (d[b + 2] - fit.dx) / fit.k + fit.ox, y2 = (d[b + 3] - fit.dy) / fit.k + fit.oy;
       x1 = Math.max(0, Math.min(vw, x1)); x2 = Math.max(0, Math.min(vw, x2));
       y1 = Math.max(0, Math.min(vh, y1)); y2 = Math.max(0, Math.min(vh, y2));
       if (x2 - x1 < 2 || y2 - y1 < 2) continue;
@@ -824,6 +1002,7 @@
 
   function draw(ctx, w, h, scale) {
     ctx.clearRect(0, 0, w, h);
+    drawZones(ctx, w, h, scale);
     ctx.direction = 'ltr';
     ctx.textAlign = 'left';
     drawMask(ctx, w, h);
@@ -865,6 +1044,15 @@
         ctx.strokeRect(b[0], b[1], b[2], b[3]);
       }
 
+      if (t.zoneId) {
+        ctx.save();
+        ctx.strokeStyle = ZONE_COLOR;
+        ctx.lineWidth = 1.5 * scale;
+        ctx.setLineDash([5 * scale, 4 * scale]);
+        ctx.strokeRect(b[0] - 3 * scale, b[1] - 3 * scale, b[2] + 6 * scale, b[3] + 6 * scale);
+        ctx.restore();
+      }
+
       if (sel || mk) {
         var len = Math.min(18 * scale, b[2] / 3, b[3] / 3);
         ctx.lineWidth = (4) * scale;
@@ -885,6 +1073,7 @@
       var label = t.owner
         ? ('OWNER · ID ' + t.id)
         : (t.cls.toUpperCase() + ' · ID ' + t.id + ' · ' + Math.round(t.score * 100) + '%');
+      if (t.zoneId) label += ' · ' + T('inZone');
       ctx.font = '600 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
       var padX = 5 * scale, padY = 4 * scale;
       var tw = ctx.measureText(label).width;
@@ -1247,6 +1436,7 @@
     detectFrame(v).then(function (predictions) {
       pending = false;
       if (!running) return;
+      predictions = mergeRefined(predictions);
 
       var now = (performance.now() - startedAt) / 1000;
       var t0 = performance.now();
@@ -1258,6 +1448,8 @@
 
       updateTracks(predictions, now);
 
+      updateZoneOccupancy(now);
+      refineZones(v);
       maybeEstimateFace(now);
       maybeRecognise();
       maybeSegment();
@@ -1711,7 +1903,7 @@
     els.stop.textContent = T('stop');
     els.startBig.textContent = T('startBig');
     [['zoomIn', 'tZoomIn'], ['zoomOut', 'tZoomOut'], ['follow', 'tFollow'],
-     ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec']
+     ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec'], ['zoneBtn', 'tZone']
     ].forEach(function (pair) {
       if (els[pair[0]]) els[pair[0]].title = T(pair[1]);
     });
@@ -1736,6 +1928,52 @@
   }
 
   applyLabels();
+
+  function setZoneMode(on) {
+    zoneMode = on;
+    els.zoneBtn.classList.toggle('on', on);
+    els.overlay.style.cursor = on ? 'crosshair' : 'pointer';
+    if (on) showAlert(T('zoneStart'));
+  }
+
+  function finishZone() {
+    if (!drawing) return;
+    if (drawing.pts.length < 3) { showAlert(T('zoneNeed')); return; }
+    drawing.name = 'ZONE ' + (zones.length + 1);
+    drawing.entries = 0;
+    zones.push(drawing);
+    drawing = null;
+    saveZones();
+    setZoneMode(false);
+    showAlert(T('zoneDone'));
+  }
+
+  function cancelZone() {
+    drawing = null;
+    setZoneMode(false);
+    showAlert(T('zoneCancel'));
+  }
+
+  els.zoneBtn.addEventListener('click', function () {
+    if (zoneMode) { drawing && drawing.pts.length >= 3 ? finishZone() : cancelZone(); }
+    else setZoneMode(true);
+  });
+
+  /* Holding the button clears every zone - a deliberate gesture, since a long
+     press is hard to hit by accident and the shapes take work to draw. */
+  var zoneHold = 0;
+  els.zoneBtn.addEventListener('pointerdown', function () {
+    zoneHold = setTimeout(function () {
+      zones = []; drawing = null; saveZones(); setZoneMode(false);
+      tracks.forEach(function (t) { t.zoneId = null; });
+      showAlert(T('zoneCleared'));
+    }, 900);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) {
+    els.zoneBtn.addEventListener(ev, function () { clearTimeout(zoneHold); });
+  });
+
+  zones = loadZones();
 
   els.ownerBtn.addEventListener('click', startEnrolment);
 
@@ -1768,6 +2006,21 @@
     var rect = els.overlay.getBoundingClientRect();
     var x = (e.clientX - rect.left) / rect.width * els.overlay.width;
     var y = (e.clientY - rect.top) / rect.height * els.overlay.height;
+
+    if (zoneMode) {
+      var nx = x / els.overlay.width, ny = y / els.overlay.height;
+      if (!drawing) drawing = { id: 'z' + Date.now(), pts: [] };
+      var pts = drawing.pts;
+      // clicking the first corner again closes the shape
+      if (pts.length >= 3) {
+        var ddx = (pts[0][0] - nx) * els.overlay.width;
+        var ddy = (pts[0][1] - ny) * els.overlay.height;
+        if (Math.hypot(ddx, ddy) < 16) { finishZone(); return; }
+      }
+      pts.push([nx, ny]);
+      return;
+    }
+
     var best = null, bestArea = Infinity;
     tracks.forEach(function (t) {
       if (t.lost > 0) return;
@@ -1809,7 +2062,8 @@
     if (!running) return;
     if (e.key === '+' || e.key === '=') setZoom(view.zoom * ZOOM_STEP);
     if (e.key === '-' || e.key === '_') setZoom(view.zoom / ZOOM_STEP);
-    if (e.key === 'Escape') select(null);
+    if (e.key === 'Enter' && zoneMode) finishZone();
+    if (e.key === 'Escape') { if (zoneMode) cancelZone(); else select(null); }
   });
 
   /* Demo access gate. This is a front-door prop for the product shell, not a
@@ -1855,6 +2109,11 @@
     }
   });
 
+  window.__VT_SETZONE__ = function (pts) {          // test hook
+    zones = [{ id: 'zt', pts: pts, name: 'ZONE 1', entries: 0 }];
+    saveZones();
+    return zones.length;
+  };
   window.__VT_UNLOCK__ = unlockGate;
   window.__VT_READY__ = true;
   window.__VT_DEBUG__ = function () {
@@ -1866,6 +2125,15 @@
       recogReady: recogReady, enrolled: !!enrolled, enrolling: enrolling,
       owners: tracks.filter(function (t) { return t.owner; }).map(function (t) { return t.id; }),
       segReady: !!segNet, segOn: segOn, ghosts: ghosts.length,
+      zones: zones.length, zoneMode: zoneMode, drawingPts: drawing ? drawing.pts.length : 0,
+      inZone: tracks.filter(function (t) { return t.zoneId; }).map(function (t) { return t.id; }),
+      refined: refineHits.length,
+      feet: tracks.filter(function (t) { return t.cls === 'person' && t.lost === 0; })
+        .map(function (t) {
+          return [t.id,
+            +((t.bbox[0] + t.bbox[2] / 2) / els.overlay.width).toFixed(3),
+            +((t.bbox[1] + t.bbox[3]) / els.overlay.height).toFixed(3)];
+        }),
       reclaimed: tracks.filter(function (t) { return t.reclaimed; }).map(function (t) { return t.id; }),
       recording: !!rec.recorder, clips: clips.length,
       people: tracks.filter(function (t) { return t.cls === 'person'; }).map(function (t) {
