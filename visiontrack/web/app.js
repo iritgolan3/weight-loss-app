@@ -84,7 +84,9 @@
       press: 'לחץ "הפעל מצלמה" כדי להתחיל', marked: 'מסומן',
       about: 'מידע', measurements: 'מדידות',
       tZoomIn: 'הגדל', tZoomOut: 'הקטן', tFollow: 'עקוב אחרי הנבחר',
-      tOwner: 'רישום בעלים / מחיקה', tSeg: 'ריבוע / צללית', tRec: 'הקלטה ידנית'
+      tOwner: 'רישום בעלים / מחיקה', tSeg: 'ריבוע / צללית', tRec: 'הקלטה ידנית',
+      unknownG: 'לא נקרא', objectG: 'חפץ', markedG: 'מסומן', selectedG: 'נבחר',
+      weaponG: 'נשק', ownerG: 'בעלים', legend: 'מקרא'
     },
     en: {
       start: 'Start camera', stop: 'Stop', flip: 'Flip camera',
@@ -102,7 +104,9 @@
       press: 'Press "Start camera" to begin', marked: 'marked',
       about: 'About', measurements: 'measurements',
       tZoomIn: 'Zoom in', tZoomOut: 'Zoom out', tFollow: 'Follow the selection',
-      tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record'
+      tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record',
+      unknownG: 'Unread', objectG: 'Object', markedG: 'Marked', selectedG: 'Selected',
+      weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend'
     }
   };
   function T(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
@@ -747,6 +751,31 @@
     }).catch(function () { recogBusy = false; });
   }
 
+  /* Box colour, in priority order. Green means male and pink means female, so
+     neither can double as the default: a person the face model has not read yet
+     is white, and everything that is not a person is cyan. Without that, every
+     car and every unread figure would read as "male". */
+  var COL = {
+    weapon: '#ff1f1f', owner: '#000000', marked: '#ff3b30', selected: '#ff2bd1',
+    male: '#39ff14', female: '#ff5fbf', unknown: '#e8eef5', object: '#00e5ff'
+  };
+
+  function hexRGB(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+  }
+
+  function boxColor(t, sel, mk, weapon) {
+    if (weapon) return COL.weapon;
+    if (t.owner) return COL.owner;
+    if (mk) return COL.marked;
+    if (sel) return COL.selected;
+    if (t.cls !== 'person') return COL.object;
+    if (t.gender === 'male') return COL.male;
+    if (t.gender === 'female') return COL.female;
+    return COL.unknown;
+  }
+
   // ----------------------------------------------------------------- drawing
 
   function draw(ctx, w, h, scale) {
@@ -759,13 +788,14 @@
     visible.forEach(function (t) {
       if (t.trail.length < 2) return;
       var sel = t.id === selectedId, mk = t.marked;
+      // The trail carries the same colour as the box, so a pink or green
+      // thread on the floor still says which person it belongs to.
+      var rgb = hexRGB(boxColor(t, sel, mk, WEAPON_CLASSES[t.cls]));
       ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
       ctx.lineJoin = ctx.lineCap = 'round';
       for (var i = 1; i < t.trail.length; i++) {
         var a = (0.1 + 0.6 * (i / t.trail.length)).toFixed(3);
-        ctx.strokeStyle = mk ? 'rgba(255,59,48,' + a + ')'
-                             : sel ? 'rgba(255,43,209,' + a + ')'
-                                   : 'rgba(57,255,20,' + a + ')';
+        ctx.strokeStyle = 'rgba(' + rgb + ',' + a + ')';
         ctx.beginPath();
         ctx.moveTo(t.trail[i - 1][0], t.trail[i - 1][1]);
         ctx.lineTo(t.trail[i][0], t.trail[i][1]);
@@ -777,10 +807,7 @@
     visible.forEach(function (t) {
       var b = t.bbox, sel = t.id === selectedId, mk = t.marked;
       var weapon = WEAPON_CLASSES[t.cls];
-      var color = weapon ? '#ff1f1f'
-                : t.owner ? '#000000'
-                : mk ? '#ff3b30'
-                : sel ? '#ff2bd1' : '#39ff14';
+      var color = boxColor(t, sel, mk, weapon);
 
       if (!segOn || sel || mk || t.owner || weapon) {
         if (t.owner) {
@@ -810,8 +837,10 @@
       ctx.arc(t.cx, t.cy, 3 * scale, 0, Math.PI * 2);
       ctx.fill();
 
-      var label = t.owner ? ('OWNER · ID:' + t.id)
-                          : (t.cls + ' ID:' + t.id + ' ' + t.score.toFixed(2));
+      // PERSON · ID 4 · 87%  - a product label, not a debug dump.
+      var label = t.owner
+        ? ('OWNER · ID ' + t.id)
+        : (t.cls.toUpperCase() + ' · ID ' + t.id + ' · ' + Math.round(t.score * 100) + '%');
       ctx.font = '600 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
       var padX = 5 * scale, padY = 4 * scale;
       var tw = ctx.measureText(label).width;
@@ -819,12 +848,13 @@
       var ly = Math.max(fs + padY * 2, b[1]);
       ctx.fillStyle = color;
       ctx.fillRect(lx, ly - fs - padY * 2, tw + padX * 2, fs + padY * 2);
-      ctx.fillStyle = t.owner ? '#ffffff' : (weapon ? '#ffffff' : ((sel || mk) ? '#1a0014' : '#04160a'));
+      ctx.fillStyle = (t.owner || weapon || mk || sel) ? '#ffffff' : '#04160a';
       ctx.textBaseline = 'middle';
       ctx.fillText(label, lx + padX, ly - (fs + padY * 2) / 2);
 
-      if (t.gender) {
-        // Green square for male, pink for female - the model's read, not a fact.
+      if (t.gender && segOn && !(sel || mk || t.owner || weapon)) {
+        /* In silhouette mode there is no box to carry the colour, so the chip
+           stands in for it. With boxes on, the box itself is the signal. */
         var sq = Math.round(fs * 0.8);
         ctx.fillStyle = t.gender === 'male' ? '#39ff14' : '#ff5fbf';
         ctx.fillRect(lx + tw + padX * 2 + 3 * scale, ly - fs - padY * 2, sq, sq);
@@ -833,18 +863,20 @@
         ctx.strokeRect(lx + tw + padX * 2 + 3 * scale, ly - fs - padY * 2, sq, sq);
       }
 
+      /* Numeric only. A Hebrew duration next to a Latin age put two scripts of
+         opposite direction in one canvas string, which rendered as a jumble. */
       var seen = t.lastSeen - t.firstSeen;
       var lines = [];
-      if (seen >= 1) lines.push(human(seen));
+      if (seen >= 1) lines.push(clock(seen));
       if (t.ageN > 0) lines.push('~' + Math.round(t.ageSum / t.ageN) + 'y');
       if (lines.length) {
-        var text = lines.join('  ');
-        ctx.font = '600 ' + Math.round(fs * 0.85) + 'px ui-monospace,Menlo,Consolas,monospace';
+        var text = lines.join(' · ');
+        ctx.font = '500 ' + Math.round(fs * 0.85) + 'px ui-monospace,Menlo,Consolas,monospace';
         var tw2 = ctx.measureText(text).width;
         var ty = Math.min(h - 2, b[1] + b[3] + fs + padY);
-        ctx.fillStyle = 'rgba(13,47,8,.85)';
+        ctx.fillStyle = 'rgba(6,10,12,.78)';
         ctx.fillRect(lx, ty - fs, tw2 + padX * 2, fs + padY);
-        ctx.fillStyle = '#d8ffd0';
+        ctx.fillStyle = 'rgba(230,242,238,.92)';
         ctx.fillText(text, lx + padX, ty - fs / 2 + padY / 2);
       }
     });
@@ -854,7 +886,23 @@
 
   // ------------------------------------------------------- zoom, pan, follow
 
+  /* Size the frame to the largest rectangle of the camera's aspect ratio that
+     fits the viewport - upscaling included. Without this a 640x480 feed drew at
+     its intrinsic size and left most of the stage empty. The overlay stretches
+     to the same box, so detection coordinates stay aligned. */
+  function fitFrame() {
+    var v = els.video;
+    var vw = v.videoWidth, vh = v.videoHeight;
+    if (!vw || !vh) return;
+    var vp = els.viewport.getBoundingClientRect();
+    if (!vp.width || !vp.height) return;
+    var k = Math.min(vp.width / vw, vp.height / vh);
+    els.frame.style.width = Math.round(vw * k) + 'px';
+    els.frame.style.height = Math.round(vh * k) + 'px';
+  }
+
   function applyView() {
+    fitFrame();
     var vp = els.viewport.getBoundingClientRect();
     var fr = els.frame;
     var w = fr.offsetWidth, h = fr.offsetHeight;
@@ -1113,9 +1161,10 @@
       var conf = Math.round(t.score * 100) + '%';
       if (r.conf.textContent !== conf) r.conf.textContent = conf;
       r.el.classList.toggle('sel', t.id === selectedId);
-      r.el.style.borderInlineStartColor = t.marked ? '#ff3b30' : '';
-      r.el.querySelector('.pip').style.background =
-        t.marked ? '#ff3b30' : (t.id === selectedId ? 'var(--magenta)' : '');
+      // Same colour the box is drawn in, so the list and the frame agree.
+      var rc = boxColor(t, t.id === selectedId, t.marked, WEAPON_CLASSES[t.cls]);
+      r.el.style.borderInlineStartColor = rc;
+      r.el.querySelector('.pip').style.background = rc;
     });
 
     Object.keys(rowEls).forEach(function (id) {
@@ -1209,9 +1258,13 @@
      both the sequence and the work behind it are done. */
   var BOOT_SECONDS = 17;
 
-  var PKGS = ['apg', 'atop', 'bmon', 'byobu', 'hollywood', 'jp2a', 'libconfuse2',
-    'pastebinit', 'python3-newt', 'speedometer', 'libcaca0', 'ttf-ubuntu-font-family',
-    'update-notifier-common', 'libsixel1', 'ncurses-term', 'mlocate'];
+  /* The reference boot had the cadence of an apt install. Keeping the rhythm,
+     but the component names are this system's own - a boot log that advertises
+     a novelty package undercuts the product it is booting. */
+  var PKGS = ['gda-core', 'gda-vision-rt', 'libtensor-webgl', 'libcodec-h264',
+    'detector-ssdlite', 'tracker-iou', 'reid-appearance', 'face-tiny-fd',
+    'attr-age-gender', 'face-embed-128', 'seg-bodypix', 'zone-engine',
+    'tamper-watch', 'clip-recorder', 'gda-telemetry', 'gda-ui'];
 
   function bootScript() {
     var out = [];
@@ -1228,7 +1281,7 @@
     });
     PKGS.forEach(function (n) { out.push('Unpacking <i>' + n + '</i> ...'); });
     PKGS.forEach(function (n) { out.push('Setting up <i>' + n + '</i> ...'); });
-    out.push('Processing triggers for libc-bin (2.31-2) ...');
+    out.push('Processing triggers for <i>gda-core</i> (4.2.1) ...');
     out.push('');
     out.push('$ gda-vision --load-models');
     out.push('runtime ......................... <b>tfjs 4.22.0</b>');
@@ -1307,7 +1360,7 @@
     els.bootGrid.innerHTML = '';
     els.bootMosaic.innerHTML = '';
     bootCells = [];
-    for (var i = 0; i < 96; i++) {
+    for (var i = 0; i < 320; i++) {   // 64 columns x 5 rows
       var c = document.createElement('span');
       els.bootGrid.appendChild(c);
       bootCells.push(c);
@@ -1571,8 +1624,13 @@
     ].forEach(function (pair) {
       if (els[pair[0]]) els[pair[0]].title = T(pair[1]);
     });
-    var h = document.querySelector('.panel-h span');
-    if (h) h.textContent = T('tracked');
+    Array.prototype.forEach.call(document.querySelectorAll('.legend b'), function (b) {
+      b.textContent = T(b.getAttribute('data-k'));
+    });
+    ['legend', 'tracked'].forEach(function (k) {
+      var el = document.querySelector('[data-i18n="' + k + '"]');
+      if (el) el.textContent = T(k);
+    });
     var dts = document.querySelectorAll('.stats .stat dt');
     ['fps', 'onScreen', 'total', 'time'].forEach(function (k, i) {
       if (dts[i]) dts[i].textContent = T(k);

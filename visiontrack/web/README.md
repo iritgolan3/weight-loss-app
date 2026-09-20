@@ -42,6 +42,13 @@ agency. GDA is a fictional brand, so it gets a mark of its own.
   of the frame.
 * **Age and apparent gender** for people, estimated on-device from the face crop
   and averaged over repeated measurements. The panel labels both as estimates.
+* **The box carries the colour.** A person's bounding box is drawn green for
+  male and pink for female — not a swatch beside the label, the box itself.
+  Because green and pink mean something, neither is the default: a person the
+  face model has not read yet is white, and anything that is not a person is
+  cyan. Selected is magenta, marked is red, a firearm class would be red, and
+  the enrolled owner is black. The trail and the sidebar row take the same
+  colour, and a legend in the sidebar spells it out.
 * **Follow mode.** A selected object is kept centred as it moves; the view
   chases it smoothly rather than snapping.
 * **Zoom** from 1x to 6x with the on-screen buttons or `+` / `-`.
