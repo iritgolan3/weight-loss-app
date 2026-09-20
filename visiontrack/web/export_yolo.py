@@ -17,20 +17,30 @@ frame, indistinguishable in accuracy - but a WebGPU device has to advertise the
 shader-f16 feature to run it, and one that does not falls back to WASM, where
 this model needs seconds per frame. fp32 runs on any WebGPU device.
 """
+import argparse
 from pathlib import Path
 
 from ultralytics import YOLO
 
 CACHE = Path(__file__).resolve().parent / ".cache"
-MODEL = "yolo26m.pt"
+
+# GFLOPs at 640x640, from the model config. The browser needs WebGPU for
+# anything above the smallest of these; on the WASM CPU backend, m measures
+# 0.25 frames per second.
+VARIANTS = {"yolo26n": 6.1, "yolo26s": 22.8, "yolo26m": 68.4, "yolo26l": 93.8}
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default="yolo26m", choices=sorted(VARIANTS))
+    args = ap.parse_args()
+
     CACHE.mkdir(exist_ok=True)
-    produced = YOLO(MODEL).export(
+    print(f"exporting {args.model} ({VARIANTS[args.model]} GFLOPs)...")
+    produced = YOLO(args.model + ".pt").export(
         format="onnx", imgsz=640, opset=17, simplify=True, dynamic=False, nms=False,
     )
-    target = CACHE / "yolo26m.onnx"
+    target = CACHE / (args.model + ".onnx")
     Path(produced).replace(target)
     print(f"wrote {target} ({target.stat().st_size / 1048576:.1f} MiB)")
     return 0

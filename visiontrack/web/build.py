@@ -143,6 +143,8 @@ def pack(raw: bytes) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default=str(HERE / "dist" / "VisionTrack-Live.html"))
+    parser.add_argument("--detector", default="yolo26m",
+                        help="which .onnx in .cache/ to inline (see export_yolo.py)")
     args = parser.parse_args()
 
     print("Collecting libraries...")
@@ -159,13 +161,14 @@ def main() -> int:
     print(f"  onnxruntime-web: {len(ort_wasm) / 1e6:.1f} MB wasm")
 
     print("Collecting the detector...")
-    onnx_path = CACHE / "yolo26m.onnx"
+    onnx_path = CACHE / f"{args.detector}.onnx"
     if not onnx_path.exists():
         raise SystemExit(
-            f"{onnx_path} is missing. Produce it once with:  python export_yolo.py"
+            f"{onnx_path} is missing. Produce it once with:  "
+            f"python export_yolo.py --model {args.detector}"
         )
     onnx = onnx_path.read_bytes()
-    print(f"  yolo26m.onnx: {len(onnx) / 1e6:.1f} MB")
+    print(f"  {onnx_path.name}: {len(onnx) / 1e6:.1f} MB")
 
     payload = {
         "ortWasm": pack(ort_wasm),
