@@ -19,6 +19,9 @@
     bird: 1, horse: 1, sheep: 1, cow: 1, elephant: 1, bear: 1, zebra: 1, giraffe: 1
   };
   var SCORE_MIN = 0.45;
+  var YOLO_SIZE = 640;          // the size the ONNX graph was exported at
+  var YOLO_MAX_DETS = 300;      // rows in the end-to-end head
+  var EP_ORDER = ['webgpu', 'wasm'];
   var IOU_MATCH = 0.3;
   var MAX_LOST = 18;
   var TRAIL_MAX = 45;
@@ -88,6 +91,8 @@
       unknownG: 'לא נקרא', objectG: 'חפץ', markedG: 'מסומן', selectedG: 'נבחר',
       weaponG: 'נשק', ownerG: 'בעלים', legend: 'מקרא',
       hudDet: 'מזהה', hudFace: 'מזהה · פנים פעיל',
+      bootDetector: 'טוען את YOLO26m…', slowWarn: 'רץ על מעבד — איטי. נדרש WebGPU',
+      bootCamera: 'מתחבר למצלמה…', bootFace: 'טוען זיהוי פנים…',
       tMove: 'תזוזה חדה של המצלמה', tCover: 'המצלמה כוסתה', tShock: 'זוהתה פגיעה פיזית',
       recManual: 'הקלטה ידנית', recOn: 'מקליט', recCont: 'ממשיך להקליט',
       recNo: 'הדפדפן לא תומך בהקלטה',
@@ -121,6 +126,8 @@
       unknownG: 'Unread', objectG: 'Object', markedG: 'Marked', selectedG: 'Selected',
       weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend',
       hudDet: 'Detecting', hudFace: 'Detecting · face on',
+      bootDetector: 'Loading YOLO26m…', slowWarn: 'Running on CPU — slow. WebGPU needed',
+      bootCamera: 'Connecting to the camera…', bootFace: 'Loading face models…',
       tMove: 'Camera moved sharply', tCover: 'Camera covered', tShock: 'Physical impact',
       recManual: 'Manual recording', recOn: 'recording', recCont: 'still recording',
       recNo: 'This browser cannot record',
@@ -190,6 +197,10 @@
     .forEach(function (id) { els[id] = document.getElementById(id); });
 
   var model = null, faceReady = false, stream = null, running = false;
+  var session = null, backend = null, inputName = null, outputName = null;
+  var ORT = null, YOLO_NAMES = [];
+  var letterCv = null, letterCx = null, inputBuf = null;
+  function log(m) { try { console.log('[visiontrack] ' + m); } catch (e) { /* ignore */ } }
   var facing = 'environment', pending = false, faceBusy = false;
   var tracks = [], nextId = 1, startedAt = 0, lastFrame = 0, fps = 0, rafId = 0;
   var selectedId = null, lastFaceAt = 0;
@@ -808,6 +819,68 @@
     return COL.unknown;
   }
 
+  // ---------------------------------------------------------------- detection
+
+  /* YOLO wants a square 640x640 image with the aspect ratio preserved, so the
+     frame is scaled to fit and the leftover margin filled with grey. The offsets
+     are kept so detections can be mapped back to frame pixels afterwards. */
+  function letterbox(video) {
+    var vw = video.videoWidth, vh = video.videoHeight;
+    if (!letterCv) {
+      letterCv = document.createElement('canvas');
+      letterCv.width = letterCv.height = YOLO_SIZE;
+      letterCx = letterCv.getContext('2d', { willReadFrequently: true });
+    }
+    var k = Math.min(YOLO_SIZE / vw, YOLO_SIZE / vh);
+    var nw = Math.round(vw * k), nh = Math.round(vh * k);
+    var dx = ((YOLO_SIZE - nw) / 2) | 0, dy = ((YOLO_SIZE - nh) / 2) | 0;
+    letterCx.fillStyle = '#727272';          // 114,114,114, the value YOLO trains with
+    letterCx.fillRect(0, 0, YOLO_SIZE, YOLO_SIZE);
+    letterCx.drawImage(video, 0, 0, vw, vh, dx, dy, nw, nh);
+    return { k: k, dx: dx, dy: dy };
+  }
+
+  /* RGBA bytes -> planar RGB floats in 0..1, the layout the graph expects. */
+  function toTensorData() {
+    var px = letterCx.getImageData(0, 0, YOLO_SIZE, YOLO_SIZE).data;
+    var n = YOLO_SIZE * YOLO_SIZE;
+    if (!inputBuf) inputBuf = new Float32Array(3 * n);
+    for (var i = 0, j = 0; i < n; i++, j += 4) {
+      inputBuf[i] = px[j] / 255;
+      inputBuf[n + i] = px[j + 1] / 255;
+      inputBuf[2 * n + i] = px[j + 2] / 255;
+    }
+    return inputBuf;
+  }
+
+  /* YOLO26 has an end-to-end head: the output is already decoded and sorted,
+     300 rows of x1,y1,x2,y2,score,class, with no NMS left to run. Rows are in
+     descending score order, so the first row under threshold ends the scan. */
+  function decode(out, fit, vw, vh) {
+    var d = out.data, res = [];
+    for (var i = 0; i < YOLO_MAX_DETS; i++) {
+      var b = i * 6, score = d[b + 4];
+      if (score < SCORE_MIN) break;
+      var name = YOLO_NAMES[d[b + 5] | 0];
+      if (!name || !WANTED[name]) continue;
+      var x1 = (d[b] - fit.dx) / fit.k, y1 = (d[b + 1] - fit.dy) / fit.k;
+      var x2 = (d[b + 2] - fit.dx) / fit.k, y2 = (d[b + 3] - fit.dy) / fit.k;
+      x1 = Math.max(0, Math.min(vw, x1)); x2 = Math.max(0, Math.min(vw, x2));
+      y1 = Math.max(0, Math.min(vh, y1)); y2 = Math.max(0, Math.min(vh, y2));
+      if (x2 - x1 < 2 || y2 - y1 < 2) continue;
+      res.push({ class: name, score: score, bbox: [x1, y1, x2 - x1, y2 - y1] });
+    }
+    return res;
+  }
+
+  async function detectFrame(video) {
+    var fit = letterbox(video);
+    var feeds = {};
+    feeds[inputName] = new ORT.Tensor('float32', toTensorData(), [1, 3, YOLO_SIZE, YOLO_SIZE]);
+    var out = await session.run(feeds);
+    return decode(out[outputName], fit, video.videoWidth, video.videoHeight);
+  }
+
   // ----------------------------------------------------------------- drawing
 
   function draw(ctx, w, h, scale) {
@@ -1236,7 +1309,7 @@
     if (pending) return;
     pending = true;
 
-    model.detect(v, 20, SCORE_MIN).then(function (predictions) {
+    detectFrame(v).then(function (predictions) {
       pending = false;
       if (!running) return;
 
@@ -1248,9 +1321,7 @@
       }
       lastFrame = t0;
 
-      updateTracks(predictions.filter(function (p) {
-        return WANTED[p.class] && p.score >= SCORE_MIN;
-      }), now);
+      updateTracks(predictions, now);
 
       maybeEstimateFace(now);
       maybeRecognise();
@@ -1524,19 +1595,47 @@
         'Chrome, Edge, Firefox 113+ or Safari 16.4+ are needed.');
     }
 
-    setProgress(15, 'טוען את מנוע הזיהוי…');
+    setProgress(15, T('bootDetector'));
     await new Promise(function (r) { setTimeout(r, 30); });
 
-    var specs = [];
-    spec.manifest.forEach(function (g) { specs = specs.concat(g.weights); });
-    var handler = tf.io.fromMemory({
-      modelTopology: await unpackJSON(spec.topology),
-      weightSpecs: specs,
-      weightData: await unpack(spec.weights)
-    });
-    model = await cocoSsd.load({ base: 'lite_mobilenet_v2', modelUrl: handler });
+    /* onnxruntime-web ships as an ES module. Importing it from a blob URL is
+       what lets a file:// page load it at all - a relative import of the same
+       text is blocked as a cross-origin request. */
+    var ortSrc = document.getElementById('ortsrc').textContent;
+    ORT = await import(URL.createObjectURL(
+      new Blob([ortSrc], { type: 'text/javascript' })));
+    var ort = ORT;
+    YOLO_NAMES = spec.names;
 
-    setProgress(60, 'טוען זיהוי פנים…');
+    ort.env.wasm.wasmBinary = await unpack(spec.ortWasm);
+    ort.env.wasm.numThreads = 1;   // threads need headers a file:// page has none of
+    ort.env.logLevel = 'error';
+
+    setProgress(30, T('bootDetector'));
+    var weights = new Uint8Array(await unpack(spec.yolo));
+
+    /* WebGPU first. This model is 68 GFLOPs; on the WASM CPU backend that is
+       seconds per frame, so the fallback keeps the app working rather than
+       keeping it fast, and the HUD says which one is live. */
+    var tried = [];
+    for (var ei = 0; ei < EP_ORDER.length; ei++) {
+      var ep = EP_ORDER[ei];
+      if (ep === 'webgpu' && !navigator.gpu) { tried.push('webgpu: unavailable'); continue; }
+      try {
+        session = await ort.InferenceSession.create(weights, { executionProviders: [ep] });
+        backend = ep;
+        break;
+      } catch (e) {
+        tried.push(ep + ': ' + String((e && e.message) || e).slice(0, 120));
+      }
+    }
+    if (!session) throw new Error('No execution provider worked - ' + tried.join(' | '));
+    inputName = session.inputNames[0];
+    outputName = session.outputNames[0];
+    model = session;
+    log('detector on ' + backend);
+
+    setProgress(60, T('bootFace'));
     try {
       /* These weights are uint8-quantized, so they cannot be handed over as a
          raw Float32Array - tf.io.decodeWeights applies each tensor's scale and
@@ -1571,7 +1670,10 @@
       console.warn('segmentation unavailable:', e);
       segNet = null;
     }
-    setProgress(85, 'מתחבר למצלמה…');
+    /* Say it out loud rather than letting it look broken: on the CPU backend
+       this model is seconds per frame, and the user should know why. */
+    if (backend !== 'webgpu') showAlert(T('slowWarn'));
+    setProgress(85, T('bootCamera'));
   }
 
   async function startCamera() {
@@ -1625,7 +1727,8 @@
     setTimeout(function () { tamper.armed = true; }, 2500);
     armMotionSensor();
     els.stop.disabled = els.flip.disabled = false;
-    els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet');
+    els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet') +
+      (backend ? ' · ' + backend.toUpperCase() : '');
 
     enrolled = loadEnrolment();
     els.ownerBtn.classList.toggle('on', !!enrolled);
@@ -1699,7 +1802,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('.legend b'), function (b) {
       b.textContent = T(b.getAttribute('data-k'));
     });
-    if (running) els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet');
+    if (running) els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet') +
+      (backend ? ' · ' + backend.toUpperCase() : '');
     renderClips();
     ['legend', 'tracked'].forEach(function (k) {
       var el = document.querySelector('[data-i18n="' + k + '"]');
@@ -1850,6 +1954,7 @@
   window.__VT_DEBUG__ = function () {
     return {
       tracks: tracks.length, selected: selectedId, zoom: view.zoom,
+      backend: backend, fps: Math.round(fps*100)/100,
       marked: tracks.filter(function(t){return t.marked}).map(function(t){return t.id}),
       faceReady: faceReady, armed: tamper.armed,
       recogReady: recogReady, enrolled: !!enrolled, enrolling: enrolling,

@@ -31,13 +31,17 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 CACHE = HERE / ".cache"
-MODEL_BASE = "https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2"
 # face-api bundles its own TensorFlow.js (4.22.0), which the page then shares
 # with coco-ssd, so no separate tfjs copy is needed.
 FACE_API = "@vladmandic/face-api@1.7.15"
+ORT = "onnxruntime-web@1.30.0"
+# The "bundle" build has the WebAssembly glue module inlined. The plain build
+# imports it as a sibling .mjs at runtime, which a file:// page cannot fetch -
+# that is the one thing that makes this work offline from a double-click.
+ORT_ESM = "package/dist/ort.webgpu.bundle.min.mjs"
+ORT_WASM = "package/dist/ort-wasm-simd-threaded.asyncify.wasm"
 PACKAGES = {
     "faceapi": (FACE_API, "package/dist/face-api.js"),
-    "cocossd": ("@tensorflow-models/coco-ssd@2.2.3", "package/dist/coco-ssd.min.js"),
     "bodypix": ("@tensorflow-models/body-pix@2.2.1", "package/dist/body-pix.min.umd.js"),
 }
 # Person segmentation: MobileNetV1, stride 16, multiplier 0.5 - the smallest
@@ -102,6 +106,24 @@ B85 = "".join(c for c in (chr(i) for i in range(33, 127))
 assert len(B85) == 85 and len(set(B85)) == 85
 
 
+# The 80 COCO classes, in the order YOLO26 emits them. The model returns a class
+# index; this is the only place that turns it back into a word.
+COCO_NAMES = [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
+    "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra",
+    "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+    "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+    "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+    "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+    "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
+    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
+    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+    "hair drier", "toothbrush",
+]
+
+
 def pack(raw: bytes) -> dict:
     """gzip, then base85 - the form the page's unpack() expects."""
     blob = gzip.compress(raw, 9, mtime=0)
@@ -129,22 +151,26 @@ def main() -> int:
         face_members.update({m: CACHE / Path(m).name for m in pair})
     npm_files(FACE_API, face_members)
     faceapi_js = (CACHE / "face-api.js").read_text()
-    coco = npm_file(*PACKAGES["cocossd"], CACHE / "coco-ssd.min.js").read_text()
     bodypix_js = npm_file(*PACKAGES["bodypix"], CACHE / "body-pix.min.umd.js").read_text()
+    npm_files(ORT, {ORT_ESM: CACHE / "ort.webgpu.bundle.min.mjs",
+                    ORT_WASM: CACHE / "ort-wasm-simd-threaded.asyncify.wasm"})
+    ort_esm = (CACHE / "ort.webgpu.bundle.min.mjs").read_text()
+    ort_wasm = (CACHE / "ort-wasm-simd-threaded.asyncify.wasm").read_bytes()
+    print(f"  onnxruntime-web: {len(ort_wasm) / 1e6:.1f} MB wasm")
 
-    print("Collecting the model...")
-    manifest_path = fetch(f"{MODEL_BASE}/model.json", CACHE / "model" / "model.json")
-    manifest = json.loads(manifest_path.read_text())
-    shards = [p for group in manifest["weightsManifest"] for p in group["paths"]]
-    blob = b"".join(
-        fetch(f"{MODEL_BASE}/{s}", CACHE / "model" / s).read_bytes() for s in shards
-    )
-    print(f"  weights: {len(blob) / 1e6:.1f} MB")
+    print("Collecting the detector...")
+    onnx_path = CACHE / "yolo26m.onnx"
+    if not onnx_path.exists():
+        raise SystemExit(
+            f"{onnx_path} is missing. Produce it once with:  python export_yolo.py"
+        )
+    onnx = onnx_path.read_bytes()
+    print(f"  yolo26m.onnx: {len(onnx) / 1e6:.1f} MB")
 
     payload = {
-        "topology": pack(json.dumps(manifest["modelTopology"]).encode()),
-        "manifest": manifest["weightsManifest"],
-        "weights": pack(blob),
+        "ortWasm": pack(ort_wasm),
+        "yolo": pack(onnx),
+        "names": COCO_NAMES,
     }
     for key, (bin_member, manifest_member) in FACE_WEIGHTS.items():
         raw = (CACHE / Path(bin_member).name).read_bytes()
@@ -171,7 +197,7 @@ def main() -> int:
 
     html = html.replace("/*__FACEAPI__*/", faceapi_js)
     html = html.replace("/*__BODYPIX__*/", bodypix_js)
-    html = html.replace("/*__COCOSSD__*/", coco)
+    html = html.replace("/*__ORTESM__*/", ort_esm)
     html = html.replace("/*__MODELDATA__*/",
                         "window.__VT_MODEL__=" + json.dumps(payload, separators=(",", ":")) + ";")
     html = html.replace("/*__APP__*/", (HERE / "app.js").read_text())

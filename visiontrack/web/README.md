@@ -6,7 +6,8 @@ no network. Built for machines where Windows App Control or SmartScreen refuses
 to run the desktop launcher, and it works on a phone as well.
 
 ```bash
-python build.py          # writes dist/VisionTrack-Live.html (~31 MB)
+python export_yolo.py    # once: writes .cache/yolo26m.onnx
+python build.py          # writes dist/VisionTrack-Live.html (~100 MB)
 ```
 
 Then double-click the file. It opens in the browser, asks for camera permission
@@ -140,10 +141,45 @@ Marking is a handle on a live track, not on a human being. For everyone who is
 not the enrolled owner, it reports what the camera can see about an unidentified
 figure, and nothing that would attach a name to them.
 
+### The detector: YOLO26m, and what it needs
+
+Detection is YOLO26m (20.4M parameters, 68.4 GFLOPs) exported to ONNX and run by
+onnxruntime-web. It replaced COCO-SSD, and on a test frame the difference is
+plain: two people at 0.96 and 0.95 where COCO-SSD gave 0.85 and 0.69, with
+tighter boxes, plus a `tie` COCO-SSD did not see at all.
+
+Three things make it work as a single offline file:
+
+* **`nms=False` on export.** YOLO26 has an end-to-end head, and that flag keeps
+  it: the model emits `(1, 300, 6)` — already decoded, already sorted, no
+  non-maximum suppression left to write in JavaScript. Omit the flag and the
+  export falls back to the legacy raw `(1, 84, 8400)` head instead.
+* **The `bundle` build of onnxruntime-web.** The ordinary build imports its
+  WebAssembly glue as a sibling `.mjs` at runtime, which a `file://` page is not
+  allowed to fetch. The bundle has it inlined. It is then imported from a blob
+  URL, because a relative import of the same text is blocked as cross-origin.
+* **fp32, not fp16.** The fp16 export is half the size and, on a test frame,
+  indistinguishable — same three detections, confidences within 0.001, boxes
+  within 0.1px. It is not used, because a WebGPU device must advertise the
+  `shader-f16` feature to run it and one that does not falls back to the CPU.
+
+**It needs WebGPU.** At 68 GFLOPs this is roughly seventy times the arithmetic
+of the COCO-SSD it replaced. Measured on the WASM CPU backend, single-threaded:
+**0.25 frames per second** — four seconds a frame, which is not a working app.
+The HUD names the live backend (`WEBGPU` or `WASM`) and the app says so out loud
+when it falls back, rather than looking broken. WebGPU performance has not been
+measured here: this container has no GPU, so that number has to come from the
+machine it actually runs on.
+
+If WebGPU is unavailable on the target machine, the fix is a smaller model, not
+a faster runtime: `export_yolo.py` takes `yolo26s` (22.8 GFLOPs) or `yolo26n`
+(6.1 GFLOPs) with no other change.
+
 ### What the detector cannot name
 
-COCO-SSD knows 80 coarse classes. It reports `car`, never a make, model or year,
-and it has no firearm class at all. Adding either means a second model; printing
+YOLO26m is trained on COCO: the same 80 coarse classes. It reports `car`, never
+a make, model or year, and it has no firearm class at all. A bigger detector is
+more accurate on those 80 things; it does not add an eighty-first. Adding either means a second model; printing
 a guess would be a fabricated detection.
 
 **Vehicle make / model / year.** Public fine-grained datasets are
@@ -179,11 +215,11 @@ will not.
 
 |  | Desktop (`../backend`) | Browser (this) |
 | --- | --- | --- |
-| Detector | YOLOv8 / YOLO11 via Ultralytics | COCO-SSD (ssdlite_mobilenet_v2) |
+| Detector | YOLOv8 / YOLO11 via Ultralytics | YOLO26m via onnxruntime-web |
 | Age / apparent gender | No | Yes, on-device |
 | Zoom, follow, tamper watch, auto-record | No | Yes |
 | Tracker | ByteTrack / BoT-SORT | Greedy IoU association (`app.js`) |
-| Runs on | Python + PyTorch | TensorFlow.js in the browser |
+| Runs on | Python + PyTorch | ONNX Runtime Web (detector) + TensorFlow.js (face, segmentation) |
 | Speed | GPU or multi-core CPU | Whatever WebGL the device offers |
 | Accuracy | Higher | Lower, especially for small/distant objects |
 | Zones, export, playback, file analysis | Yes | No — live camera only |
