@@ -68,8 +68,12 @@ agency. GDA is a fictional brand, so it gets a mark of its own.
 * **Animals.** The ten animal classes the detector can actually name (dog, cat,
   bird, horse, sheep, cow, elephant, bear, zebra, giraffe) get a factual note in
   the panel. It does not identify species beyond those ten.
-* **English / Hebrew toggle**, remembered per browser. The terminal boot screen
-  stays left-to-right in both, because a terminal does.
+* **English / Hebrew toggle**, remembered per browser. The layout does not
+  mirror: the sidebar, the control cluster and the HUD keep the same side in
+  both languages, so switching language changes the words and nothing else.
+  Hebrew words still read right-to-left within their own run — each one is
+  fenced with bidi isolates so a Hebrew label sitting among Latin numbers
+  cannot reorder what follows it.
 * **Silhouette mode.** The `▣` button swaps bounding boxes for a segmented green
   silhouette (BodyPix MobileNet 0.5, stride 16). It costs real frame rate, so it
   is off by default and one press turns it back off.

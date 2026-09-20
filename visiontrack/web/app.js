@@ -86,7 +86,20 @@
       tZoomIn: 'הגדל', tZoomOut: 'הקטן', tFollow: 'עקוב אחרי הנבחר',
       tOwner: 'רישום בעלים / מחיקה', tSeg: 'ריבוע / צללית', tRec: 'הקלטה ידנית',
       unknownG: 'לא נקרא', objectG: 'חפץ', markedG: 'מסומן', selectedG: 'נבחר',
-      weaponG: 'נשק', ownerG: 'בעלים', legend: 'מקרא'
+      weaponG: 'נשק', ownerG: 'בעלים', legend: 'מקרא',
+      hudDet: 'מזהה', hudFace: 'מזהה · פנים פעיל',
+      tMove: 'תזוזה חדה של המצלמה', tCover: 'המצלמה כוסתה', tShock: 'זוהתה פגיעה פיזית',
+      recManual: 'הקלטה ידנית', recOn: 'מקליט', recCont: 'ממשיך להקליט',
+      recNo: 'הדפדפן לא תומך בהקלטה',
+      errNoCam: 'הדפדפן הזה לא תומך בגישה למצלמה.',
+      errNoCamHint: 'נסה לפתוח את הקובץ ב-Chrome או ב-Edge.',
+      errModels: 'טעינת מנוע הזיהוי נכשלה.',
+      errOpen: 'לא הצלחתי לפתוח את המצלמה.',
+      errFlip: 'לא הצלחתי להחליף מצלמה.',
+      hintBusyGeneric: 'אשר את הבקשה לגישה למצלמה, וסגור תוכנות אחרות שמשתמשות בה.',
+      hintDenied: 'הגישה נדחתה. לחץ על סמל המצלמה בשורת הכתובת, אפשר גישה, ורענן.',
+      hintNoDevice: 'לא נמצאה מצלמה מחוברת למכשיר.',
+      hintBusy: 'תוכנה אחרת תופסת את המצלמה. סגור אותה ונסה שוב.'
     },
     en: {
       start: 'Start camera', stop: 'Stop', flip: 'Flip camera',
@@ -106,10 +119,29 @@
       tZoomIn: 'Zoom in', tZoomOut: 'Zoom out', tFollow: 'Follow the selection',
       tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record',
       unknownG: 'Unread', objectG: 'Object', markedG: 'Marked', selectedG: 'Selected',
-      weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend'
+      weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend',
+      hudDet: 'Detecting', hudFace: 'Detecting · face on',
+      tMove: 'Camera moved sharply', tCover: 'Camera covered', tShock: 'Physical impact',
+      recManual: 'Manual recording', recOn: 'recording', recCont: 'still recording',
+      recNo: 'This browser cannot record',
+      errNoCam: 'This browser cannot reach a camera.',
+      errNoCamHint: 'Try opening the file in Chrome or Edge.',
+      errModels: 'The detection engine failed to load.',
+      errOpen: 'Could not open the camera.',
+      errFlip: 'Could not switch camera.',
+      hintBusyGeneric: 'Allow the camera request, and close other apps using the camera.',
+      hintDenied: 'Access was denied. Click the camera icon in the address bar, allow it, and reload.',
+      hintNoDevice: 'No camera is attached to this device.',
+      hintBusy: 'Another app is holding the camera. Close it and try again.'
     }
   };
   function T(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
+
+  /* The layout is left-to-right in both languages, so a Hebrew word sitting in
+     a string of Latin numbers swallows the separators around it and reorders
+     what follows - "0:20 · stationary · ~55" came out as "0:20 · 55~ · עומד".
+     First-strong isolate + pop marks fence each word into its own run. */
+  function iso(str) { return '\u2068' + str + '\u2069'; }
 
   var HE = {
     person: 'אדם', bicycle: 'אופניים', car: 'רכב', motorcycle: 'אופנוע',
@@ -488,13 +520,13 @@
       var diff = 0;
       for (var j = 0; j < n; j++) diff += Math.abs(luma[j] - tamper.prev[j]);
       diff /= n;
-      if (diff > TAMPER_DIFF) reason = 'תזוזה חדה של המצלמה';
+      if (diff > TAMPER_DIFF) reason = 'tMove';
       else if (tamper.prevLuma > 0.08 && mean < tamper.prevLuma * TAMPER_DARK) {
-        reason = 'המצלמה כוסתה';
+        reason = 'tCover';
       }
     }
     if (tamper.shock > TAMPER_SHOCK) {
-      reason = 'זוהתה פגיעה פיזית';
+      reason = 'tShock';
       tamper.shock = 0;
     }
 
@@ -533,12 +565,12 @@
       rec.recorder = mime ? new MediaRecorder(stream, { mimeType: mime })
                           : new MediaRecorder(stream);
     } catch (e) {
-      showAlert('הדפדפן לא תומך בהקלטה');
+      showAlert(T('recNo'));
       return;
     }
     rec.chunks = [];
     rec.auto = !!auto;
-    rec.reason = reason || 'הקלטה ידנית';
+    rec.reason = reason || 'recManual';   // a key, resolved when it is drawn
     rec.startedAt = performance.now();
     rec.stopAt = auto ? rec.startedAt + CLIP_SECONDS * 1000 : 0;
 
@@ -564,7 +596,7 @@
     rec.recorder.start(1000);
     els.recBtn.classList.add('on');
     updateRecUi();
-    if (auto) showAlert(reason + ' — מקליט');
+    if (auto) showAlert(T(reason) + ' — ' + T('recOn'));
   }
 
   function stopRecording() {
@@ -584,7 +616,7 @@
     if (!clips.length) { els.clips.hidden = true; return; }
     els.clips.hidden = false;
     els.clips.innerHTML = clips.map(function (c) {
-      return '<div class="clip"><div class="cl"><b>' + c.reason + '</b>' +
+      return '<div class="clip"><div class="cl"><b>' + T(c.reason) + '</b>' +
         c.at + ' · ' + Math.round(c.seconds) + ' שנ\' · ' +
         (c.size / 1048576).toFixed(1) + 'MB</div>' +
         '<a href="' + c.url + '" download="' + c.name + '">שמור</a></div>';
@@ -1057,8 +1089,8 @@
     var frameH = els.overlay.height || 1, frameW = els.overlay.width || 1;
     var seen = t.lastSeen - t.firstSeen;
 
-    dRefs.title.textContent = clsName(t.cls) + ' · ID ' + t.id +
-      (t.marked ? ' · ' + T('marked') : '');
+    dRefs.title.textContent = iso(clsName(t.cls)) + ' · ID ' + t.id +
+      (t.marked ? ' · ' + iso(T('marked')) : '');
     dRefs.title.style.color = t.marked ? '#ff3b30' : '';
     dRefs.mark.textContent = t.marked ? T('unmark') : T('mark');
 
@@ -1080,7 +1112,7 @@
         dRefs.age.className = 'est';
         var sq = '<span style="display:inline-block;width:10px;height:10px;vertical-align:-1px;' +
           'margin-inline-end:6px;background:' + (t.gender === 'male' ? '#39ff14' : '#ff5fbf') + '"></span>';
-        put(dRefs.gender, sq + (t.gender === 'male' ? T('male') : T('female')) +
+        put(dRefs.gender, sq + '<bdi>' + (t.gender === 'male' ? T('male') : T('female')) + '</bdi>' +
           ' · ' + Math.round(t.genderProb * 100) + '%');
         dRefs.gender.className = 'est';
       } else {
@@ -1156,7 +1188,8 @@
       }
       var seen = t.lastSeen - t.firstSeen;
       var extra = t.ageN > 0 ? ' · ~' + Math.round(t.ageSum / t.ageN) : '';
-      var meta = clock(seen) + ' · ' + (t.speed > STATIONARY_PX_S ? T('moving') : T('still')) + extra;
+      var meta = clock(seen) + ' · ' +
+        iso(t.speed > STATIONARY_PX_S ? T('moving') : T('still')) + extra;
       if (r.meta.textContent !== meta) r.meta.textContent = meta;
       var conf = Math.round(t.score * 100) + '%';
       if (r.conf.textContent !== conf) r.conf.textContent = conf;
@@ -1227,7 +1260,7 @@
       if (breach) {
         if (rec.recorder && rec.auto) {
           rec.stopAt = performance.now() + CLIP_SECONDS * 1000;   // extend the clip
-          showAlert(breach + ' — ממשיך להקליט');
+          showAlert(T(breach) + ' — ' + T('recCont'));
         } else if (!rec.recorder) {
           startRecording(true, breach);
         }
@@ -1546,7 +1579,7 @@
     els.start.disabled = els.startBig.disabled = true;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      fail('הדפדפן הזה לא תומך בגישה למצלמה.', 'נסה לפתוח את הקובץ ב-Chrome או ב-Edge.');
+      fail(T('errNoCam'), T('errNoCamHint'));
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
@@ -1556,7 +1589,7 @@
       await Promise.all([loadModels(), sequence]);
     } catch (e) {
       els.boot.hidden = true;
-      fail('טעינת מנוע הזיהוי נכשלה.', String((e && e.message) || e));
+      fail(T('errModels'), String((e && e.message) || e));
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
@@ -1568,12 +1601,12 @@
       });
     } catch (e) {
       var n = e && e.name;
-      var hint = 'אשר את הבקשה לגישה למצלמה, וסגור תוכנות אחרות שמשתמשות בה.';
-      if (n === 'NotAllowedError') hint = 'הגישה נדחתה. לחץ על סמל המצלמה בשורת הכתובת, אפשר גישה, ורענן.';
-      if (n === 'NotFoundError') hint = 'לא נמצאה מצלמה מחוברת למכשיר.';
-      if (n === 'NotReadableError') hint = 'תוכנה אחרת תופסת את המצלמה. סגור אותה ונסה שוב.';
+      var hint = T('hintBusyGeneric');
+      if (n === 'NotAllowedError') hint = T('hintDenied');
+      if (n === 'NotFoundError') hint = T('hintNoDevice');
+      if (n === 'NotReadableError') hint = T('hintBusy');
       els.boot.hidden = true;
-      fail('לא הצלחתי לפתוח את המצלמה.', hint);
+      fail(T('errOpen'), hint);
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
@@ -1592,7 +1625,7 @@
     setTimeout(function () { tamper.armed = true; }, 2500);
     armMotionSensor();
     els.stop.disabled = els.flip.disabled = false;
-    els.hudState.textContent = faceReady ? 'מזהה · פנים פעיל' : 'מזהה';
+    els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet');
 
     enrolled = loadEnrolment();
     els.ownerBtn.classList.toggle('on', !!enrolled);
@@ -1634,7 +1667,7 @@
       els.video.srcObject = stream;
       await els.video.play().catch(function () {});
     } catch (e) {
-      fail('לא הצלחתי להחליף מצלמה.', String((e && e.message) || e));
+      fail(T('errFlip'), String((e && e.message) || e));
     }
   }
 
@@ -1648,7 +1681,11 @@
   els.zoomOut.addEventListener('click', function () { setZoom(view.zoom / ZOOM_STEP); });
   function applyLang() {
     document.documentElement.lang = lang;
-    document.body.dir = lang === 'he' ? 'rtl' : 'ltr';
+    /* The layout stays left-to-right in both languages, so the sidebar, the
+       control cluster and the HUD sit on the same side whichever language is
+       selected. Hebrew words still render right-to-left inside their own run;
+       only the frame around them stops flipping. */
+    document.body.dir = 'ltr';
     els.lang.textContent = lang === 'he' ? 'EN' : 'עב';
     els.start.textContent = T('start');
     els.stop.textContent = T('stop');
@@ -1662,6 +1699,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('.legend b'), function (b) {
       b.textContent = T(b.getAttribute('data-k'));
     });
+    if (running) els.hudState.textContent = T(faceReady ? 'hudFace' : 'hudDet');
+    renderClips();
     ['legend', 'tracked'].forEach(function (k) {
       var el = document.querySelector('[data-i18n="' + k + '"]');
       if (el) el.textContent = T(k);
@@ -1703,7 +1742,7 @@
 
   els.recBtn.addEventListener('click', function () {
     if (rec.recorder) stopRecording();
-    else startRecording(false, 'הקלטה ידנית');
+    else startRecording(false, 'recManual');
   });
   els.follow.addEventListener('click', function () {
     view.follow = !view.follow;
