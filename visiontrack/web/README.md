@@ -6,11 +6,20 @@ no network. Built for machines where Windows App Control or SmartScreen refuses
 to run the desktop launcher, and it works on a phone as well.
 
 ```bash
-python build.py          # writes dist/VisionTrack-Live.html (~39 MB)
+python build.py          # writes dist/VisionTrack-Live.html (~31 MB)
 ```
 
 Then double-click the file. It opens in the browser, asks for camera permission
 and starts tracking.
+
+Most of that size is 26 MB of neural-network weights. They are gzipped and
+written in an 85-character encoding rather than base64 — base64 costs 33% over
+the raw bytes, this costs 25%, and gzip takes a slice off first, which is the
+difference between a 37 MB file and a 31 MB one. The page inflates them with
+`DecompressionStream` while the boot screen runs, so it costs no visible time.
+That does set a floor on the browser: Chrome, Edge, Firefox 113+ or Safari
+16.4+. Anything older gets a plain message saying so rather than a stack
+trace.
 
 ## The access gate
 

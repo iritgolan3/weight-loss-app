@@ -1438,23 +1438,58 @@
 
   }
 
-  function b64ToBuffer(b64) {
-    var bin = atob(b64);
-    var buf = new ArrayBuffer(bin.length);
-    var view8 = new Uint8Array(buf);
-    for (var i = 0; i < bin.length; i++) view8[i] = bin.charCodeAt(i);
-    return buf;
+  /* The weights ship gzipped and written in 85 characters rather than base64:
+     base64 costs 33% over the raw bytes, this costs 25%, and gzip takes a
+     slice off before that. build.py writes it; this reads it back. The
+     alphabet leaves out < > & \\ " ' and the backtick so the payload cannot
+     terminate the script element it sits in. */
+  var B85 = "!#$%()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_" +
+            "abcdefghijklmnopqrstuvwxyz{|";
+  var B85R = new Uint8Array(128);
+  for (var b85i = 0; b85i < 85; b85i++) B85R[B85.charCodeAt(b85i)] = b85i;
+
+  function b85Decode(z, n) {
+    var out = new Uint8Array((z.length / 5) * 4), o = 0;
+    for (var i = 0; i < z.length; i += 5) {
+      // Stays well inside the exact-integer range of a double (max ~4.29e9).
+      var v = (((B85R[z.charCodeAt(i)] * 85 + B85R[z.charCodeAt(i + 1)]) * 85 +
+                 B85R[z.charCodeAt(i + 2)]) * 85 + B85R[z.charCodeAt(i + 3)]) * 85 +
+               B85R[z.charCodeAt(i + 4)];
+      out[o++] = Math.floor(v / 16777216) & 255;
+      out[o++] = (v >>> 16) & 255;
+      out[o++] = (v >>> 8) & 255;
+      out[o++] = v & 255;
+    }
+    return out.subarray(0, n);
   }
 
-  function decodeFaceWeights(entry) {
+  function gunzip(bytes) {
+    var stream = new Blob([bytes]).stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).arrayBuffer();
+  }
+
+  function unpack(entry) {
+    return gunzip(b85Decode(entry.z, entry.n));
+  }
+
+  async function unpackJSON(entry) {
+    return JSON.parse(new TextDecoder().decode(await unpack(entry)));
+  }
+
+  async function decodeFaceWeights(entry) {
     var specs = [];
     entry.manifest.forEach(function (g) { specs = specs.concat(g.weights); });
-    return tf.io.decodeWeights(b64ToBuffer(entry.weights), specs);
+    return tf.io.decodeWeights(await unpack(entry.weights), specs);
   }
 
   async function loadModels() {
     if (model) return;
     var spec = window.__VT_MODEL__;
+    if (typeof DecompressionStream === 'undefined') {
+      throw new Error('This browser cannot inflate the bundled models. ' +
+        'Chrome, Edge, Firefox 113+ or Safari 16.4+ are needed.');
+    }
 
     setProgress(15, 'טוען את מנוע הזיהוי…');
     await new Promise(function (r) { setTimeout(r, 30); });
@@ -1462,9 +1497,9 @@
     var specs = [];
     spec.manifest.forEach(function (g) { specs = specs.concat(g.weights); });
     var handler = tf.io.fromMemory({
-      modelTopology: spec.topology,
+      modelTopology: await unpackJSON(spec.topology),
       weightSpecs: specs,
-      weightData: b64ToBuffer(spec.weights)
+      weightData: await unpack(spec.weights)
     });
     model = await cocoSsd.load({ base: 'lite_mobilenet_v2', modelUrl: handler });
 
@@ -1473,12 +1508,12 @@
       /* These weights are uint8-quantized, so they cannot be handed over as a
          raw Float32Array - tf.io.decodeWeights applies each tensor's scale and
          zero point from the manifest first. */
-      await faceapi.nets.tinyFaceDetector.loadFromWeightMap(decodeFaceWeights(spec.faceDetector));
-      await faceapi.nets.ageGenderNet.loadFromWeightMap(decodeFaceWeights(spec.ageGender));
+      await faceapi.nets.tinyFaceDetector.loadFromWeightMap(await decodeFaceWeights(spec.faceDetector));
+      await faceapi.nets.ageGenderNet.loadFromWeightMap(await decodeFaceWeights(spec.ageGender));
       faceReady = true;
       if (spec.landmarks && spec.recognition) {
-        await faceapi.nets.faceLandmark68TinyNet.loadFromWeightMap(decodeFaceWeights(spec.landmarks));
-        await faceapi.nets.faceRecognitionNet.loadFromWeightMap(decodeFaceWeights(spec.recognition));
+        await faceapi.nets.faceLandmark68TinyNet.loadFromWeightMap(await decodeFaceWeights(spec.landmarks));
+        await faceapi.nets.faceRecognitionNet.loadFromWeightMap(await decodeFaceWeights(spec.recognition));
         recogReady = true;
       }
     } catch (e) {
@@ -1493,9 +1528,9 @@
         segNet = await bodyPix.load({
           architecture: 'MobileNetV1', outputStride: 16, multiplier: 0.5, quantBytes: 4,
           modelUrl: tf.io.fromMemory({
-            modelTopology: spec.seg.topology,
+            modelTopology: await unpackJSON(spec.seg.topology),
             weightSpecs: segSpecs,
-            weightData: b64ToBuffer(spec.seg.weights)
+            weightData: await unpack(spec.seg.weights)
           })
         });
       }

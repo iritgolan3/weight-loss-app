@@ -4,6 +4,12 @@ Produces a single self-contained .html file: TensorFlow.js, the COCO-SSD
 wrapper and the model weights are all inlined, so the page runs from a local
 file with no server, no install and no network access.
 
+The weights are gzipped and then written in a 85-character text encoding
+instead of base64. Base64 costs 33% over the raw bytes; this costs 25%, and
+gzip takes another slice off first, so 26 MB of weights land in roughly 28 MB
+of text instead of 35 MB. The page inflates them with DecompressionStream
+during the boot screen.
+
     python build.py            # writes dist/VisionTrack-Live.html
     python build.py --out X    # writes somewhere else
 
@@ -13,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
 import json
 import shutil
 import subprocess
@@ -88,6 +95,29 @@ def npm_file(spec: str, member: str, dest: Path) -> Path:
     return dest
 
 
+# 85 printable characters, leaving out the ones that would end the <script>
+# element or need escaping inside it: < > & \\ " \' and the backtick.
+B85 = "".join(c for c in (chr(i) for i in range(33, 127))
+              if c not in '<>&\\"\'`')[:85]
+assert len(B85) == 85 and len(set(B85)) == 85
+
+
+def pack(raw: bytes) -> dict:
+    """gzip, then base85 - the form the page's unpack() expects."""
+    blob = gzip.compress(raw, 9, mtime=0)
+    pad = (-len(blob)) % 4
+    padded = blob + b"\0" * pad
+    out = bytearray()
+    for i in range(0, len(padded), 4):
+        n = int.from_bytes(padded[i:i + 4], "big")
+        chunk = bytearray(5)
+        for j in range(4, -1, -1):
+            n, r = divmod(n, 85)
+            chunk[j] = ord(B85[r])
+        out += chunk
+    return {"z": out.decode("ascii"), "n": len(blob)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default=str(HERE / "dist" / "VisionTrack-Live.html"))
@@ -112,16 +142,16 @@ def main() -> int:
     print(f"  weights: {len(blob) / 1e6:.1f} MB")
 
     payload = {
-        "topology": manifest["modelTopology"],
+        "topology": pack(json.dumps(manifest["modelTopology"]).encode()),
         "manifest": manifest["weightsManifest"],
-        "weights": base64.b64encode(blob).decode("ascii"),
+        "weights": pack(blob),
     }
     for key, (bin_member, manifest_member) in FACE_WEIGHTS.items():
         raw = (CACHE / Path(bin_member).name).read_bytes()
         specs = json.loads((CACHE / Path(manifest_member).name).read_text())
         print(f"  {key}: {len(raw) / 1e3:.0f} KB, {sum(len(g['weights']) for g in specs)} tensors")
         payload[key] = {
-            "weights": base64.b64encode(raw).decode("ascii"),
+            "weights": pack(raw),
             "manifest": specs,
         }
 
@@ -134,9 +164,9 @@ def main() -> int:
     )
     print(f"  segmentation: {len(seg_blob) / 1e6:.1f} MB")
     payload["seg"] = {
-        "topology": seg_manifest["modelTopology"],
+        "topology": pack(json.dumps(seg_manifest["modelTopology"]).encode()),
         "manifest": seg_manifest["weightsManifest"],
-        "weights": base64.b64encode(seg_blob).decode("ascii"),
+        "weights": pack(seg_blob),
     }
 
     html = html.replace("/*__FACEAPI__*/", faceapi_js)
