@@ -15,6 +15,9 @@
   }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
+  /* No visible scrollbars anywhere; the panels still scroll. */
+  *{scrollbar-width:none;-ms-overflow-style:none}
+  *::-webkit-scrollbar{width:0;height:0;display:none}
   html,body{height:100%;margin:0}
   body{
     background:var(--ground);color:var(--text);font-family:var(--sans);
@@ -103,6 +106,34 @@
   @keyframes blip{0%,100%{opacity:1}50%{opacity:.2}}
   @media (prefers-reduced-motion:reduce){.dot{animation:none}}
 
+  .boot{
+    position:absolute;inset:0;background:#050706;z-index:6;overflow:hidden;
+    font-family:var(--mono);color:var(--neon);
+    /* A terminal reads left to right whatever the UI language is. */
+    direction:ltr;text-align:left;
+  }
+  .boot-inner{position:absolute;inset:0;padding:18px 20px;display:flex;flex-direction:column}
+  .boot::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);
+  }
+  #bootLog{
+    margin:0;flex:1;min-height:0;overflow:hidden;font-size:11px;line-height:1.5;
+    color:#7dff5a;white-space:pre-wrap;word-break:break-all;text-shadow:0 0 6px rgba(57,255,20,.35);
+  }
+  #bootLog b{color:#eaf3ef;font-weight:400}
+  #bootLog i{color:var(--amber);font-style:normal}
+  .boot-grid{
+    display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin:14px 0 10px;flex:none;
+  }
+  .boot-grid span{
+    aspect-ratio:1;border:1px solid rgba(57,255,20,.22);background:transparent;border-radius:1px;
+  }
+  .boot-grid span.on{background:var(--neon);border-color:var(--neon);box-shadow:0 0 6px rgba(57,255,20,.6)}
+  .boot-status{
+    font-size:13px;letter-spacing:.3em;color:var(--neon);text-shadow:0 0 10px rgba(57,255,20,.5);flex:none;
+  }
+  .boot-status::after{content:"_";animation:blip 1s steps(1) infinite}
   .splash{
     position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;
     background:var(--ground);
@@ -178,9 +209,10 @@
       <div class="sub">LIVE · IN-BROWSER</div>
     </div>
   </div>
-  <button id="flip" disabled>הפוך מצלמה</button>
-  <button id="stop" class="danger" disabled>עצור</button>
-  <button id="start" class="primary">הפעל מצלמה</button>
+  <button id="lang" title="English / עברית">EN</button>
+  <button id="flip" disabled data-i18n="flip">הפוך מצלמה</button>
+  <button id="stop" class="danger" disabled data-i18n="stop">עצור</button>
+  <button id="start" class="primary" data-i18n="start">הפעל מצלמה</button>
 </header>
 
 <main>
@@ -208,6 +240,14 @@
     <div class="hud" id="hud" hidden>
       <div><span class="dot"></span><span id="hudState">מזהה</span></div>
       <div id="hudRes">—</div>
+    </div>
+
+    <div class="boot" id="boot" hidden>
+      <div class="boot-inner">
+        <pre id="bootLog"></pre>
+        <div class="boot-grid" id="bootGrid"></div>
+        <div class="boot-status" id="bootStatus">INITIALISING</div>
+      </div>
     </div>
 
     <div class="splash" id="splash">

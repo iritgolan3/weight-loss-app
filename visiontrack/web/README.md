@@ -25,6 +25,15 @@ and starts tracking.
 * **Follow mode.** A selected object is kept centred as it moves; the view
   chases it smoothly rather than snapping.
 * **Zoom** from 1x to 6x with the on-screen buttons or `+` / `-`.
+* **Mark a person.** A marked track turns red and the view zooms to it whenever
+  it is on screen. The mark rides the tracker, so it survives occlusion up to
+  the lost-frame buffer, and ends when the tracker loses the track. It is not
+  face recognition and does not re-identify anyone after that.
+* **Animals.** The ten animal classes the detector can actually name (dog, cat,
+  bird, horse, sheep, cow, elephant, bear, zebra, giraffe) get a factual note in
+  the panel. It does not identify species beyond those ten.
+* **English / Hebrew toggle**, remembered per browser. The terminal boot screen
+  stays left-to-right in both, because a terminal does.
 * **Tamper watch.** A struck, re-aimed or covered camera changes nearly the
   whole frame at once, which object motion never does. That, a collapse in
   brightness, or an accelerometer shock on a phone starts a recording by itself.
@@ -43,10 +52,18 @@ reports image-space speed in px/s and refuses to convert it to km/h.
 
 ### What it deliberately does not do
 
-It does not identify anyone. There is no face recognition, no matching against
-a database, and no lookup of a detected person on the internet. It reports what
-the camera can see about an unidentified figure, and nothing that would attach a
-name to them.
+It does not identify anyone. There is no face recognition, no matching against a
+database, no re-identification of a person after the tracker drops them, and no
+lookup of a detected person on the internet. Marking is a handle on a live
+track, not on a human being. It reports what the camera can see about an
+unidentified figure, and nothing that would attach a name to them.
+
+### What the detector cannot name
+
+COCO-SSD knows 80 coarse classes. It reports `car`, never a make, model or year,
+and it has no firearm class at all, so weapon detection and gun-type
+identification are not available here. Adding either means training or sourcing
+a model for it; printing a guess would be a fabricated detection.
 
 ## How it differs from the desktop app
 

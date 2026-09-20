@@ -15,7 +15,8 @@
   var WANTED = {
     person: 1, bicycle: 1, car: 1, motorcycle: 1, bus: 1, truck: 1,
     'traffic light': 1, 'stop sign': 1, dog: 1, cat: 1, backpack: 1,
-    handbag: 1, suitcase: 1, chair: 1, 'cell phone': 1, bottle: 1
+    handbag: 1, suitcase: 1, chair: 1, 'cell phone': 1, bottle: 1,
+    bird: 1, horse: 1, sheep: 1, cow: 1, elephant: 1, bear: 1, zebra: 1, giraffe: 1
   };
   var SCORE_MIN = 0.45;
   var IOU_MATCH = 0.3;
@@ -35,19 +36,87 @@
   var TAMPER_COOLDOWN_MS = 6000;
   var CLIP_SECONDS = 30;        // auto-clip length, extended by further triggers
 
+  // ------------------------------------------------------------------ i18n
+  var lang = 'he';
+  var STR = {
+    he: {
+      start: 'הפעל מצלמה', stop: 'עצור', flip: 'הפוך מצלמה',
+      startBig: 'הפעל את המצלמה', tracked: 'אובייקטים במעקב',
+      fps: 'FPS', onScreen: 'על המסך', total: 'סה״כ', time: 'זמן',
+      clear: 'נקה', mark: 'סמן', unmark: 'בטל סימון',
+      cls: 'סוג', conf: 'ודאות זיהוי', first: 'נראה לראשונה', dur: 'זמן במעקב',
+      state: 'מצב', speed: 'מהירות', dir: 'כיוון', pos: 'מיקום בפריים',
+      box: 'גודל תיבה', share: 'חלק מגובה הפריים', pts: 'נקודות מסלול',
+      age: 'גיל משוער', gender: 'מגדר נראה', noface: 'לא נמצאו פנים',
+      computing: 'מחשב…', height: 'גובה משוער', needCal: 'דרוש כיול',
+      calBtn: 'כייל', calReset: 'אפס', calPh: 'גובה אמיתי בס״מ',
+      moving: 'בתנועה', still: 'עומד', male: 'גבר', female: 'אישה',
+      nothing: 'לא זוהה כלום כרגע.', hint: 'נסה להתקרב או להאיר את החדר.',
+      press: 'לחץ "הפעל מצלמה" כדי להתחיל', marked: 'מסומן',
+      about: 'מידע', measurements: 'מדידות'
+    },
+    en: {
+      start: 'Start camera', stop: 'Stop', flip: 'Flip camera',
+      startBig: 'Start the camera', tracked: 'Tracked objects',
+      fps: 'FPS', onScreen: 'On screen', total: 'Total', time: 'Time',
+      clear: 'Clear', mark: 'Mark', unmark: 'Unmark',
+      cls: 'Class', conf: 'Confidence', first: 'First seen', dur: 'Tracked for',
+      state: 'State', speed: 'Speed', dir: 'Heading', pos: 'Frame position',
+      box: 'Box size', share: 'Share of frame height', pts: 'Trail points',
+      age: 'Estimated age', gender: 'Apparent gender', noface: 'No face found',
+      computing: 'Working…', height: 'Estimated height', needCal: 'Needs calibration',
+      calBtn: 'Calibrate', calReset: 'Reset', calPh: 'Real height in cm',
+      moving: 'moving', still: 'stationary', male: 'male', female: 'female',
+      nothing: 'Nothing detected right now.', hint: 'Move closer or add light.',
+      press: 'Press "Start camera" to begin', marked: 'marked',
+      about: 'About', measurements: 'measurements'
+    }
+  };
+  function T(k) { return (STR[lang] && STR[lang][k]) || STR.en[k] || k; }
+
   var HE = {
     person: 'אדם', bicycle: 'אופניים', car: 'רכב', motorcycle: 'אופנוע',
     bus: 'אוטובוס', truck: 'משאית', dog: 'כלב', cat: 'חתול',
     'traffic light': 'רמזור', 'stop sign': 'תמרור עצור', backpack: 'תיק גב',
     handbag: 'תיק יד', suitcase: 'מזוודה', chair: 'כיסא',
-    'cell phone': 'טלפון', bottle: 'בקבוק'
+    'cell phone': 'טלפון', bottle: 'בקבוק',
+    bird: 'ציפור', horse: 'סוס', sheep: 'כבשה', cow: 'פרה',
+    elephant: 'פיל', bear: 'דוב', zebra: 'זברה', giraffe: 'ג\'ירפה'
+  };
+  function clsName(c) { return lang === 'he' ? (HE[c] || c) : c; }
+
+  /* Real facts for the animal classes the detector can actually name. The
+     model distinguishes these ten and nothing finer, so no species beyond
+     them is claimed. */
+  var ANIMALS = {
+    dog: { he: 'כלב מבוית. חוש ריח חזק פי אלפי מונים מזה של אדם. תוחלת חיים 10-13 שנה.',
+           en: 'Domestic dog. Sense of smell orders of magnitude sharper than a human\'s. Lifespan 10-13 years.' },
+    cat: { he: 'חתול מבוית. ישן 12-16 שעות ביממה. שומע תדרים גבוהים בהרבה מאדם.',
+           en: 'Domestic cat. Sleeps 12-16 hours a day. Hears far higher frequencies than people do.' },
+    bird: { he: 'ציפור. עצמות חלולות מפחיתות משקל לתעופה. המודל לא מבחין בין מינים.',
+            en: 'Bird. Hollow bones cut weight for flight. The model does not tell species apart.' },
+    horse: { he: 'סוס. ישן בעמידה בזכות מנגנון נעילה בברכיים. שדה ראייה כמעט 360 מעלות.',
+             en: 'Horse. Sleeps standing via a stay apparatus in the legs. Near 360-degree field of view.' },
+    sheep: { he: 'כבשה. מעלת גירה, זיכרון פנים טוב לשנים. עדר חברתי מאוד.',
+             en: 'Sheep. A ruminant with years-long facial memory. Strongly social in flocks.' },
+    cow: { he: 'פרה. קיבה בעלת ארבעה תאים לעיכול צמחים. מעלת גירה שעות ביום.',
+           en: 'Cow. A four-chambered stomach digests plant matter. Chews cud for hours daily.' },
+    elephant: { he: 'פיל. היונק היבשתי הגדול ביותר. חדק עם עשרות אלפי שרירים.',
+                en: 'Elephant. The largest land mammal. A trunk with tens of thousands of muscles.' },
+    bear: { he: 'דוב. אוכל-כול. מינים רבים נכנסים לתרדמת חורף.',
+            en: 'Bear. Omnivore. Many species enter winter dormancy.' },
+    zebra: { he: 'זברה. דגם הפסים ייחודי לכל פרט, כמו טביעת אצבע.',
+             en: 'Zebra. The stripe pattern is unique to each individual, like a fingerprint.' },
+    giraffe: { he: 'ג\'ירפה. היונק הגבוה ביותר. שבע חוליות צוואר, כמו אצל אדם.',
+               en: 'Giraffe. The tallest mammal. Seven neck vertebrae, the same as a human.' }
   };
 
   var els = {};
   ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop','flip',
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
-   'recBtn','recbar','recDot','recTime','alertMsg','clips']
+   'recBtn','recbar','recDot','recTime','alertMsg','clips',
+   'lang','boot','bootLog','bootGrid','bootStatus']
     .forEach(function (id) { els[id] = document.getElementById(id); });
 
   var model = null, faceReady = false, stream = null, running = false;
@@ -82,11 +151,14 @@
   }
 
   function human(s) {
-    if (s < 60) return Math.round(s) + ' שנ\'';
+    var U = lang === 'he'
+      ? { s: ' שנ\'', m: ' דק\'', h: ' שע\'' }
+      : { s: ' sec', m: ' min', h: ' hour' };
+    if (s < 60) return Math.round(s) + U.s;
     var m = Math.floor(s / 60);
-    if (m < 60) return m + ' דק\'';
+    if (m < 60) return m + U.m;
     var h = Math.floor(m / 60), r = m % 60;
-    return r ? h + ' שע\' ' + r + ' דק\'' : h + ' שע\'';
+    return r ? h + U.h + ' ' + r + U.m : h + U.h;
   }
 
   function heading(trail) {
@@ -150,7 +222,8 @@
         id: nextId++, cls: nd.class, bbox: nd.bbox, score: nd.score,
         cx: ncx, cy: ncy, speed: 0, firstSeen: now, lastSeen: now,
         lost: 0, matched: true, trail: [[ncx, ncy]],
-        ageSum: 0, ageN: 0, gender: null, genderProb: 0, faceAt: 0, faceTried: 0
+        ageSum: 0, ageN: 0, gender: null, genderProb: 0, faceAt: 0, faceTried: 0,
+        marked: false
       });
     }
 
@@ -379,12 +452,14 @@
 
     visible.forEach(function (t) {
       if (t.trail.length < 2) return;
-      var sel = t.id === selectedId;
-      ctx.lineWidth = (sel ? 3 : 2) * scale;
+      var sel = t.id === selectedId, mk = t.marked;
+      ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
       ctx.lineJoin = ctx.lineCap = 'round';
       for (var i = 1; i < t.trail.length; i++) {
         var a = (0.1 + 0.6 * (i / t.trail.length)).toFixed(3);
-        ctx.strokeStyle = sel ? 'rgba(255,43,209,' + a + ')' : 'rgba(57,255,20,' + a + ')';
+        ctx.strokeStyle = mk ? 'rgba(255,59,48,' + a + ')'
+                             : sel ? 'rgba(255,43,209,' + a + ')'
+                                   : 'rgba(57,255,20,' + a + ')';
         ctx.beginPath();
         ctx.moveTo(t.trail[i - 1][0], t.trail[i - 1][1]);
         ctx.lineTo(t.trail[i][0], t.trail[i][1]);
@@ -394,14 +469,14 @@
 
     var fs = Math.round(13 * scale);
     visible.forEach(function (t) {
-      var b = t.bbox, sel = t.id === selectedId;
-      var color = sel ? '#ff2bd1' : '#39ff14';
+      var b = t.bbox, sel = t.id === selectedId, mk = t.marked;
+      var color = mk ? '#ff3b30' : sel ? '#ff2bd1' : '#39ff14';
 
       ctx.strokeStyle = color;
-      ctx.lineWidth = (sel ? 3 : 2) * scale;
+      ctx.lineWidth = (sel || mk ? 3 : 2) * scale;
       ctx.strokeRect(b[0], b[1], b[2], b[3]);
 
-      if (sel) {
+      if (sel || mk) {
         var len = Math.min(18 * scale, b[2] / 3, b[3] / 3);
         ctx.lineWidth = (4) * scale;
         ctx.beginPath();
@@ -425,9 +500,19 @@
       var ly = Math.max(fs + padY * 2, b[1]);
       ctx.fillStyle = color;
       ctx.fillRect(lx, ly - fs - padY * 2, tw + padX * 2, fs + padY * 2);
-      ctx.fillStyle = sel ? '#1a0014' : '#04160a';
+      ctx.fillStyle = (sel || mk) ? '#1a0014' : '#04160a';
       ctx.textBaseline = 'middle';
       ctx.fillText(label, lx + padX, ly - (fs + padY * 2) / 2);
+
+      if (t.gender) {
+        // Green square for male, pink for female - the model's read, not a fact.
+        var sq = Math.round(fs * 0.8);
+        ctx.fillStyle = t.gender === 'male' ? '#39ff14' : '#ff5fbf';
+        ctx.fillRect(lx + tw + padX * 2 + 3 * scale, ly - fs - padY * 2, sq, sq);
+        ctx.strokeStyle = 'rgba(0,0,0,.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(lx + tw + padX * 2 + 3 * scale, ly - fs - padY * 2, sq, sq);
+      }
 
       var seen = t.lastSeen - t.firstSeen;
       var lines = [];
@@ -477,9 +562,16 @@
   }
 
   function followStep() {
-    if (!view.follow || selectedId === null) return;
-    var t = byId(selectedId);
-    if (!t || t.lost > 0 || !els.overlay.width) return;
+    if (!view.follow || !els.overlay.width) return;
+    // A marked person outranks the current selection: if one is on screen the
+    // view goes to them automatically.
+    var t = null;
+    for (var i = 0; i < tracks.length; i++) {
+      if (tracks[i].marked && tracks[i].lost === 0) { t = tracks[i]; break; }
+    }
+    if (!t && selectedId !== null) t = byId(selectedId);
+    if (!t || t.lost > 0) return;
+    if (t.marked && view.zoom < 2) setZoom(2);
     var tx = t.cx / els.overlay.width, ty = t.cy / els.overlay.height;
     view.cx += (tx - view.cx) * 0.12;   // smooth chase, no jitter
     view.cy += (ty - view.cy) * 0.12;
@@ -493,76 +585,152 @@
       (cls ? ' class="' + cls + '"' : '') + '>' + value + '</dd></div>';
   }
 
-  function renderDetail(now) {
-    if (selectedId === null) { els.detail.hidden = true; return; }
-    var t = byId(selectedId);
-    if (!t) { els.detail.hidden = true; return; }
-    els.detail.hidden = false;
+  /* The panel is built once per selection and then only its values change.
+     Rebuilding the markup on every tick destroyed the buttons and wiped the
+     calibration field while it was being typed into, which made the age and
+     height controls unusable. */
+  var detailKey = null, dRefs = null;
 
-    var seen = t.lastSeen - t.firstSeen;
+  function detailSignature(t) {
+    return [selectedId, lang, t.marked ? 1 : 0, calib ? 1 : 0,
+            t.cls === 'person' ? 1 : 0, ANIMALS[t.cls] ? 1 : 0].join('|');
+  }
+
+  function buildDetail(t, now) {
     var isPerson = t.cls === 'person';
-    var frameH = els.overlay.height || 1, frameW = els.overlay.width || 1;
-    var html = '<div class="detail-h"><span class="t">' +
-      (HE[t.cls] || t.cls) + ' · ID ' + t.id + '</span>' +
-      '<button id="deselect">נקה</button></div>';
+    var animal = ANIMALS[t.cls];
 
-    html += row('סוג', t.cls);
-    html += row('ודאות זיהוי', Math.round(t.score * 100) + '%');
-    html += row('נראה לראשונה', clock(t.firstSeen));
-    html += row('זמן במעקב', human(seen));
-    html += row('מצב', t.speed > STATIONARY_PX_S ? 'בתנועה' : 'עומד');
-    html += row('מהירות', Math.round(t.speed) + ' px/s');
-    var dir = heading(t.trail);
-    html += row('כיוון', dir || '—', dir ? '' : 'na');
-    html += row('מיקום בפריים',
-      Math.round(t.cx / frameW * 100) + '% / ' + Math.round(t.cy / frameH * 100) + '%');
-    html += row('גודל תיבה', Math.round(t.bbox[2]) + '×' + Math.round(t.bbox[3]) + ' px');
-    html += row('חלק מגובה הפריים', Math.round(t.bbox[3] / frameH * 100) + '%');
-    html += row('נקודות מסלול', t.trail.length);
+    var html = '<div class="detail-h"><span class="t" id="dTitle"></span>' +
+      '<button id="markBtn"></button><button id="deselect">' + T('clear') + '</button></div>';
+
+    var fields = [
+      ['cls', T('cls')], ['conf', T('conf')], ['first', T('first')], ['dur', T('dur')],
+      ['state', T('state')], ['speed', T('speed')], ['dir', T('dir')], ['pos', T('pos')],
+      ['box', T('box')], ['share', T('share')], ['pts', T('pts')]
+    ];
+    if (isPerson) {
+      fields.push(['age', T('age')], ['gender', T('gender')], ['height', T('height')]);
+    }
+    fields.forEach(function (f) {
+      html += '<div class="kv"><dt>' + f[1] + '</dt><dd id="d_' + f[0] + '"></dd></div>';
+    });
+
+    if (animal) {
+      html += '<div class="note" style="background:rgba(57,255,20,.06);' +
+        'border-top-color:rgba(57,255,20,.2);color:var(--muted)">' +
+        '<b style="color:#eaf3ef">' + T('about') + ':</b> ' + animal[lang] + '</div>';
+    }
 
     if (isPerson) {
-      if (t.ageN > 0) {
-        html += row('גיל משוער', '~' + Math.round(t.ageSum / t.ageN) +
-          ' (' + t.ageN + ' מדידות)', 'est');
-        html += row('מגדר נראה', (t.gender === 'male' ? 'גבר' : 'אישה') +
-          ' · ' + Math.round(t.genderProb * 100) + '%', 'est');
-      } else if (t.faceTried > 0) {
-        html += row('גיל / מגדר', 'לא נמצאו פנים', 'na');
-      } else {
-        html += row('גיל / מגדר', 'מחשב…', 'na');
-      }
-
-      if (calib) {
-        var cm = t.bbox[3] / calib.px * calib.cm;
-        html += row('גובה משוער', Math.round(cm) + ' ס״מ', 'est');
-      } else {
-        html += row('גובה', 'דרוש כיול', 'na');
-      }
       html += '<div class="calib">' +
-        '<input id="calibCm" type="number" inputmode="numeric" placeholder="גובה אמיתי בס״מ" />' +
-        '<button id="calibSet">כייל</button>' +
-        (calib ? '<button id="calibClear">אפס</button>' : '') +
-        '</div>';
-      html += '<div class="note">גיל ומגדר הם הערכה של מודל ראייה ממוחשבת מתוך תמונת הפנים — ' +
-        'לא מסמך מזהה. המודל טועה, במיוחד בתאורה חלשה, בזווית, או עם מסכה ומשקפיים.<br><br>' +
-        'גובה לא ניתן למדידה ממצלמה אחת בלי נקודת ייחוס. הקלד גובה אמיתי של אדם שנמצא ' +
-        'עכשיו בפריים ולחץ "כייל" — אחריו יוצג גובה משוער לאנשים <b>באותו מרחק בערך</b> מהמצלמה. ' +
-        'מי שרחוק או קרוב יותר יקבל מספר שגוי.</div>';
+        '<input id="calibCm" type="number" inputmode="numeric" placeholder="' + T('calPh') + '" />' +
+        '<button id="calibSet">' + T('calBtn') + '</button>' +
+        (calib ? '<button id="calibClear">' + T('calReset') + '</button>' : '') + '</div>';
+      html += '<div class="note">' + (lang === 'he'
+        ? 'גיל ומגדר הם הערכה של מודל ראייה ממוחשבת מתוך תמונת הפנים — לא מסמך מזהה. ' +
+          'המודל טועה, במיוחד בתאורה חלשה, בזווית, או עם מסכה ומשקפיים.<br><br>' +
+          'גובה לא ניתן למדידה ממצלמה אחת בלי נקודת ייחוס. הקלד גובה אמיתי של אדם שנמצא ' +
+          'עכשיו בפריים ולחץ "' + T('calBtn') + '" — אחריו יוצג גובה משוער לאנשים <b>באותו מרחק בערך</b>.'
+        : 'Age and apparent gender are a vision model\'s estimate from the face crop, not an ' +
+          'identity record. It errs in poor light, at an angle, or behind a mask or glasses.' +
+          '<br><br>Height cannot be measured from one uncalibrated camera. Enter a real height ' +
+          'for someone currently in frame and press "' + T('calBtn') + '" — others are then ' +
+          'estimated, valid only at <b>roughly the same distance</b>.') + '</div>';
     }
 
     els.detail.innerHTML = html;
 
-    var d = document.getElementById('deselect');
-    if (d) d.onclick = function () { selectedId = null; renderDetail(now); };
+    dRefs = { title: document.getElementById('dTitle'), mark: document.getElementById('markBtn') };
+    fields.forEach(function (f) { dRefs[f[0]] = document.getElementById('d_' + f[0]); });
+
+    document.getElementById('deselect').onclick = function () {
+      selectedId = null;
+      els.detail.hidden = true;
+      detailKey = null;
+    };
+    dRefs.mark.onclick = function () {
+      var tk = byId(selectedId);
+      if (!tk) return;
+      tk.marked = !tk.marked;
+      if (tk.marked) setZoom(Math.max(view.zoom, 2));
+      detailKey = null;               // signature changed, rebuild once
+    };
     var cs = document.getElementById('calibSet');
     if (cs) cs.onclick = function () {
-      var v = parseFloat((document.getElementById('calibCm') || {}).value);
+      var field = document.getElementById('calibCm');
+      var v = parseFloat(field && field.value);
       var tk = byId(selectedId);
-      if (!v || v < 50 || v > 250 || !tk) return;
+      if (!v || v < 50 || v > 250 || !tk) {
+        if (field) { field.style.borderColor = '#ff4d4d'; setTimeout(function () { field.style.borderColor = ''; }, 900); }
+        return;
+      }
       calib = { px: tk.bbox[3], cm: v };
+      detailKey = null;
     };
     var cc = document.getElementById('calibClear');
-    if (cc) cc.onclick = function () { calib = null; };
+    if (cc) cc.onclick = function () { calib = null; detailKey = null; };
+  }
+
+  function put(el, value) {
+    if (el && el.innerHTML !== value) el.innerHTML = value;
+  }
+
+  function renderDetail(now) {
+    if (selectedId === null) { els.detail.hidden = true; detailKey = null; return; }
+    var t = byId(selectedId);
+    if (!t) { els.detail.hidden = true; detailKey = null; return; }
+    els.detail.hidden = false;
+
+    var sig = detailSignature(t);
+    if (sig !== detailKey) {
+      detailKey = sig;
+      buildDetail(t, now);
+    }
+
+    var frameH = els.overlay.height || 1, frameW = els.overlay.width || 1;
+    var seen = t.lastSeen - t.firstSeen;
+
+    dRefs.title.textContent = clsName(t.cls) + ' · ID ' + t.id +
+      (t.marked ? ' · ' + T('marked') : '');
+    dRefs.title.style.color = t.marked ? '#ff3b30' : '';
+    dRefs.mark.textContent = t.marked ? T('unmark') : T('mark');
+
+    put(dRefs.cls, t.cls);
+    put(dRefs.conf, Math.round(t.score * 100) + '%');
+    put(dRefs.first, clock(t.firstSeen));
+    put(dRefs.dur, human(seen));
+    put(dRefs.state, t.speed > STATIONARY_PX_S ? T('moving') : T('still'));
+    put(dRefs.speed, Math.round(t.speed) + ' px/s');
+    put(dRefs.dir, heading(t.trail) || '—');
+    put(dRefs.pos, Math.round(t.cx / frameW * 100) + '% / ' + Math.round(t.cy / frameH * 100) + '%');
+    put(dRefs.box, Math.round(t.bbox[2]) + '×' + Math.round(t.bbox[3]) + ' px');
+    put(dRefs.share, Math.round(t.bbox[3] / frameH * 100) + '%');
+    put(dRefs.pts, String(t.trail.length));
+
+    if (dRefs.age) {
+      if (t.ageN > 0) {
+        put(dRefs.age, '~' + Math.round(t.ageSum / t.ageN) + ' (' + t.ageN + ' ' + T('measurements') + ')');
+        dRefs.age.className = 'est';
+        var sq = '<span style="display:inline-block;width:10px;height:10px;vertical-align:-1px;' +
+          'margin-inline-end:6px;background:' + (t.gender === 'male' ? '#39ff14' : '#ff5fbf') + '"></span>';
+        put(dRefs.gender, sq + (t.gender === 'male' ? T('male') : T('female')) +
+          ' · ' + Math.round(t.genderProb * 100) + '%');
+        dRefs.gender.className = 'est';
+      } else {
+        var waiting = t.faceTried > 0 ? T('noface') : T('computing');
+        put(dRefs.age, waiting);
+        put(dRefs.gender, waiting);
+        dRefs.age.className = 'na';
+        dRefs.gender.className = 'na';
+      }
+      if (calib) {
+        put(dRefs.height, Math.round(t.bbox[3] / calib.px * calib.cm) + ' cm');
+        dRefs.height.className = 'est';
+      } else {
+        put(dRefs.height, T('needCal'));
+        dRefs.height.className = 'na';
+      }
+    }
   }
 
   // -------------------------------------------------------------- the sidebar
@@ -592,7 +760,7 @@
     if (!visible.length) {
       if (els.list.firstChild && els.list.firstChild.className !== 'empty') els.list.innerHTML = '';
       if (!els.list.firstChild) {
-        els.list.innerHTML = '<div class="empty">לא זוהה כלום כרגע.<br>נסה להתקרב או להאיר את החדר.</div>';
+        els.list.innerHTML = '<div class="empty">' + T('nothing') + '<br>' + T('hint') + '</div>';
       }
       rowEls = Object.create(null);
       return;
@@ -616,16 +784,19 @@
           meta: el.querySelector('.m'),
           conf: el.querySelector('.c')
         };
-        r.name.innerHTML = (HE[t.cls] || t.cls) +
+        r.name.innerHTML = clsName(t.cls) +
           ' <span style="color:var(--muted)">ID ' + t.id + '</span>';
       }
       var seen = t.lastSeen - t.firstSeen;
       var extra = t.ageN > 0 ? ' · ~' + Math.round(t.ageSum / t.ageN) : '';
-      var meta = clock(seen) + ' · ' + (t.speed > STATIONARY_PX_S ? 'בתנועה' : 'עומד') + extra;
+      var meta = clock(seen) + ' · ' + (t.speed > STATIONARY_PX_S ? T('moving') : T('still')) + extra;
       if (r.meta.textContent !== meta) r.meta.textContent = meta;
       var conf = Math.round(t.score * 100) + '%';
       if (r.conf.textContent !== conf) r.conf.textContent = conf;
       r.el.classList.toggle('sel', t.id === selectedId);
+      r.el.style.borderInlineStartColor = t.marked ? '#ff3b30' : '';
+      r.el.querySelector('.pip').style.background =
+        t.marked ? '#ff3b30' : (t.id === selectedId ? 'var(--magenta)' : '');
     });
 
     Object.keys(rowEls).forEach(function (id) {
@@ -707,10 +878,62 @@
 
   // ------------------------------------------------------------------ startup
 
+  /* A terminal-style boot screen in place of a bare spinner. The model really
+     does take a while to come up, so the log lines are timed against that work
+     rather than being pure theatre: each stage line is printed when that stage
+     actually starts. */
+  var BOOT_LINES = [
+    '$ visiontrack --init --device=auto',
+    'probing runtime ................. <b>tfjs 4.22.0</b>',
+    'webgl backend ................... <b>ok</b>',
+    'loading detector <i>ssdlite_mobilenet_v2</i>',
+    'decoding weights ................ <b>18.0 MB</b>',
+    'loading face detector <i>tiny_face_detector</i>',
+    'loading attribute head <i>age_gender</i>',
+    'tracker ......................... <b>IoU / lost-buffer</b>',
+    'tamper watch .................... <b>armed</b>',
+    'requesting camera ...'
+  ];
+  var bootCells = [], bootTimer = 0, bootLine = 0;
+
+  function bootStart() {
+    els.boot.hidden = false;
+    els.bootLog.innerHTML = '';
+    els.bootGrid.innerHTML = '';
+    bootCells = [];
+    for (var i = 0; i < 96; i++) {
+      var c = document.createElement('span');
+      els.bootGrid.appendChild(c);
+      bootCells.push(c);
+    }
+    bootLine = 0;
+    clearInterval(bootTimer);
+    bootTimer = setInterval(function () {
+      if (bootLine < BOOT_LINES.length) {
+        els.bootLog.innerHTML += BOOT_LINES[bootLine] + '\n';
+        bootLine++;
+        els.bootLog.scrollTop = els.bootLog.scrollHeight;
+      }
+    }, 320);
+  }
+
+  function bootProgress(pct, label) {
+    var upto = Math.round(bootCells.length * Math.min(1, Math.max(0, pct / 100)));
+    for (var i = 0; i < bootCells.length; i++) bootCells[i].classList.toggle('on', i < upto);
+    if (label) els.bootStatus.textContent = label;
+  }
+
+  function bootEnd() {
+    clearInterval(bootTimer);
+    bootProgress(100, 'READY');
+    setTimeout(function () { els.boot.hidden = true; }, 450);
+  }
+
   function setProgress(pct, msg) {
     els.bar.hidden = false;
     els.barFill.style.width = pct + '%';
     if (msg) els.splashMsg.textContent = msg;
+    bootProgress(pct, msg ? msg.toUpperCase() : null);
   }
 
   function b64ToBuffer(b64) {
@@ -769,9 +992,11 @@
       return;
     }
 
+    bootStart();
     try {
       await loadModels();
     } catch (e) {
+      bootEnd();
       fail('טעינת מנוע הזיהוי נכשלה.', String((e && e.message) || e));
       els.start.disabled = els.startBig.disabled = false;
       return;
@@ -788,10 +1013,12 @@
       if (n === 'NotAllowedError') hint = 'הגישה נדחתה. לחץ על סמל המצלמה בשורת הכתובת, אפשר גישה, ורענן.';
       if (n === 'NotFoundError') hint = 'לא נמצאה מצלמה מחוברת למכשיר.';
       if (n === 'NotReadableError') hint = 'תוכנה אחרת תופסת את המצלמה. סגור אותה ונסה שוב.';
+      bootEnd();
       fail('לא הצלחתי לפתוח את המצלמה.', hint);
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
+    bootEnd();
 
     els.video.srcObject = stream;
     await els.video.play().catch(function () {});
@@ -857,6 +1084,38 @@
   els.flip.addEventListener('click', flipCamera);
   els.zoomIn.addEventListener('click', function () { setZoom(view.zoom * ZOOM_STEP); });
   els.zoomOut.addEventListener('click', function () { setZoom(view.zoom / ZOOM_STEP); });
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.body.dir = lang === 'he' ? 'rtl' : 'ltr';
+    els.lang.textContent = lang === 'he' ? 'EN' : 'עב';
+    els.start.textContent = T('start');
+    els.stop.textContent = T('stop');
+    els.flip.textContent = T('flip');
+    els.startBig.textContent = T('startBig');
+    var h = document.querySelector('.panel-h span');
+    if (h) h.textContent = T('tracked');
+    var dts = document.querySelectorAll('.stats .stat dt');
+    ['fps', 'onScreen', 'total', 'time'].forEach(function (k, i) {
+      if (dts[i]) dts[i].textContent = T(k);
+    });
+    rowEls = Object.create(null);
+    els.list.innerHTML = '';
+    detailKey = null;
+    renderDetail((performance.now() - startedAt) / 1000);
+  }
+
+  els.lang.addEventListener('click', function () {
+    lang = lang === 'he' ? 'en' : 'he';
+    try { localStorage.setItem('vt_lang', lang); } catch (e) { /* private mode */ }
+    applyLang();
+  });
+
+  try {
+    var saved = localStorage.getItem('vt_lang');
+    if (saved === 'en' || saved === 'he') lang = saved;
+  } catch (e) { /* private mode */ }
+  applyLang();
+
   els.recBtn.addEventListener('click', function () {
     if (rec.recorder) stopRecording();
     else startRecording(false, 'הקלטה ידנית');
@@ -923,6 +1182,7 @@
   window.__VT_DEBUG__ = function () {
     return {
       tracks: tracks.length, selected: selectedId, zoom: view.zoom,
+      marked: tracks.filter(function(t){return t.marked}).map(function(t){return t.id}),
       faceReady: faceReady, armed: tamper.armed,
       recording: !!rec.recorder, clips: clips.length,
       people: tracks.filter(function (t) { return t.cls === 'person'; }).map(function (t) {
