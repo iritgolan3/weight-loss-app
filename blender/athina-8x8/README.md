@@ -69,3 +69,14 @@ as dead mirrors.
 Because the body is a solid extrusion, glazing sits *proud* of the skin with a
 raised surround lapping over its edges, which is how these composite panels are
 bonded anyway — a pane placed "inside" the wall is simply invisible.
+
+## What's checked in
+
+`athina_8x8.blend` (the model plus the studio set and cameras), `athina_8x8.glb`
+for quick viewing anywhere, and `renders/` — side and front elevations plus
+three perspective views. All of it regenerates from the scripts.
+
+## Accuracy check
+
+Measuring the rendered side elevation back against the reference photograph puts
+the overall length-to-height ratio within **1.3%** (2.777 vs 2.812).
