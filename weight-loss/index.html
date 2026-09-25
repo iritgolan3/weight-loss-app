@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ec4899">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="מסע הירידה במשקל">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>💪</text></svg>">
+    <title>מסע הירידה במשקל שלי</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(to bottom right, #fce7f3, #fed7aa, #fef3c7);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .main-title {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #db2777, #9333ea, #ea580c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            font-size: 1.5rem;
+            color: #4b5563;
+            font-weight: 500;
+        }
+        
+        .stats-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 4px solid #fbcfe8;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-box {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 1rem;
+        }
+        
+        .stat-box.pink {
+            background: linear-gradient(to bottom right, #fce7f3, #f3e8ff);
+        }
+        
+        .stat-box.orange {
+            background: linear-gradient(to bottom right, #fed7aa, #fef3c7);
+        }
+        
+        .stat-box.green {
+            background: linear-gradient(to bottom right, #d1fae5, #a7f3d0);
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 1.125rem;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .progress-section {
+            margin-top: 2rem;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-label {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #374151;
+        }
+        
+        .progress-percent {
+            font-size: 1.875rem;
+            font-weight: 900;
+            color: #9333ea;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 2rem;
+            background: #e5e7eb;
+            border-radius: 9999px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ec4899, #a855f7, #f97316);
+            border-radius: 9999px;
+            transition: width 1s ease-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .action-card {
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            color: white;
+        }
+        
+        .action-card.blue {
+            background: linear-gradient(to bottom right, #60a5fa, #22d3ee);
+        }
+        
+        .action-card.green {
+            background: linear-gradient(to bottom right, #4ade80, #14b8a6);
+        }
+        
+        .action-card.purple {
+            background: linear-gradient(to bottom right, #a78bfa, #ec4899);
+        }
+        
+        .action-card.orange {
+            background: linear-gradient(to bottom right, #fbbf24, #f97316);
+        }
+        
+        .card-title {
+            font-size: 1.875rem;
+            font-weight: 900;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .big-number {
+            font-size: 4.5rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .number-label {
+            font-size: 1.5rem;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 1rem;
+            font-weight: 900;
+            font-size: 1.5rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-white {
+            background: white;
+            color: #2563eb;
+        }
+        
+        .btn-white.green-text {
+            color: #059669;
+        }
+        
+        .btn-white.purple-text {
+            color: #9333ea;
+        }
+        
+        .btn-disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .btn-disabled:hover {
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 1rem;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .small-text {
+            text-align: center;
+            margin-top: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+            animation: bounce 1s infinite;
+            display: none;
+        }
+        
+        .notification.show {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .notification.water {
+            background: linear-gradient(to right, #3b82f6, #06b6d4);
+        }
+        
+        .notification.meal {
+            background: linear-gradient(to right, #10b981, #059669);
+        }
+        
+        .notification.success {
+            background: linear-gradient(to right, #eab308, #f59e0b);
+        }
+        
+        .notification.warning {
+            background: linear-gradient(to right, #ef4444, #f97316);
+        }
+        
+        .quote-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            animation: bounce 1s infinite;
+            display: none;
+        }
+        
+        .quote-popup.show {
+            display: block;
+        }
+        
+        .quote-content {
+            background: linear-gradient(to right, #ec4899, #a855f7, #6366f1);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            border: 4px solid white;
+            max-width: 90vw;
+        }
+        
+        .quote-title {
+            font-size: 2rem;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .quote-text {
+            font-size: 2rem;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        
+        .timer-display {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .timer-box {
+            background: white;
+            color: #f97316;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .timer-number {
+            font-size: 3rem;
+            font-weight: 900;
+        }
+        
+        .timer-label {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+        
+        .input-box {
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid;
+        }
+        
+        .input-box.green {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+        
+        .input-box.blue {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+        
+        .input-box.orange {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        textarea, input[type="number"] {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid;
+            border-radius: 0.75rem;
+            font-size: 1.25rem;
+            font-family: 'Heebo', sans-serif;
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .input-box.green textarea, .input-box.green input {
+            border-color: #10b981;
+        }
+        
+        .input-box.blue input {
+            border-color: #3b82f6;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        
+        .input-box.orange input {
+            border-color: #fbbf24;
+            text-align: center;
+            font-weight: 700;
+            color: #374151;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+            font-size: 1.125rem;
+            padding: 0.75rem;
+        }
+        
+        .btn-save {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #059669;
+        }
+        
+        .btn-cancel {
+            background: #9ca3af;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #6b7280;
+        }
+        
+        .items-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .item {
+            background: linear-gradient(to right, #d1fae5, #a7f3d0);
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+            border: 2px solid #10b981;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 0.75rem;
+        }
+        
+        .item.blue {
+            background: linear-gradient(to right, #dbeafe, #bfdbfe);
+            border-color: #3b82f6;
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+        
+        .item-time {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #065f46;
+        }
+        
+        .item.blue .item-time {
+            color: #1e40af;
+        }
+        
+        .item-date {
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+        
+        .item-text {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #1f2937;
+        }
+        
+        .item-weight {
+            font-size: 1.875rem;
+            font-weight: 900;
+            color: #1e40af;
+        }
+        
+        .weight-change {
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+        }
+        
+        .weight-change.loss {
+            background: #10b981;
+            color: white;
+        }
+        
+        .weight-change.gain {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 1.25rem;
+            padding: 2rem;
+        }
+        
+        .reminder-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        
+        .reminder-box {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .reminder-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .reminder-text {
+            font-size: 1.125rem;
+        }
+        
+        .status-box {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 1.5rem;
+        }
+        
+        .status-box.green {
+            background: #10b981;
+            border-color: white;
+        }
+        
+        .status-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 0.75rem;
+        }
+        
+        .info-text {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .footer-motivation {
+            margin-top: 2rem;
+            text-align: center;
+        }
+        
+        .footer-text {
+            font-size: 1.875rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #db2777, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        
+        .btn-motivation {
+            background: linear-gradient(to right, #ec4899, #a855f7);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 700;
+            font-size: 1.25rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+        
+        .btn-motivation:hover {
+            background: linear-gradient(to right, #db2777, #9333ea);
+            transform: scale(1.05);
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1.125rem;
+            }
+            
+            .stat-number {
+                font-size: 2.5rem;
+            }
+            
+            .big-number {
+                font-size: 3.5rem;
+            }
+            
+            .btn {
+                font-size: 1.25rem;
+            }
+            
+            .quote-text {
+                font-size: 1.5rem;
+            }
+            
+            .notification {
+                right: 1rem;
+                left: 1rem;
+                top: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        <span id="notificationText"></span>
+        <button onclick="hideNotification()" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; margin-right: auto;">✕</button>
+    </div>
+
+    <div class="quote-popup" id="quotePopup">
+        <div class="quote-content">
+            <div class="quote-title">
+                <span style="font-size: 2rem;">✨</span>
+                <span>מילת מוטיבציה!</span>
+                <span style="font-size: 2rem;">✨</span>
+            </div>
+            <p class="quote-text" id="quoteText"></p>
+            <button class="btn btn-white purple-text" onclick="hideQuote()">תודה! 💪</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="main-title">מסע הירידה במשקל שלי</h1>
+            <p class="subtitle">יחד נגיע ליעד! 💪✨</p>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-grid">
+                <div class="stat-box green">
+                    <div style="font-size: 3rem; margin-bottom: 0.75rem;">✨</div>
+                    <div class="stat-number" style="color: #047857;" id="weightLost">0.0</div>
+                    <div class="stat-label">ירדת כבר (ק"ג)</div>
+                </div>
+                
+                <div class="stat-box orange">
+                    <div style="font-size: 3rem; margin-bottom: 0.75rem;">🎯</div>
+                    <div class="stat-number" style="color: #c2410c;" id="remainingWeight">10.0</div>
+                    <div class="stat-label">עוד נותר (ק"ג)</div>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">התקדמות</span>
+                    <span class="progress-percent" id="progressPercent">0.0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-grid">
+            <div class="action-card blue">
+                <h2 class="card-title">
+                    <span style="font-size: 2.5rem;">💧</span>
+                    מעקב שתייה
+                </h2>
+                <div class="big-number" id="waterCount">0</div>
+                <div class="number-label">כוסות היום</div>
+                <button class="btn btn-white" onclick="drinkWater()">שתיתי כוס מים! 💧</button>
+                <div class="small-text">יעד: 8-10 כוסות ביום</div>
+            </div>
+
+            <div class="action-card green">
+                <h2 class="card-title">
+                    <span style="font-size: 2.5rem;">👟</span>
+                    מונה צעדים
+                </h2>
+                <div class="big-number" id="stepsCount">0</div>
+                <div class="number-label">מתוך 10,000</div>
+                <div style="margin-bottom: 1rem;">
+                    <div style="width: 100%; background: rgba(255, 255, 255, 0.3); border-radius: 9999px; height: 1rem; overflow: hidden;">
+                        <div id="stepsProgress" style="height: 100%; background: white; border-radius: 9999px; width: 0%; transition: width 0.5s;"></div>
+                    </div>
+                    <div style="text-align: center; margin-top: 0.5rem; color: rgba(255, 255, 255, 0.9); font-weight: 700;" id="stepsPercent">0%</div>
+                </div>
+                <div id="stepsInputArea">
+                    <button class="btn btn-white green-text" onclick="showStepsInput()">+ הוסף צעדים</button>
+                </div>
+                <button class="btn btn-secondary" onclick="resetSteps()">איפוס יומי</button>
+            </div>
+
+            <div class="action-card purple">
+                <h2 class="card-title">
+                    <span style="font-size: 2.5rem;">🍰</span>
+                    מונה עוגות
+                </h2>
+                <div class="big-number" id="cakeCount">0/2</div>
+                <div class="number-label">פרוסות השבוע</div>
+                <button class="btn btn-white purple-text" id="cakeBtn" onclick="eatCake()">אכלתי עוגה 🍰</button>
+                <button class="btn btn-secondary" onclick="resetCake()">איפוס שבועי</button>
+            </div>
+        </div>
+
+        <div class="action-card orange" style="margin-bottom: 1.5rem;">
+            <h2 class="card-title">
+                <span style="font-size: 2.5rem;">🔔</span>
+                תזכורות חשובות
+            </h2>
+            <div class="reminder-grid">
+                <div class="reminder-box">
+                    <p class="reminder-title">🚫 אל תאכלי מתוקים</p>
+                    <p class="reminder-text">שמרי על המוטיבציה!</p>
+                </div>
+                <div class="reminder-box">
+                    <p class="reminder-title">🍬 אל תיגעי בסוכריות של ליטל</p>
+                    <p class="reminder-text">הן שלה בלבד!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-card orange" style="margin-bottom: 1.5rem;">
+            <h2 class="card-title">
+                <span style="font-size: 2.5rem;">⏰</span>
+                טיימר צום בין ארוחות
+            </h2>
+            <div class="status-box">
+                <p class="info-text">💡 מטרה: 4 שעות בין ארוחות</p>
+                <p class="info-text" style="opacity: 0.9;">לחצי על "סיימתי לאכול" כשגמרת ארוחה</p>
+            </div>
+
+            <div id="fastingStatus">
+                <div id="canEatStatus" class="status-box green">
+                    <p class="status-title">✅ את יכולה לאכול!</p>
+                    <p class="info-text">חלון אכילה פתוח</p>
+                </div>
+                <button class="btn btn-white" style="color: #f97316;" onclick="startFasting()">🍽️ סיימתי לאכול - התחל טיימר</button>
+            </div>
+
+            <div id="fastingTimer" style="display: none;">
+                <div class="status-box">
+                    <p class="info-text" style="margin-bottom: 1rem;">זמן נותר עד חלון האכילה:</p>
+                    <div class="timer-display">
+                        <div class="timer-box">
+                            <div class="timer-number" id="hoursLeft">0</div>
+                            <div class="timer-label">שעות</div>
+                        </div>
+                        <div class="timer-box">
+                            <div class="timer-number" id="minutesLeft">0</div>
+                            <div class="timer-label">דקות</div>
+                        </div>
+                        <div class="timer-box">
+                            <div class="timer-number" id="secondsLeft">0</div>
+                            <div class="timer-label">שניות</div>
+                        </div>
+                    </div>
+                    <div style="width: 100%; background: rgba(255, 255, 255, 0.3); border-radius: 9999px; height: 1rem; overflow: hidden; margin-bottom: 0.5rem;">
+                        <div id="fastingProgress" style="height: 100%; background: white; border-radius: 9999px; width: 0%; transition: width 1s;"></div>
+                    </div>
+                    <p class="info-text" style="opacity: 0.9;">
+                        התחלת הצום: <span id="fastingStartTime"></span>
+                    </p>
+                </div>
+                <button class="btn btn-secondary" onclick="cancelFasting()">ביטול טיימר</button>
+            </div>
+        </div>
+
+        <div class="stats-card" style="border-color: #bfdbfe; margin-bottom: 1.5rem;">
+            <h2 class="card-title" style="color: #1e40af; margin-bottom: 1.5rem;">
+                <span style="font-size: 2.5rem;">🍽️</span>
+                יומן אכילה
+            </h2>
+            
+            <button class="btn" style="background: linear-gradient(to right, #10b981, #059669); color: white; margin-bottom: 1.5rem;" onclick="toggleMealInput()">+ הוסף ארוחה</button>
+
+            <div id="mealInputArea" style="display: none;">
+                <div class="input-box green">
+                    <textarea id="mealText" placeholder="מה אכלת? (לדוגמה: סלט עם חזה עוף ופיתה)" rows="3"></textarea>
+                    <div class="btn-group">
+                        <button class="btn btn-save" onclick="addMeal()">שמור</button>
+                        <button class="btn btn-cancel" onclick="toggleMealInput()">ביטול</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="items-list" id="mealsList">
+                <div class="empty-state">עדיין לא נרשמו ארוחות היום</div>
+            </div>
+        </div>
+
+        <div class="stats-card" style="border-color: #bfdbfe;">
+            <h2 class="card-title" style="color: #1e40af; margin-bottom: 1.5rem;">
+                <span style="font-size: 2.5rem;">📅</span>
+                יומן שקילה שבועי
+            </h2>
+            
+            <button class="btn" style="background: linear-gradient(to right, #3b82f6, #6366f1); color: white; margin-bottom: 1.5rem;" onclick="toggleWeightInput()">⚖️ רשום שקילה חדשה</button>
+
+            <div id="weightInputArea" style="display: none;">
+                <div class="input-box blue">
+                    <label style="display: block; font-size: 1.25rem; font-weight: 700; color: #1e40af; margin-bottom: 0.75rem;">
+                        משקל נוכחי (ק"ג):
+                    </label>
+                    <input type="number" step="0.1" id="weightInput" placeholder="לדוגמה: 72.5">
+                    <div class="btn-group">
+                        <button class="btn" style="background: #3b82f6; color: white;" onclick="addWeight()">שמור שקילה</button>
+                        <button class="btn btn-cancel" onclick="toggleWeightInput()">ביטול</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="items-list" id="weightList">
+                <div class="empty-state">
+                    עדיין לא נרשמו שקילות<br>
+                    <span style="font-size: 1.125rem;">💡 שקלי את עצמך כל יום חמישי בבוקר</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-motivation">
+            <p class="footer-text">את יכולה! כל יום הוא צעד קדימה 🌟</p>
+            <button class="btn-motivation" onclick="showRandomQuote()">✨ תני לי מוטיבציה עכשיו!</button>
+        </div>
+    </div>
+
+    <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed'));
+        }
+
+        // Request notification permission
+        async function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    showNotification('התראות הופעלו בהצלחה! 🎉', 'success');
+                }
+            }
+        }
+
+        // Show browser notification
+        function showBrowserNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">💪</text></svg>',
+                    badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">💧</text></svg>',
+                    vibrate: [200, 100, 200],
+                    requireInteraction: false
+                });
+                
+                // Speak the notification
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(body);
+                    utterance.lang = 'he-IL';
+                    utterance.rate = 0.9;
+                    speechSynthesis.speak(utterance);
+                }
+            }
+        }
+
+        // Data storage
+        let currentWeight = 73;
+        let waterCount = 0;
+        let steps = 0;
+        let cakeThisWeek = 0;
+        let meals = [];
+        let weightLog = [];
+        let lastMealTime = null;
+        let fastingInterval = null;
+
+        const quotes = [
+            "דקה לשפתיים, רזה ביריכיים! 💋",
+            "פחות מתוקים = תכנסי למכנס מלפני 10 שנים! 👖",
+            "כל כוס מים היא צעד למטרה! 💧",
+            "את חזקה יותר מהרצון למתוק! 💪",
+            "הגוף שלך יודה לך על זה מחר! ✨",
+            "כל 'לא' למתוקים הוא 'כן' למטרה! 🎯",
+            "זה לא דיאטה, זה שינוי אורח חיים! 🌟",
+            "תחשבי על איך תרגישי במכנס החדש! 👗",
+            "את לא רעבה, את משועממת! 😊",
+            "מים זה החבר הכי טוב של הדיאטה! 💦",
+            "הסוכריות של ליטל לא שלך! הן לא שלך! 🍬🚫",
+            "כל יום זה צעד חדש למטרה! 👣",
+            "תדמייני איך תרגישי ב-64 קילו! 🎉",
+            "רגע של תענוג, חודש של חרטה - אל תיכנעי! 💪",
+            "את יפה גם ככה, אבל את תהיי בריאה יותר! ❤️",
+            "10,000 צעדים = 10,000 סיבות להתגאות! 👟",
+            "מים מים מים! זה הסוד! 💧✨",
+            "חלון האכילה שלך לא תמיד פתוח - זכרי! ⏰",
+            "כל שקילה היא הזדמנות לחגוג הצלחה! 🎊"
+        ];
+
+        // Load data from localStorage
+        function loadData() {
+            currentWeight = parseFloat(localStorage.getItem('currentWeight')) || 73;
+            waterCount = parseInt(localStorage.getItem('waterCount')) || 0;
+            steps = parseInt(localStorage.getItem('steps')) || 0;
+            cakeThisWeek = parseInt(localStorage.getItem('cakeThisWeek')) || 0;
+            meals = JSON.parse(localStorage.getItem('meals')) || [];
+            weightLog = JSON.parse(localStorage.getItem('weightLog')) || [];
+            
+            updateUI();
+            renderMeals();
+            renderWeightLog();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('currentWeight', currentWeight);
+            localStorage.setItem('waterCount', waterCount);
+            localStorage.setItem('steps', steps);
+            localStorage.setItem('cakeThisWeek', cakeThisWeek);
+            localStorage.setItem('meals', JSON.stringify(meals));
+            localStorage.setItem('weightLog', JSON.stringify(weightLog));
+        }
+
+        // Update UI
+        function updateUI() {
+            const weightLost = 73 - currentWeight;
+            const remainingWeight = currentWeight - 64;
+            const progressPercent = ((weightLost / 10) * 100).toFixed(1);
+            
+            document.getElementById('weightLost').textContent = weightLost.toFixed(1);
+            document.getElementById('remainingWeight').textContent = remainingWeight.toFixed(1);
+            document.getElementById('progressPercent').textContent = progressPercent + '%';
+            document.getElementById('progressFill').style.width = progressPercent + '%';
+            
+            document.getElementById('waterCount').textContent = waterCount;
+            document.getElementById('stepsCount').textContent = steps.toLocaleString('he-IL');
+            
+            const stepsPercent = Math.min((steps / 10000) * 100, 100);
+            document.getElementById('stepsProgress').style.width = stepsPercent + '%';
+            document.getElementById('stepsPercent').textContent = stepsPercent.toFixed(0) + '%';
+            
+            document.getElementById('cakeCount').textContent = cakeThisWeek + '/2';
+            
+            const cakeBtn = document.getElementById('cakeBtn');
+            if (cakeThisWeek >= 2) {
+                cakeBtn.textContent = 'נגמר השבוע! 🚫';
+                cakeBtn.className = 'btn btn-disabled';
+                cakeBtn.disabled = true;
+            } else {
+                cakeBtn.textContent = 'אכלתי עוגה 🍰';
+                cakeBtn.className = 'btn btn-white purple-text';
+                cakeBtn.disabled = false;
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            
+            notificationText.textContent = message;
+            notification.className = 'notification show ' + type;
+            
+            // Show browser notification
+            showBrowserNotification('מסע הירידה במשקל', message);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.remove('show');
+        }
+
+        // Water functions
+        function drinkWater() {
+            waterCount++;
+            saveData();
+            updateUI();
+            showNotification('כל הכבוד! שתית מים 💧', 'success');
+        }
+
+        // Steps functions
+        function showStepsInput() {
+            document.getElementById('stepsInputArea').innerHTML = `
+                <div class="input-box orange">
+                    <input type="number" id="stepsInput" placeholder="כמה צעדים?" style="border-color: #fbbf24;">
+                    <div class="btn-group">
+                        <button class="btn" style="background: white; color: #059669;" onclick="addSteps()">הוסף</button>
+                        <button class="btn" style="background: rgba(255, 255, 255, 0.5); color: white;" onclick="cancelStepsInput()">ביטול</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function cancelStepsInput() {
+            document.getElementById('stepsInputArea').innerHTML = `
+                <button class="btn btn-white green-text" onclick="showStepsInput()">+ הוסף צעדים</button>
+            `;
+        }
+
+        function addSteps() {
+            const stepsInput = document.getElementById('stepsInput');
+            const stepsNum = parseInt(stepsInput.value);
+            
+            if (stepsNum && stepsNum > 0) {
+                steps += stepsNum;
+                saveData();
+                updateUI();
+                
+                if (steps >= 10000) {
+                    showNotification('🎉 הגעת ליעד הצעדים היומי! כל הכבוד!', 'success');
+                } else {
+                    showNotification(`נוספו ${stepsNum} צעדים! 👟`, 'success');
+                }
+                
+                cancelStepsInput();
+            }
+        }
+
+        function resetSteps() {
+            steps = 0;
+            saveData();
+            updateUI();
+            showNotification('מונה הצעדים אופס ליום חדש! 🌅', 'success');
+        }
+
+        // Cake functions
+        function eatCake() {
+            if (cakeThisWeek < 2) {
+                cakeThisWeek++;
+                saveData();
+                updateUI();
+                showNotification('נהנית מעוגה! זכרי - רק פעמיים בשבוע 🍰', 'success');
+            } else {
+                showNotification('את כבר אכלת 2 פרוסות השבוע! תחכי לשבוע הבא 🚫', 'warning');
+            }
+        }
+
+        function resetCake() {
+            cakeThisWeek = 0;
+            saveData();
+            updateUI();
+            showNotification('שבוע חדש התחיל! 🎉', 'success');
+        }
+
+        // Meal functions
+        function toggleMealInput() {
+            const area = document.getElementById('mealInputArea');
+            area.style.display = area.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addMeal() {
+            const mealText = document.getElementById('mealText').value.trim();
+            
+            if (mealText) {
+                const now = new Date();
+                const meal = {
+                    id: Date.now(),
+                    text: mealText,
+                    time: now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+                    date: now.toLocaleDateString('he-IL')
+                };
+                
+                meals.unshift(meal);
+                saveData();
+                renderMeals();
+                
+                document.getElementById('mealText').value = '';
+                toggleMealInput();
+            }
+        }
+
+        function renderMeals() {
+            const list = document.getElementById('mealsList');
+            
+            if (meals.length === 0) {
+                list.innerHTML = '<div class="empty-state">עדיין לא נרשמו ארוחות היום</div>';
+            } else {
+                list.innerHTML = meals.map(meal => `
+                    <div class="item">
+                        <div class="item-header">
+                            <span class="item-time">${meal.time}</span>
+                            <span class="item-date">${meal.date}</span>
+                        </div>
+                        <p class="item-text">${meal.text}</p>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Weight functions
+        function toggleWeightInput() {
+            const area = document.getElementById('weightInputArea');
+            area.style.display = area.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addWeight() {
+            const weightInput = document.getElementById('weightInput');
+            const weight = parseFloat(weightInput.value);
+            
+            if (weight && weight > 0 && weight < 200) {
+                const now = new Date();
+                const entry = {
+                    id: Date.now(),
+                    weight: weight,
+                    date: now.toLocaleDateString('he-IL'),
+                    dayOfWeek: now.toLocaleDateString('he-IL', { weekday: 'long' })
+                };
+                
+                weightLog.unshift(entry);
+                currentWeight = weight;
+                saveData();
+                updateUI();
+                renderWeightLog();
+                
+                const change = 73 - weight;
+                if (change > 0) {
+                    showNotification(`כל הכבוד! ירדת ${change.toFixed(1)} ק"ג עד כה! 🎉`, 'success');
+                }
+                
+                weightInput.value = '';
+                toggleWeightInput();
+            }
+        }
+
+        function renderWeightLog() {
+            const list = document.getElementById('weightList');
+            
+            if (weightLog.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        עדיין לא נרשמו שקילות<br>
+                        <span style="font-size: 1.125rem;">💡 שקלי את עצמך כל יום חמישי בבוקר</span>
+                    </div>
+                `;
+            } else {
+                list.innerHTML = weightLog.map((entry, index) => {
+                    const previousWeight = index < weightLog.length - 1 ? weightLog[index + 1].weight : 73;
+                    const change = previousWeight - entry.weight;
+                    const isLoss = change > 0;
+                    
+                    return `
+                        <div class="item blue">
+                            <div class="item-header">
+                                <span class="item-time">${entry.dayOfWeek}</span>
+                                <span class="item-date">${entry.date}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: center;">
+                                ${index < weightLog.length - 1 ? `
+                                    <span class="weight-change ${isLoss ? 'loss' : 'gain'}" style="font-size: 2rem; padding: 1rem 2rem;">
+                                        ${isLoss ? '↓' : '↑'} ${Math.abs(change).toFixed(1)} ק"ג
+                                    </span>
+                                ` : `
+                                    <p class="item-weight" style="color: #3b82f6;">✅ שקילה ראשונה</p>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Fasting timer functions
+        function startFasting() {
+            lastMealTime = new Date();
+            document.getElementById('fastingStatus').style.display = 'none';
+            document.getElementById('fastingTimer').style.display = 'block';
+            document.getElementById('fastingStartTime').textContent = lastMealTime.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            
+            showNotification('טיימר הצום התחיל! ⏰ 4 שעות עד חלון האכילה הבא', 'meal');
+            
+            fastingInterval = setInterval(updateFastingTimer, 1000);
+        }
+
+        function updateFastingTimer() {
+            const now = new Date();
+            const fourHoursLater = new Date(lastMealTime.getTime() + 4 * 60 * 60 * 1000);
+            const diff = fourHoursLater - now;
+            
+            if (diff <= 0) {
+                cancelFasting();
+                document.getElementById('canEatStatus').style.display = 'block';
+                showNotification('🎉 חלון האכילה נפתח! את יכולה לאכול עכשיו', 'success');
+            } else {
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                document.getElementById('hoursLeft').textContent = hours;
+                document.getElementById('minutesLeft').textContent = minutes;
+                document.getElementById('secondsLeft').textContent = seconds;
+                
+                const progressPercent = 100 - ((hours * 60 + minutes) / 240 * 100);
+                document.getElementById('fastingProgress').style.width = progressPercent + '%';
+            }
+        }
+
+        function cancelFasting() {
+            if (fastingInterval) {
+                clearInterval(fastingInterval);
+                fastingInterval = null;
+            }
+            lastMealTime = null;
+            document.getElementById('fastingStatus').style.display = 'block';
+            document.getElementById('fastingTimer').style.display = 'none';
+        }
+
+        // Quote functions
+        function showRandomQuote() {
+            const quote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('quoteText').textContent = quote;
+            document.getElementById('quotePopup').classList.add('show');
+            
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(quote);
+                utterance.lang = 'he-IL';
+                utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function hideQuote() {
+            document.getElementById('quotePopup').classList.remove('show');
+        }
+
+        // Automatic reminders
+        function checkReminders() {
+            const now = new Date();
+            const hour = now.getHours();
+            const minute = now.getMinutes();
+            
+            // Water reminder (8 AM to 8 PM, every hour)
+            if (hour >= 8 && hour < 20 && minute === 0) {
+                showBrowserNotification('שתי מים! 💧', 'זמן לשתות כוס מים!');
+                showNotification('שתי מים! 💧', 'water');
+            }
+            
+            // Meal reminders
+            const mealTimes = [
+                { hour: 8, minute: 0, name: 'ארוחת בוקר' },
+                { hour: 11, minute: 0, name: 'נשנוש' },
+                { hour: 13, minute: 30, name: 'ארוחת צהריים' },
+                { hour: 17, minute: 0, name: 'נשנוש' },
+                { hour: 20, minute: 0, name: 'ארוחת ערב' }
+            ];
+            
+            mealTimes.forEach(time => {
+                if (hour === time.hour && minute === time.minute) {
+                    showBrowserNotification('זמן לרשום ארוחה! 🍽️', `זמן לרשום את ${time.name}`);
+                    showNotification('זמן לרשום מה אכלת! 🍽️', 'meal');
+                    toggleMealInput();
+                }
+            });
+            
+            // Thursday weigh-in reminder
+            if (now.getDay() === 4 && hour === 8 && minute === 0) {
+                showBrowserNotification('זמן שקילה! ⚖️', 'יום חמישי - זמן שקילה שבועית!');
+                showNotification('יום חמישי - זמן שקילה שבועית! ⚖️', 'success');
+                toggleWeightInput();
+            }
+        }
+
+        // Motivational quotes every 10 minutes
+        function startMotivationalQuotes() {
+            setInterval(() => {
+                showRandomQuote();
+                setTimeout(hideQuote, 8000);
+            }, 10 * 60 * 1000);
+        }
+
+        // Initialize
+        loadData();
+        
+        // Request notification permission on first load
+        setTimeout(() => {
+            if ('Notification' in window && Notification.permission === 'default') {
+                if (confirm('האפליקציה רוצה לשלוח לך התראות למים, ארוחות ושקילה.\n\nלאשר התראות?')) {
+                    requestNotificationPermission();
+                }
+            }
+        }, 2000);
+        
+        setInterval(checkReminders, 60 * 1000); // Check every minute
+        startMotivationalQuotes();
+    </script>
+</body>
+</html>
