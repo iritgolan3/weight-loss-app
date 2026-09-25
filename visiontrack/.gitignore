@@ -1,0 +1,22 @@
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Runtime data (uploads, analysis results, zone files, model weights)
+data/uploads/
+data/results/
+data/zones/
+data/models/
+data/settings.json
+
+# Rendered exports
+exports/*
+!exports/.gitkeep
+
+# TypeScript build cache
+frontend/tsconfig.tsbuildinfo

@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-900 text-slate-200 font-sans antialiased;
+    background-image:
+      radial-gradient(900px 500px at 15% -10%, rgba(57, 255, 20, 0.05), transparent 60%),
+      radial-gradient(700px 420px at 100% 0%, rgba(255, 43, 209, 0.045), transparent 55%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-neon/30 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-500;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-400;
+  }
+
+  input[type='range'] {
+    @apply h-1 w-full cursor-pointer appearance-none rounded-full bg-ink-500;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    @apply h-3.5 w-3.5 appearance-none rounded-full bg-neon;
+    box-shadow: 0 0 0 3px rgba(57, 255, 20, 0.18);
+  }
+  input[type='range']::-moz-range-thumb {
+    @apply h-3.5 w-3.5 rounded-full border-0 bg-neon;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg border border-ink-500/70 bg-ink-800/80 shadow-panel backdrop-blur-sm;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between gap-2 border-b border-ink-500/60 px-3 py-2;
+  }
+
+  .label-mono {
+    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500;
+  }
+
+  .value-mono {
+    @apply font-mono text-sm tabular-nums text-slate-100;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-md border border-ink-500
+      bg-ink-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition
+      hover:border-ink-400 hover:bg-ink-600 active:translate-y-px
+      disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink-700;
+  }
+
+  .btn-primary {
+    @apply border-neon/45 bg-neon/12 text-neon hover:border-neon/70 hover:bg-neon/20;
+  }
+
+  .btn-danger {
+    @apply border-danger/45 bg-danger/10 text-danger hover:border-danger/70 hover:bg-danger/20;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-slate-400 hover:bg-ink-600 hover:text-slate-100;
+  }
+
+  .btn-icon {
+    @apply h-8 w-8 p-0;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border border-ink-500 bg-ink-700/70 px-1.5 py-0.5
+      font-mono text-[10px] uppercase tracking-wider text-slate-400;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-ink-500 bg-ink-900 px-2.5 py-1.5 font-mono text-xs text-slate-100
+      outline-none transition focus:border-neon/60 focus:ring-1 focus:ring-neon/30;
+  }
+
+  .scan-line {
+    background: linear-gradient(90deg, transparent, rgba(57, 255, 20, 0.55), transparent);
+  }
+}
