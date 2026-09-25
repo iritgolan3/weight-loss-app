@@ -25,6 +25,9 @@
   *{scrollbar-width:none;-ms-overflow-style:none}
   *::-webkit-scrollbar{width:0;height:0;display:none}
   html,body{height:100%;margin:0}
+  /* Phones: 100% is the height with the address bar hidden, so the bottom of
+     the app sat under it. dvh tracks the bar as it slides. */
+  @supports (height:100dvh){html,body{height:100dvh}}
   body{
     background:var(--ground);color:var(--text);font-family:var(--sans);
     display:flex;flex-direction:column;overflow:hidden;
@@ -374,6 +377,55 @@
     font-family:var(--mono);font-size:16px;font-weight:700;color:#e9f5ef;margin:4px 0 0;
     font-variant-numeric:tabular-nums;letter-spacing:.02em;
   }
+
+  /* ---------- phone ---------- */
+  button, .row, canvas.overlay { -webkit-tap-highlight-color: transparent; }
+  canvas.overlay { touch-action: manipulation; }
+  @media (max-width:860px){
+    header{padding:8px 10px;gap:6px}
+    .sub{display:none}
+    h1{font-size:12px;letter-spacing:.16em}
+    .toolbar button{padding:9px 12px}
+    .viewport{inset:6px}
+    .stage{min-height:52vh}
+    /* One scrolling panel instead of a fixed column: on a short screen the
+       legend and stats claimed all the height and the object list, the part
+       that matters, collapsed to nothing. */
+    aside{max-height:40vh;overflow-y:auto;display:block}
+    #list{overflow:visible;min-height:0}
+    /* The control column ran off the bottom of a short stage; on a phone it
+       becomes one row along the bottom edge, with finger-sized targets. */
+    .zoombox{
+      top:auto;bottom:10px;inset-inline-end:auto;left:50%;transform:translateX(-50%);
+      flex-direction:row;align-items:center;gap:2px;padding:5px;
+      max-width:calc(100% - 16px);overflow-x:auto;
+    }
+    .zoombox button{width:42px;height:42px;font-size:18px;flex:none}
+    .zoombox .sep{width:1px;height:26px;margin:0 3px}
+    .zoomlevel{padding:0 6px;min-width:38px}
+    .recbar{bottom:66px}
+    .hud{top:8px;inset-inline-start:8px}
+    .legend{grid-template-columns:repeat(3,1fr)}
+    .gate-card label{font-size:18px}
+  }
+  @media (max-width:480px){
+    /* nine controls have to fit a 360-412px screen without scrolling */
+    .zoombox{gap:0;padding:4px}
+    .zoombox button{width:37px;height:40px;font-size:16px}
+    .zoombox .sep{display:none}
+    .zoomlevel{min-width:32px;padding:0 2px;font-size:9.5px}
+  }
+  @media (max-width:360px){
+    /* the smallest phones cannot fit nine targets in a row at a usable size;
+       two rows beat buttons too small to hit */
+    .zoombox{flex-wrap:wrap;justify-content:center;width:calc(100% - 12px);overflow:visible}
+    .zoombox button{width:40px}
+    .recbar{bottom:112px}
+  }
+  @media (max-width:420px){
+    .toolbar button{padding:8px 10px;font-size:10.5px}
+    .legend{grid-template-columns:1fr 1fr}
+  }
 </style>
 </head>
 <body>
@@ -472,6 +524,7 @@
       <div class="sep"></div>
       <button id="follow" title="Follow the selection">⌖</button>
       <button id="zoneBtn" title="Draw a zone">⬠</button>
+      <button id="zoneClear" title="Remove all zones" hidden>✕</button>
       <button id="ownerBtn" title="Enrol / clear owner">☻</button>
       <button id="segBtn" title="Box / silhouette">▣</button>
       <div class="sep"></div>

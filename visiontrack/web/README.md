@@ -184,13 +184,38 @@ and the zone close-up pass is spaced at five times the measured inference
 instead of a fixed interval, so it costs about 15% of the detection rate rather
 than half of it.
 
+### On a phone
+
+The layout reflows below 860px: the object panel moves under the video and
+scrolls as one piece, so the object list is never squeezed out by the legend.
+The control column becomes a single row of finger-sized buttons along the
+bottom of the video, wrapping onto two rows on 320px screens rather than
+shrinking the targets. The page tracks the browser's address bar (`dvh`) so its
+bottom edge is not hidden under it, and placing zone corners does not scroll or
+zoom the page under your finger. Tested in emulated Pixel 7 (412px) and first
+generation iPhone SE (320px) viewports with touch input.
+
+Two things an emulator cannot show:
+
+* **Speed.** A phone runs the same WASM backend on a slower core. Detection
+  will be slower than on a desktop; rendering still runs at display rate,
+  because detection is in a worker.
+* **Opening the file.** An iPhone opens a local `.html` in a preview that is
+  not allowed to use the camera. On iPhone the file needs to be served over
+  `https`. Android Chrome opens a downloaded file directly, though whether it
+  grants camera access to it depends on the Chrome version; it has not been
+  tried on a real device.
+
 ### Zones
 
-The `⬠` button starts a zone. Click to place corners, click the first corner
-again (or press Enter) to close it; Escape discards a half-drawn shape. Zones
-are stored normalised 0..1 against the frame, so one drawn at 640x480 still
-lines up after the camera switches resolution, and they survive a reload.
-Holding the button for a second clears all of them.
+The `⬠` button starts a zone. Click or tap to place corners, then click the
+first corner again (or press Enter) to close it; Escape discards a half-drawn
+shape. Points are normalised 0..1 against the frame, so a zone drawn at 640x480
+still lines up after the camera switches resolution.
+
+Zones last for the current run only. Reopening the app starts with a clean
+frame, and zones an earlier build had saved are cleared on the way in. While
+any zone exists, a `✕` button next to `⬠` removes all of them in one tap.
 
 A zone does three things:
 

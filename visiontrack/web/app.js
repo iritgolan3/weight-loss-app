@@ -96,7 +96,7 @@
       tOwner: 'Enrol / clear owner', tSeg: 'Box / silhouette', tRec: 'Record',
       unknownG: 'Unread', objectG: 'Object', markedG: 'Marked', selectedG: 'Selected',
       weaponG: 'Weapon', ownerG: 'Owner', legend: 'Legend', zoneG: 'Zone',
-      tZone: 'Draw a zone', zoneEnter: 'Entered zone', inZone: 'IN ZONE',
+      tZone: 'Draw a zone', tZoneClear: 'Remove all zones', zoneEnter: 'Entered zone', inZone: 'IN ZONE',
       zoneStart: 'Click to place corners, click the first one to close',
       zoneDone: 'Zone saved', zoneCancel: 'Zone discarded',
       zoneNeed: 'A zone needs at least three corners',
@@ -144,7 +144,7 @@
   ['video','overlay','frame','viewport','splash','splashMsg','startBig','start','stop',
    'err','bar','barFill','hud','hudState','hudRes','list','count','detail',
    'sFps','sNow','sTotal','sTime','zoombox','zoomIn','zoomOut','zoomLevel','follow',
-   'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn','zoneBtn',
+   'recBtn','recbar','recDot','recTime','alertMsg','clips','ownerBtn','zoneBtn','zoneClear',
    'boot','bootLog','bootGrid','bootStatus','bootMosaic','bootPct','bootTrack','bootDone',
    'gate','gateForm','gUser','gPass1','gPass2','gateErr','gateNote','gateBtn','segBtn']
     .forEach(function (id) { els[id] = document.getElementById(id); });
@@ -867,17 +867,9 @@
 
   // -------------------------------------------------------------------- zones
 
-  function loadZones() {
-    try {
-      var raw = JSON.parse(localStorage.getItem('vt_zones') || '[]');
-      return raw.filter(function (z) { return z && z.pts && z.pts.length >= 3; });
-    } catch (e) { return []; }
-  }
-
-  function saveZones() {
-    try { localStorage.setItem('vt_zones', JSON.stringify(zones)); }
-    catch (e) { /* private mode: zones last this session only */ }
-  }
+  /* Zones live for this run only. Reopening the app starts with a clean frame,
+     and any zones an earlier build saved are swept away on the way in. */
+  try { localStorage.removeItem('vt_zones'); } catch (e) { /* private mode */ }
 
   /* Ray casting. Points are normalised, so this is resolution independent. */
   function inZone(z, nx, ny) {
@@ -2030,7 +2022,7 @@
     els.stop.textContent = T('stop');
     els.startBig.textContent = T('startBig');
     [['zoomIn', 'tZoomIn'], ['zoomOut', 'tZoomOut'], ['follow', 'tFollow'],
-     ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec'], ['zoneBtn', 'tZone']
+     ['ownerBtn', 'tOwner'], ['segBtn', 'tSeg'], ['recBtn', 'tRec'], ['zoneBtn', 'tZone'], ['zoneClear', 'tZoneClear']
     ].forEach(function (pair) {
       if (els[pair[0]]) els[pair[0]].title = T(pair[1]);
     });
@@ -2060,6 +2052,7 @@
     zoneMode = on;
     els.zoneBtn.classList.toggle('on', on);
     els.overlay.style.cursor = on ? 'crosshair' : 'pointer';
+    els.overlay.style.touchAction = on ? 'none' : 'manipulation';
     if (on) showAlert(T('zoneStart'));
   }
 
@@ -2070,8 +2063,8 @@
     drawing.entries = 0;
     zones.push(drawing);
     drawing = null;
-    saveZones();
     setZoneMode(false);
+    syncZoneUi();
     showAlert(T('zoneDone'));
   }
 
@@ -2086,21 +2079,23 @@
     else setZoneMode(true);
   });
 
-  /* Holding the button clears every zone - a deliberate gesture, since a long
-     press is hard to hit by accident and the shapes take work to draw. */
-  var zoneHold = 0;
-  els.zoneBtn.addEventListener('pointerdown', function () {
-    zoneHold = setTimeout(function () {
-      zones = []; drawing = null; saveZones(); setZoneMode(false);
-      tracks.forEach(function (t) { t.zoneId = null; });
-      showAlert(T('zoneCleared'));
-    }, 900);
-  });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) {
-    els.zoneBtn.addEventListener(ev, function () { clearTimeout(zoneHold); });
-  });
+  /* A visible clear button, shown only while there is something to clear. It
+     replaces a long-press on the draw button, which nobody could discover and
+     which a phone turns into a context menu. */
+  function clearZones() {
+    zones = []; drawing = null; refineHits = [];
+    setZoneMode(false);
+    tracks.forEach(function (t) { t.zoneId = null; });
+    syncZoneUi();
+    showAlert(T('zoneCleared'));
+  }
 
-  zones = loadZones();
+  function syncZoneUi() {
+    els.zoneClear.hidden = !zones.length;
+  }
+
+  els.zoneClear.addEventListener('click', clearZones);
+  syncZoneUi();
 
   els.ownerBtn.addEventListener('click', startEnrolment);
 
@@ -2238,7 +2233,7 @@
 
   window.__VT_SETZONE__ = function (pts) {          // test hook
     zones = [{ id: 'zt', pts: pts, name: 'ZONE 1', entries: 0 }];
-    saveZones();
+    syncZoneUi();
     return zones.length;
   };
   window.__VT_UNLOCK__ = unlockGate;
