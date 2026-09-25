@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VisionTrack</title>
+<script>
+/* A fresh address that no phone has cached. It sends the browser to the app
+   with a one-off query string, so neither the HTTP cache nor the old
+   weight-loss app's service worker can hand back a stored page. */
+location.replace('../?fresh=' + Date.now());
+</script>
+<p style="font-family:sans-serif">Opening VisionTrack… <a href="../?fresh=1">tap here if it does not open</a></p>
