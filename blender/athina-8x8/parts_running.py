@@ -178,22 +178,23 @@ def build_chassis(root):
     b.tube((3.21, 1.06, 1.35), (3.21, 1.06, 2.86), 0.064, seg=16, mat=M_TRIM)
     b.cyl(0.082, 0.16, (3.21, 1.06, 2.90), axis='Z', seg=16, mat=M_TRIM)
 
-    # --- wheel arches / fenders over every axle -------------------------------
-    for i, ax in enumerate(D['axles']):
-        r_in = D['tire_r'] + 0.09
-        r_out = r_in + 0.075
-        a0, a1 = radians(18), radians(162)
-        pts = arc_band(ax, D['tire_r'], r_in, r_out, a0, a1, steps=22)
+    # --- wheel-arch lips ------------------------------------------------------
+    # crown-only lips: the bodywork already covers most of each tire, so a full
+    # half-hoop reads as a floating band rather than a fender
+    for ax in D['axles']:
+        r_in = D['tire_r'] + 0.055
+        r_out = r_in + 0.050
+        pts = arc_band(ax, D['tire_r'], r_in, r_out, radians(44), radians(136), steps=16)
         for s in (1, -1):
-            y_out = (D['wheel_y'] + D['tire_w'] / 2 + 0.035) * s
-            y_in = (D['wheel_y'] - D['tire_w'] / 2 - 0.02) * s
+            y_out = (D['wheel_y'] + D['tire_w'] / 2 + 0.030) * s
+            y_in = (D['wheel_y'] - D['tire_w'] / 2 - 0.015) * s
             b.prism(pts if s > 0 else pts[::-1], min(y_in, y_out), max(y_in, y_out), M_TRIM)
 
     # --- mud flaps behind the rear axle of each bogie -------------------------
     for ax in (D['axles'][1], D['axles'][3]):
         for s in (1, -1):
-            b.box(ax - 0.80, ax - 0.74, (D['wheel_y'] - 0.24) * s, (D['wheel_y'] + 0.24) * s,
-                  0.14, 0.86, M_TRIM)
+            b.box(ax - 0.78, ax - 0.73, (D['wheel_y'] - 0.21) * s, (D['wheel_y'] + 0.21) * s,
+                  0.22, 0.74, M_TRIM)
 
     ob = b.finish("Chassis", parent=root, smooth_angle=30)
     add_bevel(ob, width=0.008, segments=2, angle=40)
