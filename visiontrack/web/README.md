@@ -156,8 +156,8 @@ So the work moved rather than shrank:
 | | before | after |
 | --- | --- | --- |
 | Rendering | 2.1 FPS | **62 FPS** |
-| Detection | 2.1 FPS | 2.1 FPS |
-| Detection, with a zone | 1.1 FPS | 1.8 FPS |
+| Detection | 2.1 FPS | **3.0 FPS** |
+| Detection, with a zone | 1.1 FPS | **2.6 FPS** |
 
 The model is untouched and detection is unchanged — the same weights at the
 same input size finding the same objects. What changed is that the overlay now
@@ -177,6 +177,14 @@ Two constraints shaped the worker, both measured rather than assumed:
 `SharedArrayBuffer` is absent on `file://`, so WASM threads are not available
 and inference stays single-threaded. That is the ceiling on detection rate, and
 only WebGPU or a smaller model lifts it.
+
+Frame preparation moved into the worker as well. The page now only calls
+`createImageBitmap`, which crops and scales on the GPU, and transfers the
+bitmap; the letterbox and the float conversion happen in the worker on an
+`OffscreenCanvas`. Main-thread time per frame fell from 6.6ms to 0.9ms, and
+detection rose from 2.1 to 3.0 FPS, because the page and the worker stopped
+contending for the same work. Browsers without `OffscreenCanvas` in workers
+keep the old path automatically.
 
 Two smaller fixes came out of the same profile: the input buffer round-trips to
 the worker and back rather than being reallocated every frame (6ms of GC churn),
@@ -200,11 +208,16 @@ Two things an emulator cannot show:
 * **Speed.** A phone runs the same WASM backend on a slower core. Detection
   will be slower than on a desktop; rendering still runs at display rate,
   because detection is in a worker.
-* **Opening the file.** An iPhone opens a local `.html` in a preview that is
-  not allowed to use the camera. On iPhone the file needs to be served over
-  `https`. Android Chrome opens a downloaded file directly, though whether it
-  grants camera access to it depends on the Chrome version; it has not been
-  tried on a real device.
+* **Opening the file.** A phone only exposes the camera — and WebGPU — to a
+  secure page. A downloaded `.html` opened from the Files app loads as
+  `content://` on Android and in a Quick Look preview on iPhone, and neither
+  is secure, so the camera simply does not exist there. On a phone the app has
+  to be opened from an `https` address. If it is not, it now says exactly that
+  instead of blaming the browser.
+
+On a phone served over `https`, Chrome's WebGPU is the difference that
+matters: flagship Android GPUs (an S26 Ultra's Adreno among them) run it, and
+the detector tries WebGPU first. The HUD shows `WEBGPU` when it is live.
 
 ### Zones
 

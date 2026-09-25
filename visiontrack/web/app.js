@@ -109,6 +109,8 @@
       recNo: 'This browser cannot record',
       errNoCam: 'This browser cannot reach a camera.',
       errNoCamHint: 'Try opening the file in Chrome or Edge.',
+      errInsecure: 'This page was opened in a way that hides the camera.',
+      errInsecureHint: 'Phones only allow the camera on https pages. Open the app from its https address instead of from the Files app.',
       errModels: 'The detection engine failed to load.',
       errOpen: 'Could not open the camera.',
       errFlip: 'Could not switch camera.',
@@ -160,6 +162,7 @@
      is the only form a file:// page allows. */
   var WORKER_SRC = [
     'var ort = null, session = null, inName = null, outName = null;',
+    'var cv = null, cx = null, buf = null;',
     'self.onmessage = async function (e) {',
     '  var m = e.data;',
     '  try {',
@@ -169,6 +172,7 @@
     '      ort.env.wasm.wasmBinary = m.wasm;',
     '      ort.env.wasm.numThreads = 1;',
     '      ort.env.logLevel = "error";',
+    '      try { ort.env.webgpu.powerPreference = "high-performance"; } catch (e) {}',
     '      var tried = [], used = null;',
     '      for (var i = 0; i < m.eps.length; i++) {',
     '        var ep = m.eps[i];',
@@ -182,7 +186,31 @@
     '      }',
     '      if (!session) { self.postMessage({cmd:"init", ok:false, err:tried.join(" | ")}); return; }',
     '      inName = session.inputNames[0]; outName = session.outputNames[0];',
-    '      self.postMessage({cmd:"init", ok:true, backend:used});',
+    '      self.postMessage({cmd:"init", ok:true, backend:used,',
+    '                        canFrame: typeof OffscreenCanvas !== "undefined"});',
+    '      return;',
+    '    }',
+    '    if (m.cmd === "frame") {',
+    '      var S = m.size, n = S * S, t0 = performance.now();',
+    '      if (!cv) {',
+    '        cv = new OffscreenCanvas(S, S);',
+    '        cx = cv.getContext("2d", {willReadFrequently: true});',
+    '        buf = new Float32Array(3 * n);',
+    '      }',
+    '      cx.fillStyle = "#727272";',
+    '      cx.fillRect(0, 0, S, S);',
+    '      cx.drawImage(m.bmp, m.dx, m.dy);',
+    '      m.bmp.close();',
+    '      var px = cx.getImageData(0, 0, S, S).data;',
+    '      for (var i = 0, j = 0; i < n; i++, j += 4) {',
+    '        buf[i] = px[j] / 255; buf[n + i] = px[j + 1] / 255; buf[2 * n + i] = px[j + 2] / 255;',
+    '      }',
+    '      var t1 = performance.now();',
+    '      var feeds2 = {};',
+    '      feeds2[inName] = new ort.Tensor("float32", buf, [1, 3, S, S]);',
+    '      var out2 = await session.run(feeds2);',
+    '      var res = new Float32Array(out2[outName].data);',
+    '      self.postMessage({cmd:"run", id:m.id, out:res, pre:t1-t0, ms:performance.now()-t1}, [res.buffer]);',
     '      return;',
     '    }',
     '    if (m.cmd === "run") {',
@@ -203,12 +231,12 @@
     '};'
   ].join('\n');
 
-  var freeBufs = [];
+  var freeBufs = [], workerFrames = false;
 
   function onWorkerMessage(e) {
     var m = e.data;
     if (m.cmd === 'init') {
-      if (m.ok) workerReady.resolve(m.backend);
+      if (m.ok) { workerFrames = !!m.canFrame; workerReady.resolve(m.backend); }
       else workerReady.reject(new Error('No execution provider worked - ' + m.err));
       return;
     }
@@ -217,7 +245,38 @@
     delete jobs[m.id];
     if (m.back) freeBufs.push(m.back);
     if (m.ok === false) job.reject(new Error(m.err));
-    else { mark('infer', m.ms); job.resolve(m.out); }
+    else {
+      mark('infer', m.ms);
+      if (m.pre !== undefined) mark('prew', m.pre);
+      job.resolve(m.out);
+    }
+  }
+
+  /* Where a region of the frame lands inside the square model input. */
+  function fitFor(sx, sy, sw, sh) {
+    var k = Math.min(YOLO_SIZE / sw, YOLO_SIZE / sh);
+    var nw = Math.round(sw * k), nh = Math.round(sh * k);
+    return { k: k, nw: nw, nh: nh, dx: ((YOLO_SIZE - nw) / 2) | 0,
+             dy: ((YOLO_SIZE - nh) / 2) | 0, ox: sx, oy: sy };
+  }
+
+  /* The fast path. createImageBitmap crops and scales on the GPU, and the
+     worker does the letterbox and the float conversion, so all the page does
+     per frame is hand over one bitmap. On a phone the page's thread is also
+     running the face models; this keeps the two out of each other's way. */
+  async function detectRegion(video, sx, sy, sw, sh) {
+    var fit = fitFor(sx, sy, sw, sh);
+    var t0 = performance.now();
+    var bmp = await createImageBitmap(video, sx, sy, sw, sh,
+      { resizeWidth: fit.nw, resizeHeight: fit.nh, resizeQuality: 'medium' });
+    mark('pre', performance.now() - t0);
+    var id = ++jobId;
+    var out = await new Promise(function (resolve, reject) {
+      jobs[id] = { resolve: resolve, reject: reject };
+      worker.postMessage({ cmd: 'frame', id: id, bmp: bmp, dx: fit.dx, dy: fit.dy,
+                           size: YOLO_SIZE }, [bmp]);
+    });
+    return decode({ data: out }, fit, video.videoWidth, video.videoHeight);
   }
 
   function runOnWorker(data, size) {
@@ -916,9 +975,17 @@
     var sx = Math.round(b.x * vw), sy = Math.round(b.y * vh);
     var sw = Math.max(32, Math.round(b.w * vw)), sh = Math.max(32, Math.round(b.h * vh));
 
-    var fit = letterbox(video, sx, sy, sw, sh);
-    runOnWorker(toTensorData(), YOLO_SIZE).then(function (out) {
-      refineHits = decode({ data: out }, fit, vw, vh);
+    var job;
+    if (workerFrames) {
+      job = detectRegion(video, sx, sy, sw, sh);
+    } else {
+      var fit = letterbox(video, sx, sy, sw, sh);
+      job = runOnWorker(toTensorData(), YOLO_SIZE).then(function (out) {
+        return decode({ data: out }, fit, vw, vh);
+      });
+    }
+    job.then(function (hits) {
+      refineHits = hits;
       refineBusy = false;
     }).catch(function () { refineBusy = false; refineHits = []; });
   }
@@ -1083,6 +1150,9 @@
   }
 
   async function detectFrame(video) {
+    if (workerFrames) {
+      return detectRegion(video, 0, 0, video.videoWidth, video.videoHeight);
+    }
     var t0 = performance.now();
     var fit = letterbox(video);
     var data = toTensorData();
@@ -1927,7 +1997,12 @@
     els.start.disabled = els.startBig.disabled = true;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      fail(T('errNoCam'), T('errNoCamHint'));
+      /* On Android, a downloaded .html opened from the Files app loads as a
+         content:// page, which is not a secure context: the browser hides the
+         camera (and WebGPU) entirely. That is not fixable from inside the
+         page, so say plainly what is. */
+      if (!window.isSecureContext) fail(T('errInsecure'), T('errInsecureHint'));
+      else fail(T('errNoCam'), T('errNoCamHint'));
       els.start.disabled = els.startBig.disabled = false;
       return;
     }
@@ -2254,7 +2329,7 @@
       prof: Object.keys(prof).reduce(function (o, k) {
         o[k] = Math.round(prof[k] * 10) / 10; return o;
       }, {}),
-      threads: (typeof SharedArrayBuffer !== 'undefined'),
+      threads: (typeof SharedArrayBuffer !== 'undefined'), workerFrames: workerFrames,
       isolated: !!self.crossOriginIsolated,
       feet: tracks.filter(function (t) { return t.cls === 'person' && t.lost === 0; })
         .map(function (t) {
