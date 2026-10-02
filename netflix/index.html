@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<title>המצגת שלי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#e50914; --red-dark:#b20710;
+  --bg:#141414; --bg-2:#181818; --bg-3:#2f2f2f;
+  --text:#fff; --muted:#b3b3b3; --dim:#808080; --green:#46d369;
+  --ease:cubic-bezier(.65,0,.35,1);
+  --morph:.75s;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Heebo',system-ui,sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.screen{display:none}
+.screen.on{display:block}
+.logo{font-family:'Bebas Neue',sans-serif;color:var(--red);letter-spacing:.02em;line-height:1;direction:ltr;user-select:none}
+.art{background-size:cover;background-position:center;background-color:#222}
+
+/* ---------- view transitions (morph) ---------- */
+::view-transition-group(*){animation-duration:var(--morph);animation-timing-function:var(--ease)}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.45s}
+::view-transition-old(stage){animation:vt-out var(--morph) var(--ease) both}
+::view-transition-new(stage){animation:vt-in var(--morph) var(--ease) both}
+::view-transition-old(ptext),::view-transition-old(pbul){animation:fade-out .3s ease both}
+::view-transition-new(ptext),::view-transition-new(pbul){animation:rise-in .6s .2s var(--ease) both}
+@keyframes vt-out{to{opacity:0;transform:scale(1.04)}}
+@keyframes vt-in{from{opacity:0;transform:scale(1.08)}}
+@keyframes fade-out{to{opacity:0}}
+@keyframes rise-in{from{opacity:0;transform:translateY(24px)}}
+
+/* ---------- intro ---------- */
+#intro{position:fixed;inset:0;background:#000;display:none;place-items:center;z-index:50;cursor:pointer}
+#intro.on{display:grid}
+#intro .logo{font-size:min(22vw,220px);opacity:0;text-shadow:0 0 0 rgba(229,9,20,0)}
+#intro.play .logo{animation:intro-logo 3.2s var(--ease) forwards}
+#intro .hint{position:absolute;bottom:12vh;color:var(--dim);font-size:15px;letter-spacing:.1em;animation:pulse 1.6s ease-in-out infinite}
+#intro.play .hint{display:none}
+#intro .streaks{position:absolute;inset:0;overflow:hidden;opacity:0;pointer-events:none}
+#intro.play .streaks{animation:streaks 3.2s ease forwards}
+#intro .streaks i{position:absolute;top:0;bottom:0;width:6px;filter:blur(1px)}
+@keyframes intro-logo{
+  0%{opacity:0;transform:scale(.85);letter-spacing:.3em}
+  25%{opacity:1;transform:scale(1);letter-spacing:.02em;text-shadow:0 0 30px rgba(229,9,20,.6)}
+  60%{opacity:1;transform:scale(1.06)}
+  100%{opacity:0;transform:scale(14);filter:blur(6px)}
+}
+@keyframes streaks{0%,55%{opacity:0;transform:scaleX(.2)}75%{opacity:1}100%{opacity:0;transform:scaleX(3)}}
+@keyframes pulse{50%{opacity:.35}}
+
+/* ---------- profiles ---------- */
+#profiles{min-height:100vh;background:var(--bg)}
+#profiles .top{padding:24px 4vw}
+#profiles .top .logo{font-size:44px}
+#profiles .wrap{min-height:calc(100vh - 100px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px 60px;animation:zoom-in .6s var(--ease)}
+#profiles h1{font-weight:500;font-size:clamp(28px,4.2vw,56px);margin-bottom:2em}
+.plist{display:flex;flex-wrap:wrap;justify-content:center;gap:clamp(14px,2vw,28px)}
+.profile{display:flex;flex-direction:column;align-items:center;gap:14px;width:clamp(96px,10vw,160px)}
+.avatar{width:100%;aspect-ratio:1;border-radius:6px;overflow:hidden;outline:3px solid transparent;outline-offset:0;transition:outline-color .2s,transform .25s}
+.avatar svg{display:block;width:100%;height:100%}
+.profile span{color:var(--dim);font-size:clamp(14px,1.3vw,20px);transition:color .2s}
+.profile:hover .avatar,.profile:focus-visible .avatar{outline-color:#fff}
+.profile:hover span,.profile:focus-visible span{color:#fff}
+.profile:focus{outline:0}
+.manage{margin-top:5em;border:1px solid var(--dim);color:var(--dim);padding:.5em 1.6em;letter-spacing:.2em;font-size:clamp(13px,1.2vw,18px);transition:.2s}
+.manage:hover{color:#fff;border-color:#fff}
+@keyframes zoom-in{from{opacity:0;transform:scale(1.15)}}
+
+/* ---------- browse ---------- */
+#browse{min-height:100vh;padding-bottom:80px}
+.nav{position:fixed;top:0;inset-inline:0;z-index:20;display:flex;align-items:center;gap:3vw;padding:18px 4vw;background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);transition:background .4s}
+.nav.solid{background:var(--bg)}
+.nav .logo{font-size:34px}
+.nav ul{display:flex;gap:20px;list-style:none;font-size:14px}
+.nav ul li{color:#e5e5e5;cursor:pointer;transition:color .2s}
+.nav ul li.on{font-weight:700;color:#fff}
+.nav ul li:hover{color:var(--muted)}
+.nav .side{margin-inline-start:auto;display:flex;align-items:center;gap:20px}
+.nav .side svg{width:22px;height:22px}
+.nav .me{display:flex;align-items:center;gap:8px;cursor:pointer}
+.nav .me .avatar{width:32px;border-radius:4px}
+.nav .me b{font-weight:400;font-size:13px;color:var(--muted)}
+
+.hero{position:relative;height:min(56.25vw,92vh);min-height:480px;overflow:hidden}
+.hero .art{position:absolute;inset:0;animation:kenburns 24s ease-in-out infinite alternate}
+.hero::after{content:"";position:absolute;inset:0;background:
+  linear-gradient(270deg,rgba(0,0,0,.75) 0%,rgba(0,0,0,.25) 45%,transparent 70%),
+  linear-gradient(0deg,var(--bg) 0%,transparent 28%)}
+.hero .info{position:absolute;z-index:2;inset-inline-start:4vw;bottom:30%;width:min(40%,560px)}
+.hero .kind{display:flex;align-items:center;gap:8px;font-size:14px;letter-spacing:.3em;color:#ddd;margin-bottom:12px}
+.hero .kind .logo{font-size:28px;letter-spacing:0}
+.hero h2{font-family:'Heebo';font-weight:900;font-size:clamp(36px,5.6vw,86px);line-height:.95;margin-bottom:.35em;text-shadow:0 4px 24px rgba(0,0,0,.5)}
+.hero p{font-size:clamp(14px,1.3vw,20px);line-height:1.45;text-shadow:0 2px 6px rgba(0,0,0,.6);margin-bottom:1.4em}
+.hero .greet{color:var(--muted);font-size:15px;margin-bottom:.6em}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:.55em 1.6em .55em 1.9em;border-radius:4px;font-weight:700;font-size:clamp(15px,1.3vw,20px);transition:background .2s,transform .15s}
+.btn:active{transform:scale(.97)}
+.btn svg{width:1.4em;height:1.4em}
+.btn.play{background:#fff;color:#000}
+.btn.play:hover{background:rgba(255,255,255,.75)}
+.btn.more{background:rgba(109,109,110,.7);color:#fff}
+.btn.more:hover{background:rgba(109,109,110,.4)}
+.hero .rating{position:absolute;z-index:2;inset-inline-end:0;bottom:30%;border-inline-start:3px solid #dcdcdc;background:rgba(51,51,51,.6);padding:.35em 3.5vw .35em 1em;font-size:16px}
+@keyframes kenburns{from{transform:scale(1)}to{transform:scale(1.12) translate(-1.5%,1%)}}
+
+.rows{position:relative;z-index:3;margin-top:-9vw}
+.row{margin-bottom:3.2vw}
+.row h3{font-size:clamp(15px,1.4vw,22px);font-weight:500;padding:0 4vw;margin-bottom:.6em;color:#e5e5e5}
+.slider{position:relative}
+.track{display:flex;gap:6px;overflow-x:auto;scroll-behavior:smooth;padding:18px 4vw 30px;margin:-18px 0 -30px;scrollbar-width:none}
+.track::-webkit-scrollbar{display:none}
+.arrow{position:absolute;top:0;bottom:0;width:4vw;z-index:5;background:rgba(20,20,20,.5);display:grid;place-items:center;opacity:0;transition:opacity .2s}
+.arrow svg{width:28px;height:28px}
+.slider:hover .arrow{opacity:1}
+.arrow.prev{right:0}.arrow.next{left:0}
+
+.card{position:relative;flex:0 0 calc((100vw - 8vw - 30px)/6);aspect-ratio:16/9;border-radius:4px;transition:transform .35s var(--ease),z-index 0s .35s;cursor:pointer}
+.card .art{position:absolute;inset:0;border-radius:4px;overflow:hidden}
+.card .ttl{position:absolute;inset-inline:8px;bottom:8px;font-weight:900;font-size:clamp(13px,1.25vw,20px);line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.card .badge{position:absolute;top:0;inset-inline-start:6px;background:var(--red);font-size:9px;font-weight:700;padding:3px 4px 2px;border-radius:0 0 2px 2px;line-height:1.1;text-align:center}
+.card .bar{position:absolute;bottom:-8px;inset-inline:8px;height:3px;background:#555}
+.card .bar i{display:block;height:100%;background:var(--red)}
+.card .pop{position:absolute;top:100%;inset-inline:0;background:var(--bg-2);border-radius:0 0 4px 4px;padding:10px 12px 12px;opacity:0;pointer-events:none;transform:translateY(-6px);transition:.25s;box-shadow:0 10px 20px rgba(0,0,0,.6)}
+.card .pop .ic{display:flex;gap:6px;margin-bottom:8px}
+.card .pop .ic span{width:28px;height:28px;border-radius:50%;border:2px solid #888;display:grid;place-items:center}
+.card .pop .ic span:first-child{background:#fff;border-color:#fff;color:#000}
+.card .pop .ic svg{width:14px;height:14px}
+.card .pop .meta{font-size:11px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.card .pop .tags{font-size:11px;color:#ddd;margin-top:6px}
+.match{color:var(--green);font-weight:700}
+.age{border:1px solid rgba(255,255,255,.4);padding:0 .4em;font-size:.9em}
+@media (hover:hover) and (min-width:800px){
+  .card:hover{transform:scale(1.38) translateY(-14%);z-index:10;transition:transform .35s .35s var(--ease)}
+  .card:hover .art{border-radius:4px 4px 0 0;box-shadow:0 0 24px rgba(0,0,0,.6)}
+  .card:hover .pop{opacity:1;transform:none;transition:.25s .4s}
+  .track .card:first-child:hover{transform-origin:right center}
+  .track .card:last-child:hover{transform-origin:left center}
+}
+.top10 .card{flex-basis:calc((100vw - 8vw - 30px)/5);aspect-ratio:auto;height:calc((100vw - 8vw)/5*.75);display:flex}
+.top10 .card .num{flex:0 0 50%;font-family:'Bebas Neue';font-size:calc((100vw - 8vw)/5*.95);line-height:.75;color:var(--bg);-webkit-text-stroke:3px #595959;display:flex;align-items:flex-end;justify-content:flex-end;padding-inline-end:4%;direction:ltr;letter-spacing:-.08em}
+.top10 .card .art{position:relative;inset:auto;flex:0 0 50%;border-radius:4px}
+.top10 .card .bar,.top10 .card .pop{display:none}
+@media (max-width:900px){
+  .nav ul{display:none}
+  .card{flex-basis:calc((100vw - 8vw - 18px)/3)}
+  .top10 .card{flex-basis:calc((100vw - 8vw)/2.3);height:calc((100vw - 8vw)/2.3*.75)}
+  .top10 .card .num{font-size:calc((100vw - 8vw)/2.3*.9)}
+  .hero .info{width:auto;inset-inline-end:16px;bottom:22%}
+  .hero .rating{display:none}
+  .rows{margin-top:-40px}
+  .arrow{display:none}
+}
+
+/* ---------- details modal ---------- */
+#modal{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.7);overflow-y:auto;display:none;padding:32px 16px}
+#modal.on{display:block}
+.sheet{max-width:850px;margin:0 auto;background:var(--bg-2);border-radius:8px;overflow:hidden;box-shadow:0 30px 60px rgba(0,0,0,.6);position:relative}
+.sheet .head{position:relative;aspect-ratio:16/9}
+.sheet .head .art{position:absolute;inset:0}
+.sheet .head::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--bg-2) 0%,transparent 50%)}
+.sheet .head .info{position:absolute;z-index:2;inset-inline-start:48px;bottom:40px;inset-inline-end:48px}
+.sheet .head h2{font-weight:900;font-size:clamp(28px,4.5vw,56px);line-height:1;margin-bottom:.5em;text-shadow:0 3px 18px rgba(0,0,0,.6)}
+.round{width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:rgba(42,42,42,.6);display:grid;place-items:center;transition:border-color .2s}
+.round:hover{border-color:#fff}
+.round svg{width:20px;height:20px}
+.close{position:absolute;top:14px;inset-inline-end:14px;z-index:3;width:36px;height:36px;border-radius:50%;background:#181818;display:grid;place-items:center}
+.close svg{width:20px;height:20px}
+.sheet .body{padding:0 48px 48px;display:grid;grid-template-columns:2fr 1fr;gap:32px}
+.sheet .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#bcbcbc;margin-bottom:14px;font-size:15px}
+.hd{border:1px solid rgba(255,255,255,.4);border-radius:3px;font-size:.7em;padding:0 .4em;font-weight:700}
+.sheet .desc{line-height:1.5;font-size:15px}
+.sheet .side{font-size:14px;line-height:1.6;color:#ddd}
+.sheet .side span{color:#777}
+.eps{grid-column:1/-1}
+.eps .eh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.eps h4{font-size:22px;font-weight:700}
+.eps .eh small{color:#bbb;font-size:16px}
+.ep{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid #404040;border-radius:4px;cursor:pointer;transition:background .2s}
+.ep:first-of-type{background:#333}
+.ep:hover{background:#333}
+.ep .n{font-size:24px;color:#d2d2d2;width:24px;text-align:center}
+.ep .th{position:relative;flex:0 0 130px;aspect-ratio:16/9;border-radius:4px;overflow:hidden}
+.ep .th .art{position:absolute;inset:0}
+.ep .th::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.25) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='rgba(0,0,0,.5)' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M9.5 7.5v9l7-4.5z' fill='white'/%3E%3C/svg%3E") center/38px no-repeat;opacity:0;transition:.2s}
+.ep:hover .th::after{opacity:1}
+.ep .tx{flex:1;min-width:0}
+.ep .tx b{display:flex;justify-content:space-between;font-weight:500;margin-bottom:6px;gap:12px}
+.ep .tx b em{font-style:normal;color:#ccc;font-weight:400;flex:none}
+.ep .tx p{font-size:13px;color:#d2d2d2;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:700px){
+  #modal{padding:0}
+  .sheet{border-radius:0;min-height:100%}
+  .sheet .head .info{inset-inline:16px;bottom:16px}
+  .sheet .body{padding:0 16px 32px;grid-template-columns:1fr}
+  .ep{padding:12px 4px;gap:10px}
+  .ep .th{flex-basis:100px}
+  .ep .n{display:none}
+}
+
+/* ---------- player ---------- */
+#player.on{display:block}
+#player{position:fixed;inset:0;z-index:40;background:#000;overflow:hidden;cursor:none}
+#player.ui{cursor:default}
+#pbg{position:absolute;inset:0}
+#pbg .art{position:absolute;inset:-2%;animation:kenburns 14s ease-in-out infinite alternate}
+#pbg::after{content:"";position:absolute;inset:0;pointer-events:none}
+.L-right #pbg::after{background:linear-gradient(270deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.35) 50%,transparent 75%)}
+.L-left #pbg::after{background:linear-gradient(90deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.35) 50%,transparent 75%)}
+.L-center #pbg::after{background:radial-gradient(ellipse at center,rgba(0,0,0,.65) 0%,rgba(0,0,0,.3) 70%)}
+.L-bottom #pbg::after{background:linear-gradient(0deg,rgba(0,0,0,.9) 0%,rgba(0,0,0,.3) 45%,transparent 70%)}
+.slide{position:absolute;z-index:2;display:flex;flex-direction:column;gap:18px;max-width:min(46vw,760px)}
+.L-right .slide{inset-inline-start:7vw;top:50%;transform:translateY(-50%)}
+.L-left .slide{inset-inline-end:7vw;top:50%;transform:translateY(-50%)}
+.L-center .slide{left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;align-items:center;max-width:min(80vw,1000px)}
+.L-bottom .slide{inset-inline-start:7vw;inset-inline-end:7vw;bottom:15vh;max-width:none}
+.slide .lbl{font-size:clamp(13px,1.2vw,18px);letter-spacing:.25em;color:#ddd;display:flex;gap:10px;align-items:center}
+.slide .lbl .logo{font-size:1.6em;letter-spacing:0}
+.slide h1{font-weight:900;font-size:clamp(36px,5.5vw,96px);line-height:1;text-shadow:0 4px 30px rgba(0,0,0,.6);width:fit-content}
+.L-center .slide h1{margin:0 auto}
+.slide p{font-size:clamp(17px,1.65vw,28px);line-height:1.5;color:#eee;text-shadow:0 2px 10px rgba(0,0,0,.7)}
+.slide ul{list-style:none;display:flex;flex-direction:column;gap:10px;font-size:clamp(16px,1.5vw,25px)}
+.slide ul li{display:flex;gap:12px;align-items:baseline}
+.slide ul li::before{content:"";flex:none;width:.5em;height:.5em;background:var(--red);border-radius:1px;transform:translateY(-.1em)}
+.L-center .slide ul{align-items:center}
+.nofx .slide>*{animation:rise-in .7s var(--ease) both}
+.nofx .slide>*:nth-child(2){animation-delay:.08s}
+.nofx .slide>*:nth-child(3){animation-delay:.16s}
+.nofx .slide>*:nth-child(4){animation-delay:.24s}
+.nofx #pbg .art{animation:vt-in .8s var(--ease) both,kenburns 14s ease-in-out .8s infinite alternate}
+
+.pui{position:absolute;inset-inline:0;z-index:5;padding:20px 3vw;opacity:0;transition:opacity .4s;pointer-events:none}
+#player.ui .pui{opacity:1;pointer-events:auto}
+.pui.top{top:0;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent);display:flex;align-items:center;gap:16px}
+.pui.bot{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.85),transparent);padding-top:60px}
+.ib{width:52px;height:52px;display:grid;place-items:center;border-radius:50%;transition:transform .15s}
+.ib:hover{transform:scale(1.2)}
+.ib svg{width:34px;height:34px}
+.prog{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.prog .line{flex:1;height:5px;background:rgba(255,255,255,.25);position:relative;cursor:pointer;display:flex;gap:3px;transition:height .15s}
+.prog .line:hover{height:8px}
+.prog .line i{flex:1;background:rgba(255,255,255,.2);position:relative;overflow:hidden}
+.prog .line i b{position:absolute;inset:0;background:var(--red);transform-origin:right;transform:scaleX(0)}
+.prog .line i.done b{transform:none}
+.prog small{font-size:14px;color:#ddd;min-width:52px;text-align:center}
+.ctrl{display:flex;align-items:center;gap:10px}
+.ctrl .mid{flex:1;text-align:center;font-size:clamp(14px,1.3vw,19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctrl .mid b{font-weight:700}
+.ctrl .mid span{color:#ccc}
+.nextup{position:absolute;z-index:6;inset-inline-end:3vw;bottom:150px;width:min(380px,80vw);background:rgba(20,20,20,.92);border-radius:6px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.6);transform:translateY(20px);opacity:0;pointer-events:none;transition:.4s var(--ease)}
+.nextup.on{opacity:1;transform:none;pointer-events:auto}
+.nextup .art{aspect-ratio:16/9;position:relative}
+.nextup .tx{padding:14px 16px}
+.nextup small{color:#aaa;letter-spacing:.1em}
+.nextup h5{font-size:18px;margin:4px 0 12px}
+.nextup .btn{font-size:15px;padding:.45em 1.2em}
+.nextup .ring{width:100%;height:3px;background:#444;margin-top:12px}
+.nextup .ring i{display:block;height:100%;background:#fff;width:0}
+.nextup.on .ring i{width:100%;transition:width 6s linear}
+@media (max-width:700px){
+  .slide{max-width:none!important;inset-inline:6vw!important;left:auto;transform:none!important;top:auto!important;bottom:22vh!important;text-align:start!important;align-items:flex-start!important}
+  #pbg::after{background:linear-gradient(0deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.4) 55%,transparent 80%)!important}
+}
+@media (prefers-reduced-motion:reduce){
+  *,::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- 1. פתיח -->
+<div id="intro" class="screen on" role="button" aria-label="התחל">
+  <div class="streaks" id="streaks"></div>
+  <div class="logo" id="introLogo"></div>
+  <div class="hint">לחצו כדי להתחיל</div>
+</div>
+
+<!-- 2. מי צופה? -->
+<section id="profiles" class="screen">
+  <div class="top"><div class="logo brand"></div></div>
+  <div class="wrap">
+    <h1>מי צופה?</h1>
+    <div class="plist" id="plist"></div>
+    <button class="manage">ניהול פרופילים</button>
+  </div>
+</section>
+
+<!-- 3. דף הבית -->
+<section id="browse" class="screen">
+  <nav class="nav" id="nav">
+    <div class="logo brand"></div>
+    <ul><li class="on">דף הבית</li><li>סדרות</li><li>סרטים</li><li>חדש ופופולרי</li><li>הרשימה שלי</li></ul>
+    <div class="side">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></svg>
+      <div class="me" id="me" title="החלפת פרופיל"><b id="meName"></b><div class="avatar" id="meAvatar"></div></div>
+    </div>
+  </nav>
+  <header class="hero" id="hero"></header>
+  <div class="rows" id="rows"></div>
+</section>
+
+<!-- 4. פרטי סדרה / סרט -->
+<div id="modal"><div class="sheet" id="sheet"></div></div>
+
+<!-- 5. נגן המצגת -->
+<section id="player" class="screen">
+  <div id="pbg"></div>
+  <div class="slide" id="slide"></div>
+  <div class="pui top">
+    <button class="ib" id="pBack" aria-label="חזרה"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 12h16M14 6l6 6-6 6"/></svg></button>
+  </div>
+  <div class="nextup" id="nextup"></div>
+  <div class="pui bot">
+    <div class="prog"><div class="line" id="pLine"></div><small id="pCount"></small></div>
+    <div class="ctrl">
+      <button class="ib" id="pPrev" aria-label="הקודם"><svg viewBox="0 0 24 24" fill="#fff"><path d="M18 6v12l-8.5-6zM8 6H6v12h2z" transform="matrix(-1 0 0 1 24 0)"/></svg></button>
+      <button class="ib" id="pPlay" aria-label="ניגון אוטומטי"></button>
+      <button class="ib" id="pNext" aria-label="הבא"><svg viewBox="0 0 24 24" fill="#fff"><path d="M18 6v12l-8.5-6zM8 6H6v12h2z"/></svg></button>
+      <div class="mid" id="pTitle"></div>
+      <button class="ib" id="pEps" aria-label="פרקים"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="8" width="14" height="12" rx="1"/><path d="M7 5h14v11"/></svg></button>
+      <button class="ib" id="pFull" aria-label="מסך מלא"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* =====================================================================
+   כאן עורכים את התוכן.
+   תמונות: שימו קבצים בתיקייה netflix/images/ וכתבו img:'images/שם.jpg'
+   כל עוד אין img — מוצג רקע צבעוני (colors).
+   layout של שקופית: 'right' | 'left' | 'center' | 'bottom'
+   ===================================================================== */
+const DATA = {
+  brand: 'MYFLIX',
+  autoplaySeconds: 7,
+
+  profiles: [
+    { name: 'אירית', color: '#e50914' },
+    { name: 'משפחה', color: '#0071eb' },
+    { name: 'אורחים', color: '#f5c518' },
+    { name: 'צוות', color: '#2bb871' },
+    { name: 'ילדים', color: '#9b4dca', kids: true },
+  ],
+
+  featured: 'story',
+
+  rows: [
+    { title: 'המשך צפייה עבור {name}', items: ['story', 'journey', 'behind'], progress: [0.6, 0.3, 0.8] },
+    { title: 'סדרות', items: ['story', 'team', 'behind', 'vision', 'results'] },
+    { title: 'TOP 10 בישראל היום', items: ['story', 'journey', 'vision', 'team', 'results'], top10: true },
+    { title: 'סרטים', items: ['journey', 'finale', 'vision', 'story', 'behind', 'team'] },
+    { title: 'חדש ב-' + 'MYFLIX', items: ['finale', 'results', 'team', 'journey', 'story'] },
+  ],
+
+  titles: {
+    story: {
+      type: 'series', title: 'הסיפור שלנו', year: 2026, age: '13+', match: 98, seasons: '1 עונה',
+      genres: ['מרגש', 'השראה', 'דרמה'], cast: 'אירית גולן ועוד', badge: 'חדש',
+      desc: 'כל סיפור גדול מתחיל ברגע אחד קטן. סדרה שמספרת איך הכול התחיל, מה עבר עלינו בדרך — ולאן אנחנו הולכים מכאן.',
+      colors: ['#7a0b12', '#1b0b2e'],
+      slides: [
+        { title: 'הפתיחה', text: 'כאן נכתוב את משפט הפתיחה של המצגת — משהו שתופס את הקהל מהשנייה הראשונה.', layout: 'right', colors: ['#7a0b12', '#120318'] },
+        { title: 'איך הכול התחיל', text: 'ההתחלה, הרעיון, הרגע שבו החלטנו לצאת לדרך.', bullets: ['נקודה ראשונה', 'נקודה שנייה', 'נקודה שלישית'], layout: 'left', colors: ['#0b3a5c', '#04121f'] },
+        { title: 'הרגע המכריע', text: 'כל סדרה טובה צריכה טוויסט. זה הטוויסט שלנו.', layout: 'center', colors: ['#4a1a6b', '#0c0414'] },
+        { title: 'מה למדנו', bullets: ['תובנה ראשונה', 'תובנה שנייה', 'תובנה שלישית'], layout: 'bottom', colors: ['#6b4a12', '#140c02'] },
+      ],
+    },
+    journey: {
+      type: 'movie', title: 'המסע', year: 2026, age: '7+', match: 95, duration: '1 ש׳ 42 ד׳',
+      genres: ['הרפתקאות', 'מעורר השראה'], cast: 'כל הצוות',
+      desc: 'סרט עוצמתי על הדרך מהנקודה שבה התחלנו ועד היעד. הרים, עמקים, וכל מה שבאמצע.',
+      colors: ['#0d5c4a', '#03140f'],
+      slides: [
+        { title: 'נקודת היציאה', text: 'מאיפה יצאנו ומה לקחנו איתנו לדרך.', layout: 'right', colors: ['#0d5c4a', '#031410'] },
+        { title: 'האתגרים בדרך', bullets: ['אתגר ראשון', 'אתגר שני', 'איך התגברנו'], layout: 'left', colors: ['#5c2a0d', '#140803'] },
+        { title: 'היעד', text: 'הגענו. ועכשיו — מתחילים מחדש.', layout: 'center', colors: ['#0d2f5c', '#020814'] },
+      ],
+    },
+    behind: {
+      type: 'series', title: 'מאחורי הקלעים', year: 2026, age: '13+', match: 91, seasons: 'מיני-סדרה',
+      genres: ['דוקומנטרי', 'אמיתי'], cast: 'הצוות המלא',
+      desc: 'מה שלא רואים על המסך: העבודה, הלילות הלבנים והרגעים המצחיקים שבדרך.',
+      colors: ['#3d3d3d', '#0a0a0a'],
+      slides: [
+        { title: 'איך זה נראה באמת', text: 'הצצה לעבודה היומיומית.', layout: 'bottom', colors: ['#3d3d3d', '#0a0a0a'] },
+        { title: 'הכלים שלנו', bullets: ['כלי ראשון', 'כלי שני', 'כלי שלישי'], layout: 'right', colors: ['#2a3d3d', '#050a0a'] },
+      ],
+    },
+    vision: {
+      type: 'movie', title: 'החזון', year: 2027, age: '16+', match: 97, duration: '2 ש׳ 05 ד׳',
+      genres: ['עתידני', 'מותח'], cast: 'אירית גולן', badge: 'בקרוב',
+      desc: 'לאן אנחנו הולכים? סרט על העתיד, על החלומות הגדולים ועל התוכנית להגשים אותם.',
+      colors: ['#0a2a6b', '#000814'],
+      slides: [
+        { title: 'החלום', text: 'איך העתיד נראה בעינינו.', layout: 'center', colors: ['#0a2a6b', '#000814'] },
+        { title: 'התוכנית', bullets: ['שלב 1', 'שלב 2', 'שלב 3'], layout: 'right', colors: ['#3a0a6b', '#080014'] },
+        { title: 'הצעד הבא', text: 'מה עושים כבר מחר בבוקר.', layout: 'left', colors: ['#6b0a3a', '#140008'] },
+      ],
+    },
+    team: {
+      type: 'series', title: 'הצוות', year: 2026, age: 'לכל המשפחה', match: 99, seasons: '2 עונות',
+      genres: ['קומדיה', 'חם ללב'], cast: 'כולם',
+      desc: 'הכירו את האנשים שעושים את זה קורה. כל פרק — דמות אחת וסיפור אחד.',
+      colors: ['#6b5a0a', '#141002'],
+      slides: [
+        { title: 'הכירו את הצוות', text: 'האנשים שמאחורי הכול.', layout: 'center', colors: ['#6b5a0a', '#141002'] },
+        { title: 'דמות ראשית', text: 'כמה מילים על התפקיד והסיפור האישי.', layout: 'right', colors: ['#0a6b5a', '#021410'] },
+        { title: 'דמות משנה', text: 'וגם היא — חלק בלתי נפרד מהעלילה.', layout: 'left', colors: ['#5a0a6b', '#100214'] },
+      ],
+    },
+    results: {
+      type: 'series', title: 'התוצאות', year: 2026, age: '13+', match: 94, seasons: '1 עונה',
+      genres: ['מספרים', 'הישגים'], cast: 'הנתונים',
+      desc: 'מה השגנו? המספרים, ההצלחות — וגם מה עוד אפשר לשפר.',
+      colors: ['#0a6b2a', '#021408'],
+      slides: [
+        { title: 'במספרים', bullets: ['מספר מרשים 1', 'מספר מרשים 2', 'מספר מרשים 3'], layout: 'bottom', colors: ['#0a6b2a', '#021408'] },
+        { title: 'ההצלחה הגדולה', text: 'הרגע שבו הבנו שזה עובד.', layout: 'center', colors: ['#6b2a0a', '#140802'] },
+      ],
+    },
+    finale: {
+      type: 'movie', title: 'הסוף הוא רק ההתחלה', year: 2026, age: '13+', match: 100, duration: '1 ש׳ 30 ד׳',
+      genres: ['מרגש', 'סיום'], cast: 'כולנו',
+      desc: 'פרק הסיום של המצגת: תודה, סיכום — ומבט לעונה הבאה.',
+      colors: ['#e50914', '#140002'],
+      slides: [
+        { title: 'סיכום', bullets: ['מה ראינו', 'מה לקחנו', 'מה הלאה'], layout: 'right', colors: ['#5c0a0a', '#140202'] },
+        { title: 'תודה רבה!', text: 'שאלות? אנחנו כאן.', layout: 'center', colors: ['#e50914', '#140002'] },
+      ],
+    },
+  },
+};
+</script>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const T = DATA.titles;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const canVT = !!document.startViewTransition;
+const morph = fn => canVT ? document.startViewTransition(fn) : (fn(), null);
+
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.01"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  like: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4v-9zM7 11l4-7c1.5 0 2.5 1 2 3l-1 3h6a2 2 0 0 1 2 2.4l-1.5 6A2 2 0 0 1 16.5 20H7"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg>',
+  chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="m15 6-6 6 6 6"/></svg>',
+};
+
+/* רקע: תמונה אם יש, אחרת גרדיאנט */
+function bg(o) {
+  if (o.img) return `background-image:url('${encodeURI(o.img)}')`;
+  const [a, b] = o.colors || ['#333', '#111'];
+  return `background-image:radial-gradient(ellipse at 30% 20%,${a}cc 0%,transparent 60%),radial-gradient(ellipse at 80% 90%,${a}66 0%,transparent 55%),linear-gradient(135deg,${a} 0%,${b} 100%)`;
+}
+const art = (o, extra = '') => `<div class="art" style="${bg(o)}" ${extra}></div>`;
+
+function avatarSVG(p) {
+  const face = p.kids
+    ? `<text x="50" y="62" text-anchor="middle" font-family="Bebas Neue" font-size="30" fill="#fff">KIDS</text>`
+    : `<circle cx="34" cy="40" r="5" fill="#fff"/><circle cx="66" cy="40" r="5" fill="#fff"/><path d="M28 60q22 22 44 0" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 100 100"><defs><linearGradient id="g${p.color.slice(1)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.color}"/><stop offset="1" stop-color="${p.color}" stop-opacity=".7"/></linearGradient></defs><rect width="100" height="100" fill="url(#g${p.color.slice(1)})"/>${face}</svg>`;
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+}
+
+/* ---------------- intro ---------------- */
+document.querySelectorAll('.brand').forEach(e => e.textContent = DATA.brand);
+$('#introLogo').textContent = DATA.brand;
+$('#streaks').innerHTML = Array.from({length: 26}, (_, i) =>
+  `<i style="left:${(i / 26 * 100).toFixed(1)}%;background:hsl(${350 + (i % 5) * 4},90%,${30 + (i % 7) * 6}%)"></i>`).join('');
+
+let started = false;
+function startIntro() {
+  if (started) return; started = true;
+  $('#intro').classList.add('play');
+  setTimeout(() => morph(() => { $('#intro').classList.remove('on'); show('profiles'); }), 2900);
+}
+$('#intro').addEventListener('click', startIntro);
+addEventListener('keydown', e => { if (!started) { e.preventDefault(); startIntro(); } }, true);
+
+/* ---------------- profiles ---------------- */
+let me = null;
+$('#plist').innerHTML = DATA.profiles.map((p, i) =>
+  `<button class="profile" data-i="${i}"><div class="avatar">${avatarSVG(p)}</div><span>${esc(p.name)}</span></button>`).join('');
+$('#plist').addEventListener('click', e => {
+  const b = e.target.closest('.profile'); if (!b) return;
+  pickProfile(+b.dataset.i, b.querySelector('.avatar'));
+});
+function pickProfile(i, el) {
+  me = DATA.profiles[i];
+  el.style.viewTransitionName = 'avatar';
+  const t = morph(() => {
+    el.style.viewTransitionName = '';
+    renderBrowse();
+    $('#meAvatar').style.viewTransitionName = 'avatar';
+    show('browse');
+    scrollTo(0, 0);
+  });
+  const clear = () => { $('#meAvatar').style.viewTransitionName = ''; };
+  t ? t.finished.then(clear) : clear();
+}
+$('#me').addEventListener('click', () => {
+  $('#meAvatar').style.viewTransitionName = 'avatar';
+  const idx = DATA.profiles.indexOf(me);
+  const target = document.querySelectorAll('#plist .avatar')[idx];
+  const t = morph(() => {
+    $('#meAvatar').style.viewTransitionName = '';
+    target.style.viewTransitionName = 'avatar';
+    show('profiles');
+  });
+  const clear = () => { target.style.viewTransitionName = ''; };
+  t ? t.finished.then(clear) : clear();
+});
+
+/* ---------------- browse ---------------- */
+function metaLine(t) {
+  return `<span class="match">${t.match}% התאמה</span><span class="age">${esc(t.age)}</span><span>${t.type === 'series' ? esc(t.seasons) : esc(t.duration)}</span><span class="hd">HD</span>`;
+}
+function renderBrowse() {
+  $('#meName').textContent = me.name;
+  $('#meAvatar').innerHTML = avatarSVG(me);
+  const f = T[DATA.featured];
+  $('#hero').innerHTML = `${art(f, 'data-vt="hero"')}
+    <div class="info">
+      <div class="kind"><span class="logo">${esc(DATA.brand[0])}</span>${f.type === 'series' ? 'S E R I E S' : 'F I L M'}</div>
+      <h2>${esc(f.title)}</h2>
+      <div class="greet">שלום ${esc(me.name)}, בחרנו את זה במיוחד בשבילך</div>
+      <p>${esc(f.desc)}</p>
+      <div class="btns">
+        <button class="btn play" data-play="${DATA.featured}">${ICON.play}הפעל</button>
+        <button class="btn more" data-open="${DATA.featured}">${ICON.info}מידע נוסף</button>
+      </div>
+    </div>
+    <div class="rating">${esc(f.age)}</div>`;
+
+  $('#rows').innerHTML = DATA.rows.map((r, ri) => `
+    <section class="row ${r.top10 ? 'top10' : ''}">
+      <h3>${esc(r.title.replace('{name}', me.name))}</h3>
+      <div class="slider">
+        <button class="arrow prev" aria-label="הקודם">${ICON.chevR}</button>
+        <div class="track">${r.items.map((id, i) => card(id, r, i, ri)).join('')}</div>
+        <button class="arrow next" aria-label="הבא">${ICON.chevL}</button>
+      </div>
+    </section>`).join('');
+}
+function card(id, r, i, ri) {
+  const t = T[id]; if (!t) return '';
+  const key = `c${ri}-${i}`;
+  if (r.top10) return `<div class="card" data-open="${id}" data-key="${key}"><div class="num">${i + 1}</div>${art(t)}</div>`;
+  return `<div class="card" data-open="${id}" data-key="${key}">
+    ${art(t)}
+    ${t.badge ? `<div class="badge">${esc(t.badge)}</div>` : ''}
+    ${t.img ? '' : `<div class="ttl">${esc(t.title)}</div>`}
+    ${r.progress ? `<div class="bar"><i style="width:${(r.progress[i] || 0) * 100}%"></i></div>` : ''}
+    <div class="pop">
+      <div class="ic"><span data-play="${id}">${ICON.play}</span><span>${ICON.plus}</span><span>${ICON.like}</span><span style="margin-inline-start:auto">${ICON.down}</span></div>
+      <div class="meta">${metaLine(t)}</div>
+      <div class="tags">${t.genres.map(esc).join(' • ')}</div>
+    </div>
+  </div>`;
+}
+$('#browse').addEventListener('click', e => {
+  const arrow = e.target.closest('.arrow');
+  if (arrow) {
+    const tr = arrow.parentElement.querySelector('.track');
+    const dir = arrow.classList.contains('next') ? -1 : 1; // RTL
+    tr.scrollBy({ left: dir * tr.clientWidth * .85 });
+    return;
+  }
+  const p = e.target.closest('[data-play]');
+  if (p) { e.stopPropagation(); return play(p.dataset.play, 0, p.closest('.card, .hero')?.querySelector('.art')); }
+  const o = e.target.closest('[data-open]');
+  if (o) openModal(o.dataset.open, (o.closest('.card') || $('#hero')).querySelector('.art'));
+});
+addEventListener('scroll', () => $('#nav').classList.toggle('solid', scrollY > 60), { passive: true });
+
+/* ---------------- modal ---------------- */
+let modalId = null, modalFrom = null;
+function openModal(id, fromEl) {
+  modalId = id; modalFrom = fromEl;
+  const t = T[id];
+  if (fromEl) fromEl.style.viewTransitionName = 'stage';
+  const vt = morph(() => {
+    if (fromEl) fromEl.style.viewTransitionName = '';
+    renderModal(t, id);
+    $('#modal').classList.add('on');
+    $('#modal').scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    $('#sheet .head .art').style.viewTransitionName = 'stage';
+  });
+  const clear = () => { const a = $('#sheet .head .art'); if (a) a.style.viewTransitionName = ''; };
+  vt ? vt.finished.then(clear) : clear();
+}
+function renderModal(t, id) {
+  const label = t.type === 'series' ? 'פרקים' : 'סצנות';
+  $('#sheet').innerHTML = `
+    <button class="close" data-close aria-label="סגירה">${ICON.x}</button>
+    <div class="head">${art(t)}
+      <div class="info">
+        <h2>${esc(t.title)}</h2>
+        <div class="btns" style="align-items:center">
+          <button class="btn play" data-play="${id}" data-from="modal">${ICON.play}הפעל</button>
+          <button class="round">${ICON.plus}</button><button class="round">${ICON.like}</button>
+        </div>
+      </div>
+    </div>
+    <div class="body">
+      <div>
+        <div class="meta">${metaLine(t)}<span>${t.year}</span></div>
+        <p class="desc">${esc(t.desc)}</p>
+      </div>
+      <div class="side">
+        <div><span>שחקנים: </span>${esc(t.cast)}</div>
+        <div><span>ז׳אנרים: </span>${t.genres.map(esc).join(', ')}</div>
+        <div><span>סוג: </span>${t.type === 'series' ? 'סדרה' : 'סרט'}</div>
+      </div>
+      <div class="eps">
+        <div class="eh"><h4>${label}</h4><small>${esc(t.title)}</small></div>
+        ${t.slides.map((s, i) => `
+          <div class="ep" data-play="${id}" data-slide="${i}" data-from="modal">
+            <div class="n">${i + 1}</div>
+            <div class="th">${art(s.img || s.colors ? s : t)}</div>
+            <div class="tx"><b>${esc(s.title)}<em>${2 + (i * 3) % 5} דק׳</em></b><p>${esc(s.text || (s.bullets || []).join(' · '))}</p></div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+function closeModal() {
+  const a = $('#sheet .head .art');
+  const back = modalFrom && modalFrom.isConnected ? modalFrom : null;
+  if (a && back) a.style.viewTransitionName = 'stage';
+  const vt = morph(() => {
+    if (a) a.style.viewTransitionName = '';
+    $('#modal').classList.remove('on');
+    document.body.style.overflow = '';
+    if (back) back.style.viewTransitionName = 'stage';
+  });
+  const clear = () => { if (back) back.style.viewTransitionName = ''; };
+  vt ? vt.finished.then(clear) : clear();
+  modalId = null;
+}
+$('#modal').addEventListener('click', e => {
+  if (e.target.id === 'modal' || e.target.closest('[data-close]')) return closeModal();
+  const p = e.target.closest('[data-play]');
+  if (p) {
+    const from = p.classList.contains('ep') ? p.querySelector('.art') : $('#sheet .head .art');
+    play(p.dataset.play, +(p.dataset.slide || 0), from);
+  }
+});
+
+/* ---------------- player ---------------- */
+let cur = null, idx = 0, timer = null, playing = false, uiTimer = null, nextTimer = null, returnTo = null;
+
+function play(id, start, fromEl) {
+  cur = id; idx = start || 0;
+  returnTo = $('#modal').classList.contains('on') ? 'modal' : 'browse';
+  if (fromEl) fromEl.style.viewTransitionName = 'stage';
+  const vt = morph(() => {
+    if (fromEl) fromEl.style.viewTransitionName = '';
+    $('#modal').classList.remove('on');
+    document.body.style.overflow = '';
+    show('player');
+    buildProgress();
+    renderSlide();
+  });
+  (vt ? vt.finished : Promise.resolve()).then(() => { setPlaying(true); wakeUI(); });
+}
+function buildProgress() {
+  const t = T[cur];
+  $('#pLine').innerHTML = t.slides.map(() => '<i><b></b></i>').join('');
+}
+function renderSlide() {
+  const t = T[cur], s = t.slides[idx];
+  const L = s.layout || 'right';
+  const P = $('#player');
+  P.classList.remove('L-right', 'L-left', 'L-center', 'L-bottom');
+  P.classList.add('L-' + L);
+  $('#pbg').innerHTML = art(s.img || s.colors ? s : t);
+  $('#pbg').style.viewTransitionName = 'stage';
+  const lbl = t.type === 'series' ? `פ${idx + 1} · ${esc(t.title)}` : esc(t.title);
+  $('#slide').innerHTML = `
+    <div class="lbl" style="view-transition-name:plbl"><span class="logo">${esc(DATA.brand[0])}</span>${lbl}</div>
+    <h1 style="view-transition-name:ptitle">${esc(s.title)}</h1>
+    ${s.text ? `<p style="view-transition-name:ptext">${esc(s.text)}</p>` : ''}
+    ${s.bullets ? `<ul style="view-transition-name:pbul">${s.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}`;
+  $('#pTitle').innerHTML = `<b>${esc(t.title)}</b> ${t.type === 'series' ? `<span>פ${idx + 1} "${esc(s.title)}"</span>` : `<span>${esc(s.title)}</span>`}`;
+  $('#pCount').textContent = `${idx + 1} / ${t.slides.length}`;
+  [...$('#pLine').children].forEach((el, i) => {
+    el.classList.toggle('done', i < idx);
+    const b = el.firstChild; b.style.transition = 'none'; b.style.transform = i < idx ? 'none' : 'scaleX(0)';
+  });
+  if (!canVT) { P.classList.remove('nofx'); void P.offsetWidth; P.classList.add('nofx'); }
+  hideNext();
+  const token = cur + ':' + idx;
+  if (idx === t.slides.length - 1) setTimeout(() => { if (cur + ':' + idx === token) showNext(); }, 1200);
+  restartTimer();
+}
+function go(n) {
+  const t = T[cur];
+  if (n < 0 || n >= t.slides.length) { if (n >= t.slides.length) playNextTitle(); return; }
+  idx = n;
+  morph(renderSlide);
+  wakeUI();
+}
+function restartTimer() {
+  clearTimeout(timer);
+  const el = $('#pLine').children[idx]; if (!el) return;
+  const b = el.firstChild;
+  if (!playing) return;
+  const last = idx === T[cur].slides.length - 1;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    b.style.transition = `transform ${DATA.autoplaySeconds}s linear`;
+    b.style.transform = 'none';
+  }));
+  if (!last) timer = setTimeout(() => go(idx + 1), DATA.autoplaySeconds * 1000);
+}
+function setPlaying(v) {
+  playing = v;
+  $('#pPlay').innerHTML = v ? ICON.pause : '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6 4v16l14-8z"/></svg>';
+  if (!v) { clearTimeout(timer); const b = $('#pLine').children[idx]?.firstChild; if (b) { b.style.transition = 'none'; b.style.transform = 'scaleX(0)'; } }
+  else restartTimer();
+}
+function nextTitleId() {
+  const ids = Object.keys(T);
+  return ids[(ids.indexOf(cur) + 1) % ids.length];
+}
+function showNext() {
+  if (!cur) return;
+  const n = T[nextTitleId()];
+  $('#nextup').innerHTML = `${art(n)}<div class="tx"><small>הבא בתור</small><h5>${esc(n.title)}</h5>
+    <button class="btn play" id="nuGo">${ICON.play}הפעל עכשיו</button><div class="ring"><i></i></div></div>`;
+  $('#nextup').classList.add('on');
+  $('#nuGo').onclick = playNextTitle;
+  clearTimeout(nextTimer);
+  if (playing) nextTimer = setTimeout(playNextTitle, 6000);
+}
+function hideNext() { $('#nextup').classList.remove('on'); clearTimeout(nextTimer); }
+function playNextTitle() {
+  hideNext();
+  const from = $('#nextup .art');
+  cur = nextTitleId(); idx = 0;
+  if (from) { $('#pbg').style.viewTransitionName = ''; from.style.viewTransitionName = 'stage'; }
+  morph(() => { buildProgress(); renderSlide(); });
+}
+function exitPlayer() {
+  clearTimeout(timer); hideNext(); setPlaying(false);
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  const id = cur;
+  morph(() => {
+    $('#pbg').style.viewTransitionName = '';
+    show('browse');
+    if (returnTo === 'modal') {
+      modalId = id; renderModal(T[id], id);
+      $('#modal').classList.add('on'); document.body.style.overflow = 'hidden';
+      $('#sheet .head .art').style.viewTransitionName = 'stage';
+    }
+  })?.finished.then(() => { const a = $('#sheet .head .art'); if (a) a.style.viewTransitionName = ''; });
+  cur = null;
+}
+function wakeUI() {
+  $('#player').classList.add('ui');
+  clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => $('#player').classList.remove('ui'), 2600);
+}
+$('#player').addEventListener('mousemove', wakeUI);
+$('#player').addEventListener('click', e => {
+  if (e.target.closest('button, .prog, .nextup')) return;
+  // לחיצה על המסך: צד שמאל = הבא, צד ימין = הקודם (כמו דפדוף בעברית)
+  e.clientX < innerWidth / 2 ? go(idx + 1) : go(idx - 1);
+});
+$('#pBack').onclick = exitPlayer;
+$('#pPrev').onclick = () => go(idx - 1);
+$('#pNext').onclick = () => go(idx + 1);
+$('#pPlay').onclick = () => { setPlaying(!playing); wakeUI(); };
+$('#pEps').onclick = exitPlayer;
+$('#pFull').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+$('#pLine').addEventListener('click', e => {
+  const i = [...$('#pLine').children].indexOf(e.target.closest('i'));
+  if (i >= 0 && i !== idx) go(i);
+});
+
+/* ---------------- keyboard ---------------- */
+addEventListener('keydown', e => {
+  if (!started) return;
+  const inPlayer = $('#player').classList.contains('on');
+  if (inPlayer) {
+    if (['ArrowRight', 'ArrowDown', 'PageDown', 'Enter'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); setPlaying(!playing); wakeUI(); }
+    else if (e.key === 'Escape') exitPlayer();
+    else if (e.key === 'f' || e.key === 'F') $('#pFull').click();
+    else if (e.key === 'n' || e.key === 'N') playNextTitle();
+    return;
+  }
+  if (e.key === 'Escape' && $('#modal').classList.contains('on')) closeModal();
+});
+})();
+</script>
+</body>
+</html>
