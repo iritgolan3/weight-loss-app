@@ -420,13 +420,13 @@ def _raycast(bvh, origin, direction):
     return hit[0], hit[1]
 
 
-def build_car(spec, L, loc=None, rotz=0.0, scale=1.0, col=COL, detail=True):
+def build_car(spec, L, loc=None, rotz=0.0, scale=1.0, col=COL, detail=True, parent=None):
     prof = PROFILES[spec["kind"]]
     Lc, W = spec["length"], spec["width"]
     name = spec["name"]
     if loc is None:
         loc = (spec["x"], spec["y_rear"] + Lc / 2, 0.0)
-    root = group(name, col, loc=loc, rot=(0, 0, rotz))
+    root = group(name, col, loc=loc, rot=(0, 0, rotz), parent=parent)
     root.scale = (scale, scale, scale)
     paint = M.car_paint(f"M_CarPaint_{name}", spec["color"], spec.get("metallic", 0.6))
     # ---- body
@@ -452,7 +452,7 @@ def build_car(spec, L, loc=None, rotz=0.0, scale=1.0, col=COL, detail=True):
     _boolean_apply(body, cutters)
     body.parent = root
     body.data.shade_smooth()
-    body.data.set_sharp_from_angle(angle=math.radians(38))
+    body.data.set_sharp_from_angle(angle=math.radians(62))   # keeps arch/shut-line edges crisp only
     if detail:
         from .core import box_uv
         box_uv(body.data)
@@ -462,7 +462,7 @@ def build_car(spec, L, loc=None, rotz=0.0, scale=1.0, col=COL, detail=True):
     for m in (paint, L.glass_car, L.plastic_black_gloss):
         me2.materials.append(m)
     _assign_cabin_materials(me2, spec, prof, params)
-    me2.set_sharp_from_angle(angle=math.radians(40))
+    me2.set_sharp_from_angle(angle=math.radians(65))
     _sharp_material_borders(me2)
     new_object(f"{name}_Greenhouse", me2, col, (0, 0, 0), (0, 0, 0), root)
     bvh = BVHTree.FromPolygons([tuple(vv.co) for vv in body.data.vertices],

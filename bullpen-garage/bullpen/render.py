@@ -82,8 +82,58 @@ def _world(scene):
     world.cycles_visibility.diffuse = True
 
 
+ORGANIZE = [
+    ("ARCHITECTURE", "Floor_Slab_And_Cove", ("Floor_",)),
+    ("ARCHITECTURE", "Walls", ("Wall_", "OHD_Jamb", "ManDoor_Threshold")),
+    ("ARCHITECTURE", "Garage_Door_Hardware", ("Garage_Door_Track", "Garage_Door_Torsion", "Garage_Door_Cable_Drum",
+                                              "Garage_Door_End_Bearing", "Garage_Door_Center_Bracket",
+                                              "Garage_Door_Lift_Cable", "Garage_Door_PhotoEye", "Opener_")),
+    ("ARCHITECTURE", "Bathroom_Fixtures", ("Bathroom_WC", "Bathroom_Vanity", "Bathroom_Mirror")),
+    ("ARCHITECTURE", "Exterior_Context", ("Exterior_",)),
+    ("STRUCTURE", "Roof_Deck_And_Bridging", ("Roof_Metal_Deck", "Roof_Insulation", "Roof_Bearing", "Roof_Joist_Bridging")),
+    ("STRUCTURE", "Sprinkler_System", ("Sprinkler_",)),
+    ("STRUCTURE", "Mezzanine_Framing", ("Mezzanine_Joist", "Mezzanine_Ledger", "Mezzanine_Girder")),
+    ("MEZZANINE", "Mezzanine_Deck", ("Mezzanine_Subfloor", "Mezzanine_Floor", "Mezzanine_Fascia", "Mezzanine_Edge",
+                                     "Mezzanine_Soffit", "Mezzanine_Wall_Base")),
+    ("DETAILS", "Electrical_Devices", ("Receptacle_", "Switch_", "RV_", "Electrical_", "Alarm_", "Garage_Door_Wall")),
+    ("DETAILS", "Safety_Devices", ("Fire_", "Smoke_", "Security_", "WiFi_")),
+    ("DETAILS", "Wheel_Stops", ("Wheel_Stop_",)),
+    ("DECOR", "Wall_Art", ("Poster_", "Sign_Speed", "Stair_Gallery", "Mezzanine_Print", "Mezzanine_Blueprint",
+                           "Bath_Wall_Print")),
+    ("LIGHTING", "Lights_Bay", ("Light_Bay_",)),
+    ("LIGHTING", "Lights_Mezzanine", ("Light_Mezzanine_",)),
+    ("LIGHTING", "Lights_Lounge", ("Light_Lounge_", "Light_Bathroom", "Light_Bar_", "Light_TV", "Light_Sign")),
+    ("LIGHTING", "Lights_Stair", ("Light_Stair_",)),
+    ("LIGHTING", "Lights_UnderCabinet", ("Cabinet_Upper_", "Bar_Shelf_LED")),
+    ("CABINETS", "Cabinet_Run_Right_Wall", ("Cabinet_0", "Cabinet_1", "Workbench_", "Slatwall_")),
+    ("CABINETS", "Cabinet_Uppers", ("Cabinet_Upper_",)),
+    ("CABINETS", "Storage_Under_Mezzanine", ("Cabinet_Locker_Mezz", "Refrigerator_")),
+    ("WORKSHOP", "Workshop_Slatwall_Tools", ("Slatwall_", "Screwdriver_")),
+    ("WORKSHOP", "Air_System", ("Air_", "Workshop_Air", "Compressor_")),
+    ("WORKSHOP", "Workshop_Bench_Items", ("Workshop_Battery", "Workshop_Bench", "Workshop_Cordless", "Workshop_Paper",
+                                          "Workshop_Shop_Stool", "Workshop_Trash")),
+    ("WORKSHOP", "Workshop_Floor_Equipment", ("Workshop_Floor_Jack", "Workshop_Jack_Stand", "Workshop_Creeper",
+                                              "Workshop_Shop_Vac", "ToolChest_")),
+    ("WORKSHOP", "Detailing_Area", ("Detailing_",)),
+    ("FURNITURE", "Bar_Area", ("Bar_", "Sign_The_Bullpen")),
+    ("FURNITURE", "Mezzanine_Office_Area", ("Desk_", "Chair_Office", "Rug_Mezzanine", "Display_", "Sofa_Mezzanine",
+                                            "Chair_Mezzanine", "Mezzanine_Plant", "Floor_Lamp", "Storage_Rack",
+                                            "ArcLamp", "Coffee_Table_Mezzanine")),
+    ("FURNITURE", "Lounge_Area", ("Sofa_Main", "Chair_0", "Coffee_Table", "Side_Table", "Rug_Lounge", "Lounge_",
+                                  "TV_", "Media_Console")),
+]
+
+
+def organize():
+    from .core import adopt
+    for col, name, prefixes in ORGANIZE:
+        adopt(name, col, prefixes)
+
+
 def finalize():
-    """Scene hygiene: hide reference helpers from render, purge orphans."""
+    """Scene hygiene: tidy outliner, hide reference helpers from render,
+    purge orphans."""
+    organize()
     ref = bpy.data.collections.get("REFERENCE")
     if ref:
         ref.hide_render = True

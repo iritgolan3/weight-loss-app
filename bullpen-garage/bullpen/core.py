@@ -579,6 +579,26 @@ def text(name, body, size, loc, mat, col, rot=(math.radians(90), 0, 0),
     return obj
 
 
+# --------------------------------------------------------------------- outliner
+
+def adopt(group_name, col, prefixes):
+    """Parent loose top-level objects of a collection (matched by name
+    prefix) under one identity empty, keeping the outliner tidy. The empty
+    sits at the origin, so world placement is unchanged."""
+    c = _col(col)
+    loose = [o for o in c.objects if o.parent is None and o.name != group_name and
+             o.name.startswith(tuple(prefixes))]
+    if not loose:
+        return None
+    g = bpy.data.objects.get(group_name)
+    if g is None:
+        g = group(group_name, c)
+    for o in loose:
+        if o is not g:
+            o.parent = g
+    return g
+
+
 # --------------------------------------------------------------------- math
 
 def look_at_euler(origin, target, roll=0.0):

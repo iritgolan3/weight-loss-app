@@ -207,11 +207,12 @@ def build_tv_wall(L):
     return g
 
 
-def _model_car_display(name, loc, L, scale=1 / 18, color=(0.4, 0.01, 0.01), rotz=0.6, kind="rear_engine"):
+def _model_car_display(name, loc, L, scale=1 / 18, color=(0.4, 0.01, 0.01), rotz=0.6, kind="rear_engine",
+                       parent=None):
     from . import vehicles
     spec = dict(name=name, kind=kind, length=4.573, width=1.852, height=1.30, wheelbase=2.45,
                 color=color, metallic=0.2, wheel_d=0.69, rim_in=20)
-    g = vehicles.build_car(spec, L, loc=loc, rotz=rotz, scale=scale, col=COL, detail=False)
+    g = vehicles.build_car(spec, L, loc=loc, rotz=rotz, scale=scale, col=COL, detail=False, parent=parent)
     return g
 
 
@@ -275,6 +276,7 @@ def build_bar(L):
     box_between("Bar_BackBar_Backsplash", (x_wall, C.BAR_Y0, C.CAB_BASE_H + 0.03), (x_wall + 0.012, y_end, 1.25),
                 L.quartz, COL, bevel=0.002, share=False)
     # floating oak shelves with under-shelf LED and bottles/glassware
+    bottles = group("Bar_BackBar_Bottles", COL)
     for k, z in enumerate((1.40, 1.78)):
         box_between(f"Bar_Shelf_Oak_{k + 1}", (x_wall, C.BAR_Y0 + 0.15, z - 0.04), (x_wall + 0.28, y_end - 0.15, z),
                     L.oak_y, COL, bevel=0.003, share=False)
@@ -285,12 +287,13 @@ def build_bar(L):
         mats = [L.glass_bottle_amber, L.glass_bottle_green, L.glass_bottle_clear, L.glass_bottle_amber]
         while yy < y_end - 0.25:
             if k == 0 and (i % 5 == 4):
-                props.tumbler("Bar_Shelf_Glass", (x_wall + 0.14, yy, z), L, COL)
-                props.tumbler("Bar_Shelf_Glass", (x_wall + 0.14, yy + 0.09, z), L, COL)
+                props.tumbler("Bar_Shelf_Glass", (x_wall + 0.14, yy, z), L, COL, parent=bottles)
+                props.tumbler("Bar_Shelf_Glass", (x_wall + 0.14, yy + 0.09, z), L, COL, parent=bottles)
                 yy += 0.20
             else:
                 kind = "spirit" if (i + k) % 3 else "wine"
-                props.bottle("Bar_Shelf_Bottle", (x_wall + 0.14, yy, z), L, COL, kind=kind, mat=mats[(i + k) % 4])
+                props.bottle("Bar_Shelf_Bottle", (x_wall + 0.14, yy, z), L, COL, kind=kind, mat=mats[(i + k) % 4],
+                             parent=bottles)
                 yy += 0.105 + rng.uniform(0, 0.03)
             i += 1
     # neon "THE BULLPEN" sign on a black backer (name from the video title)
@@ -421,7 +424,7 @@ def build_mezzanine_office(L):
     props.mug("Desk_Coffee_Mug", (-0.60, -0.02, h), L, COL, parent=dg, rotz=1.0, mat=L.ceramic_black)
     props.table_lamp("Desk_Lamp", (0.72, 0.20, h), L, COL, parent=dg, shade_mat=L.black_metal, lumens=250)
     _model_car_display("Desk_Model_Car", (-0.55, 0.22, h), L, scale=1 / 18, color=(0.42, 0.43, 0.44), rotz=2.4,
-                       kind="front_engine")
+                       kind="front_engine", parent=dg)
     office_chair("Chair_Office", (dx + 0.05, dy + 0.85, z), math.radians(8), L)
     # display shelving on the mezzanine back wall (black steel + oak)
     build_display_shelving(L, z)

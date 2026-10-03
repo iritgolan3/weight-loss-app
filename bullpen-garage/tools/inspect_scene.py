@@ -71,7 +71,7 @@ for col_name in ("FURNITURE", "WORKSHOP", "AUTOMOTIVE"):
                                                     "Workshop_Cordless", "Workshop_Battery", "Display_", "Desk_", "Keepsake",
                                                     "Coffee_Table_", "Side_Table_Lamp", "Bar_Counter", "Bar_Shelf",
                                                     "Storage_Tote", "DetailCart", "ToolChest_Impact", "Workshop_Paper",
-                                                    "Slatwall_")):
+                                                    "Slatwall_", "Detailing_Station", "Workshop_Slatwall")):
             issues.append(("FLOATING?", f"{root.name} lowest point z={zmin:.3f}"))
 
 print("=" * 70)

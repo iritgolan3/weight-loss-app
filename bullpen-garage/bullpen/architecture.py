@@ -144,15 +144,16 @@ def build_roof(L):
     proto = None
     parts = []
     for i, yj in enumerate(ys):
+        jg = group(f"Roof_Joist_{i + 1:02d}", STRUCT, loc=(0.0, yj - ys[0], 0.0))
         if proto is None:
             parts = _make_joist(L, yj, deck_z, jd, span0, span1)
+            for p in parts:
+                p.parent = jg
             proto = parts
         else:
-            dy = yj - ys[0]
             for p in proto:
-                instance(p, p["base_name"],
-                         loc=(p.location.x, p.location.y + dy, p.location.z),
-                         rot=p.rotation_euler, col=STRUCT)
+                instance(p, p["base_name"], loc=p.location.copy(), rot=p.rotation_euler,
+                         col=STRUCT, parent=jg)
     # bridging angles running along Y at third points (top & bottom chords)
     for bx in (-C.WIDTH / 6 * 1.5, C.WIDTH / 6 * 1.5):
         for z in (deck_z - 0.06, deck_z - jd + 0.01):
