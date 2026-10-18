@@ -1,4 +1,4 @@
-/* Neon Dash - deterministic physics engine (no DOM). Shared by the game and the level validator. */
+/* Block Dash - deterministic physics engine (no DOM). Shared by the game and the level validator. */
 (function (root) {
   'use strict';
 

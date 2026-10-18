@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2a6cff">
+<title>Block Dash</title>
+<style>
+  @font-face { font-family:"Lilita One"; src:url(fonts/lilita-one.woff2) format("woff2"); font-display:block; }
+  :root {
+    --ink:#000; --green1:#b4f55c; --green2:#4fb51c; --blue1:#7cc7ff; --blue2:#2a74e8; --pink1:#ff9be0; --pink2:#d4339f;
+    --brown1:#c47a3c; --brown2:#8f4f20; --brown3:#3a1c08; --gold:#ffd400;
+    --ol:0 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 -2px 0 #000, 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 4px 0 rgba(0,0,0,.4);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  html,body { margin:0; height:100%; background:#2a6cff; color:#fff; font-family:"Lilita One",system-ui,sans-serif; overflow:hidden; }
+  canvas#c { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .ol { text-shadow:var(--ol); letter-spacing:.02em; }
+  .screen { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; padding:max(10px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left)); }
+  .screen.on { display:flex; }
+  svg { display:block; }
+
+  /* title */
+  .title { font-size:min(15vh,86px); line-height:1; color:var(--gold); transform:rotate(-2deg);
+    text-shadow:0 3px 0 #6b3a00, 3px 0 0 #6b3a00, -3px 0 0 #6b3a00, 0 -3px 0 #6b3a00, 3px 3px 0 #6b3a00, -3px -3px 0 #6b3a00, 3px -3px 0 #6b3a00, -3px 3px 0 #6b3a00, 0 8px 0 #000; }
+  .title span { color:#ff9c1a; }
+
+  /* buttons */
+  .btn { appearance:none; font:inherit; color:#fff; text-shadow:var(--ol); border:3px solid var(--ink); border-radius:14px; padding:8px 20px; min-height:46px; font-size:20px;
+    background:linear-gradient(var(--green1),var(--green2)); box-shadow:inset 0 3px 0 rgba(255,255,255,.55), inset 0 -5px 0 rgba(0,0,0,.25), 0 4px 0 rgba(0,0,0,.45); cursor:pointer; }
+  .btn:active { transform:translateY(3px) scale(.97); box-shadow:inset 0 3px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(0,0,0,.25), 0 1px 0 rgba(0,0,0,.45); }
+  .btn.blue { background:linear-gradient(var(--blue1),var(--blue2)); }
+  .btn.pink { background:linear-gradient(var(--pink1),var(--pink2)); }
+  .btn.brown { background:linear-gradient(var(--brown1),var(--brown2)); }
+  .btn.small { font-size:15px; min-height:36px; padding:4px 14px; border-radius:11px; }
+  .round { appearance:none; border:4px solid var(--ink); border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
+    background:radial-gradient(circle at 50% 30%, var(--green1), var(--green2) 70%); box-shadow:inset 0 4px 0 rgba(255,255,255,.5), inset 0 -6px 0 rgba(0,0,0,.25), 0 5px 0 rgba(0,0,0,.45); }
+  .round:active { transform:translateY(3px) scale(.96); }
+  .round.blue { background:radial-gradient(circle at 50% 30%, var(--blue1), var(--blue2) 70%); }
+  .round.pink { background:radial-gradient(circle at 50% 30%, var(--pink1), var(--pink2) 70%); }
+  .round.brown { background:radial-gradient(circle at 50% 30%, var(--brown1), var(--brown2) 70%); }
+  .round.play { width:min(32vh,170px); height:min(32vh,170px); border-width:6px; }
+  .round.mid { width:min(18vh,92px); height:min(18vh,92px); }
+  .round.sm { width:min(12vh,58px); height:min(12vh,58px); border-width:3px; }
+  .round svg { width:58%; height:58%; }
+  .lbl { font-size:min(4.4vh,20px); margin-top:6px; text-align:center; }
+  .row { display:flex; gap:14px; align-items:center; justify-content:center; }
+  .col { display:flex; flex-direction:column; align-items:center; }
+
+  .top { position:absolute; top:max(8px,env(safe-area-inset-top)); left:max(10px,env(safe-area-inset-left)); right:max(10px,env(safe-area-inset-right)); display:flex; justify-content:space-between; align-items:flex-start; z-index:2; }
+  .stats { display:flex; gap:14px; font-size:min(5vh,22px); align-items:center; }
+  .stats > span { display:flex; align-items:center; gap:5px; }
+  .stats svg { width:1.15em; height:1.15em; }
+
+  /* panels (brown, rounded) */
+  .panel { width:min(760px,100%); max-height:80vh; overflow-y:auto; -webkit-overflow-scrolling:touch; border-radius:22px; border:4px solid var(--brown3); padding:12px 16px 14px;
+    background:linear-gradient(#b8692f,#93501f); box-shadow:inset 0 0 0 3px rgba(255,255,255,.18), inset 0 6px 0 rgba(255,255,255,.12), 0 6px 0 rgba(0,0,0,.35); }
+  .panel h3 { margin:14px 0 6px; font-size:20px; font-weight:400; text-align:center; color:var(--gold); text-shadow:var(--ol); }
+  .panel h3:first-child { margin-top:2px; }
+  .line { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; margin:6px 0; border-radius:12px; background:rgba(0,0,0,.18); font-size:18px; text-shadow:var(--ol); }
+  .line small { display:block; font-size:13px; color:#ffe7c7; text-shadow:0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000; margin-top:2px; }
+  .check { appearance:none; flex:none; width:40px; height:40px; border-radius:10px; border:3px solid var(--ink); background:linear-gradient(#e8e8e8,#a8a8a8); box-shadow:inset 0 2px 0 #fff, 0 3px 0 rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; }
+  .check svg { width:30px; height:30px; visibility:hidden; }
+  .check.on svg { visibility:visible; }
+  input[type=range] { width:44%; accent-color:#5ad11e; height:28px; }
+  input[type=number] { width:120px; font:inherit; font-size:18px; color:#fff; text-shadow:var(--ol); text-align:right; background:rgba(0,0,0,.35); border:3px solid var(--ink); border-radius:10px; padding:4px 8px; user-select:text; -webkit-user-select:text; }
+  .lvrow { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center; padding:6px 12px; margin:6px 0; border-radius:12px; background:rgba(0,0,0,.18); font-size:17px; text-shadow:var(--ol); }
+  .lvrow small { color:#ffe7c7; }
+  .cbtn { appearance:none; width:36px; height:36px; padding:0; border:0; background:none; opacity:.35; cursor:pointer; }
+  .cbtn.on { opacity:1; }
+  .cbtn svg { width:100%; height:100%; }
+
+  /* level select */
+  .lvwrap { display:flex; align-items:center; gap:min(3vw,22px); width:100%; justify-content:center; margin-top:4vh; }
+  .arrow { appearance:none; background:none; border:0; padding:0; width:min(11vh,64px); height:min(18vh,100px); cursor:pointer; flex:none; }
+  .arrow:active { transform:scale(.92); }
+  .arrow svg { width:100%; height:100%; }
+  .lvpanel { width:min(68vw,600px); height:min(52vh,270px); border-radius:24px; border:5px solid #000; position:relative; overflow:hidden; cursor:pointer; display:flex; flex-direction:column; justify-content:center; padding:0 22px;
+    box-shadow:inset 0 0 0 4px rgba(255,255,255,.25), inset 0 -14px 0 rgba(0,0,0,.18), 0 7px 0 rgba(0,0,0,.4); transition:transform .08s; }
+  .lvpanel:active { transform:scale(.98); }
+  .lvhead { display:flex; align-items:center; gap:16px; }
+  .lvhead canvas { width:min(17vh,86px); height:min(17vh,86px); flex:none; }
+  .lvname { font-size:min(9vh,44px); line-height:1.05; }
+  .lvsub { font-size:min(5vh,22px); display:flex; align-items:center; gap:6px; margin-top:4px; }
+  .lvsub svg { width:1.1em; height:1.1em; }
+  .lvcoins { position:absolute; right:18px; top:14px; display:flex; gap:4px; }
+  .lvcoins svg { width:min(7vh,34px); height:min(7vh,34px); }
+  .lvcoins .off { opacity:.3; filter:grayscale(1); }
+  .pbar { position:relative; height:min(6.5vh,30px); border-radius:16px; border:3px solid #000; background:rgba(0,0,0,.35); overflow:hidden; margin-top:6px; }
+  .pbar i { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(#b8ff5c,#4fc41c); box-shadow:inset 0 3px 0 rgba(255,255,255,.4); }
+  .pbar span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:min(4.6vh,20px); }
+  .mode { font-size:min(4.4vh,19px); margin-top:min(3vh,14px); }
+  .dots { display:flex; gap:8px; margin-top:min(4vh,18px); }
+  .dots i { width:12px; height:12px; border-radius:50%; background:rgba(0,0,0,.35); border:2px solid #000; }
+  .dots i.on { background:#fff; }
+
+  /* garage */
+  .gridpick { display:grid; grid-template-columns:repeat(auto-fill,minmax(56px,1fr)); gap:8px; margin:6px 0 10px; padding:8px; border-radius:12px; background:rgba(0,0,0,.18); }
+  .gridpick canvas { width:100%; height:auto; aspect-ratio:1; border-radius:10px; border:3px solid transparent; cursor:pointer; }
+  .gridpick canvas.sel, .gridpick .sw.sel { border-color:#fff; box-shadow:0 0 0 3px #000; }
+  .gridpick .sw { aspect-ratio:1; border-radius:10px; border:3px solid #000; cursor:pointer; }
+  #preview { width:150px; height:75px; flex:none; }
+
+  /* hud */
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; }
+  #hud.on { display:block; }
+  #progress { position:absolute; top:max(8px,env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:min(46vw,380px); height:16px; border-radius:10px; border:3px solid #000; background:rgba(0,0,0,.35); overflow:hidden; }
+  #progress i { display:block; height:100%; width:0; background:linear-gradient(#b8ff5c,#4fc41c); box-shadow:inset 0 2px 0 rgba(255,255,255,.45); }
+  #pct { position:absolute; top:max(4px,calc(env(safe-area-inset-top) - 4px)); left:calc(50% + min(23vw,190px) + 10px); font-size:21px; }
+  #hudbtns { position:absolute; top:max(6px,env(safe-area-inset-top)); right:max(10px,env(safe-area-inset-right)); pointer-events:auto; }
+  #btnPause { width:46px; height:46px; opacity:.75; }
+  #practiceBtns { position:absolute; bottom:max(12px,env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:none; gap:16px; pointer-events:auto; }
+  #practiceBtns.on { display:flex; }
+  #cheatTag { position:absolute; top:max(32px,calc(env(safe-area-inset-top) + 26px)); left:50%; transform:translateX(-50%); font-size:14px; white-space:nowrap; color:#ffe14d; }
+
+  /* overlays */
+  #pause, #end { background:rgba(0,0,0,.45); }
+  #pause .panel, #end .panel { width:min(620px,100%); text-align:center; }
+  .bigt { font-size:min(13vh,64px); line-height:1; color:var(--gold); }
+  #end .bigt { animation:pop .45s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes pop { from { transform:scale(.2); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .statline { display:flex; justify-content:center; gap:22px; font-size:min(5.5vh,24px); margin:10px 0 14px; flex-wrap:wrap; }
+  .statline span { display:flex; align-items:center; gap:6px; }
+  .statline svg { width:1.1em; height:1.1em; }
+  #toast { position:fixed; left:50%; bottom:max(16px,env(safe-area-inset-bottom)); transform:translateX(-50%); padding:8px 18px; border-radius:14px; border:3px solid #000; background:linear-gradient(#b8692f,#93501f); font-size:18px; display:none; z-index:50; white-space:nowrap; }
+  #rotate { position:fixed; inset:0; background:#2a6cff; z-index:60; display:none; align-items:center; justify-content:center; text-align:center; font-size:26px; padding:30px; }
+  @media (orientation:portrait) { #rotate { display:flex; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="main" class="screen on">
+  <div class="top"><div class="stats ol" data-stats></div><div></div></div>
+  <div class="title">BLOCK <span>DASH</span></div>
+  <div class="row" style="margin-top:min(6vh,30px);align-items:center;gap:min(6vw,48px)">
+    <div class="col"><button class="round mid blue" data-go="garage" data-icon="cube"></button><div class="lbl ol">Icons</div></div>
+    <button class="round play" data-go="levels" data-icon="play"></button>
+    <div class="col"><button class="round mid pink" data-go="cheats" data-icon="gear"></button><div class="lbl ol">Cheats</div></div>
+  </div>
+</div>
+
+<div id="levels" class="screen">
+  <div class="top"><button class="round sm brown" data-go="main" data-icon="back"></button><div class="stats ol" data-stats></div></div>
+  <div class="lvwrap">
+    <button class="arrow" id="lvPrev" data-icon="arrowL"></button>
+    <div class="lvpanel" id="lvPanel"></div>
+    <button class="arrow" id="lvNext" data-icon="arrowR"></button>
+  </div>
+  <div class="dots" id="lvDots"></div>
+</div>
+
+<div id="garage" class="screen">
+  <div class="top"><button class="round sm brown" data-go="main" data-icon="back"></button><div></div></div>
+  <div class="panel" style="margin-top:40px">
+    <div class="row" style="justify-content:center;gap:20px"><canvas id="preview" width="300" height="150"></canvas><div class="ol" style="font-size:22px">Icon Kit &mdash; all unlocked</div></div>
+    <h3>Cube</h3><div class="gridpick" id="pickCube"></div>
+    <h3>Ship</h3><div class="gridpick" id="pickShip"></div>
+    <h3>Primary color</h3><div class="gridpick" id="pickC1"></div>
+    <h3>Secondary color</h3><div class="gridpick" id="pickC2"></div>
+  </div>
+</div>
+
+<div id="cheats" class="screen">
+  <div class="top"><button class="round sm brown" data-go="main" data-icon="back"></button><div></div></div>
+  <div class="panel" style="margin-top:40px" id="cheatPanel"></div>
+</div>
+
+<div id="hud">
+  <div id="progress"><i></i></div><div id="pct" class="ol">0%</div><div id="cheatTag" class="ol"></div>
+  <div id="hudbtns"><button class="round sm brown" id="btnPause" data-icon="pause"></button></div>
+  <div id="practiceBtns">
+    <div class="col"><button class="round sm" id="btnCp" data-icon="flag"></button><div class="lbl ol" style="font-size:14px">Place</div></div>
+    <div class="col"><button class="round sm pink" id="btnCpDel" data-icon="x"></button><div class="lbl ol" style="font-size:14px">Remove</div></div>
+  </div>
+</div>
+
+<div id="pause" class="screen">
+  <div class="panel">
+    <div class="ol" id="pName" style="font-size:min(8vh,36px)"></div>
+    <div class="pbar" style="margin:10px 8% 4px"><i id="pBar"></i><span class="ol" id="pPct"></span></div>
+    <div class="row" style="margin-top:16px;gap:min(4vw,26px)">
+      <div class="col"><button class="round mid blue" id="pPractice" data-icon="diamond"></button><div class="lbl ol" id="pPracticeLbl">Practice</div></div>
+      <div class="col"><button class="round play" id="pResume" data-icon="play" style="width:min(24vh,120px);height:min(24vh,120px)"></button><div class="lbl ol">Resume</div></div>
+      <div class="col"><button class="round mid" id="pRestart" data-icon="restart"></button><div class="lbl ol">Restart</div></div>
+      <div class="col"><button class="round mid brown" id="pExit" data-icon="menu"></button><div class="lbl ol">Menu</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="end" class="screen">
+  <div class="bigt ol" id="endTitle">LEVEL COMPLETE!</div>
+  <div class="panel" style="margin-top:14px">
+    <div class="statline ol" id="endInfo"></div>
+    <div class="row" style="gap:min(4vw,26px)">
+      <div class="col"><button class="round mid" id="eAgain" data-icon="restart"></button><div class="lbl ol">Replay</div></div>
+      <div class="col" id="eNextCol"><button class="round play" id="eNext" data-icon="play" style="width:min(24vh,120px);height:min(24vh,120px)"></button><div class="lbl ol">Next</div></div>
+      <div class="col"><button class="round mid brown" id="eMenu" data-icon="menu"></button><div class="lbl ol">Menu</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="ol"></div>
+<div id="rotate" class="ol">Rotate your phone to landscape</div>
+
+<script src="engine.js"></script>
+<script src="levels.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

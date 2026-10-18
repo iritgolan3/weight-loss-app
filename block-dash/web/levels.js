@@ -1,4 +1,4 @@
-/* Neon Dash - level definitions. Levels are generated from hand-tuned patterns with a fixed seed. */
+/* Block Dash - level definitions. Levels are generated from hand-tuned patterns with a fixed seed. */
 (function (root) {
   'use strict';
 
@@ -83,16 +83,16 @@
 
   var E = ['single', 'spikes', 'spikes', 'blockSpike'];
   var specs = [
-    { id: 1, name: 'Neon Start', diff: 'Easy', stars: 1, speed: 9.0, seed: 11, count: 26, gap: [8, 11], maxSpikes: 2, patterns: E, palette: ['#1b2a6b', '#0a0f2e', '#37e0ff'], bpm: 120 },
-    { id: 2, name: 'Skyline Sprint', diff: 'Easy', stars: 2, speed: 9.6, seed: 23, count: 30, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs']), palette: ['#5a1b6b', '#1a0630', '#ff5fd2'], bpm: 126 },
-    { id: 3, name: 'Pixel Rain', diff: 'Normal', stars: 3, speed: 10.2, seed: 37, count: 34, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs', 'padJump', 'hopBlocks']), palette: ['#0b5b4d', '#021a1a', '#3dffb0'], bpm: 132 },
-    { id: 4, name: 'Echo Chamber', diff: 'Normal', stars: 4, speed: 10.4, seed: 41, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'padJump', 'padPlatform', 'blockSpike', 'gapSpikes', 'hopBlocks'], palette: ['#6b4a1b', '#2a1204', '#ffb03d'], bpm: 136 },
-    { id: 5, name: 'Solar Flare', diff: 'Hard', stars: 5, speed: 10.6, seed: 53, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'orbField', 'orbSpikes', 'padJump', 'stairs', 'gapSpikes'], palette: ['#7a1b1b', '#2a0606', '#ff6a3d'], bpm: 140 },
-    { id: 6, name: 'Wave Cruiser', diff: 'Hard', stars: 6, speed: 10.6, seed: 67, count: 34, ships: 2, shipLen: 56, shipGap: 5, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'blockSpike', 'padJump', 'hopBlocks', 'gapSpikes'], palette: ['#1b4f7a', '#04152a', '#3db4ff'], bpm: 138 },
-    { id: 7, name: 'Midnight Circuit', diff: 'Harder', stars: 7, speed: 11.0, seed: 79, count: 38, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padPlatform', 'stairs', 'hopBlocks', 'gapSpikes', 'orbSpikes'], palette: ['#3a1b7a', '#0d0430', '#a07dff'], bpm: 144 },
-    { id: 8, name: 'Voltage', diff: 'Harder', stars: 8, speed: 11.4, seed: 83, count: 42, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs'], palette: ['#6b6b1b', '#222204', '#f2ff3d'], bpm: 148 },
-    { id: 9, name: 'Hyper Drift', diff: 'Insane', stars: 9, speed: 11.8, seed: 97, count: 46, ships: 3, shipLen: 64, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#7a1b4f', '#2a0418', '#ff3d8a'], bpm: 154 },
-    { id: 10, name: 'Infinite Void', diff: 'Demon', stars: 10, speed: 12.2, seed: 101, count: 52, ships: 3, shipLen: 72, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#2a2a2a', '#050505', '#ffffff'], bpm: 160 }
+    { id: 1, name: 'Base Camp', diff: 'Easy', stars: 1, speed: 9.0, seed: 11, count: 26, gap: [8, 11], maxSpikes: 2, patterns: E, palette: ['#2a6cff', '#6a3cff', '#1446c8'], bpm: 120 },
+    { id: 2, name: 'Skyline Sprint', diff: 'Easy', stars: 2, speed: 9.6, seed: 23, count: 30, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs']), palette: ['#ff3fae', '#a83cff', '#9c1e78'], bpm: 126 },
+    { id: 3, name: 'Pixel Rain', diff: 'Normal', stars: 3, speed: 10.2, seed: 37, count: 34, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs', 'padJump', 'hopBlocks']), palette: ['#20c25a', '#12a6a0', '#0f7a3a'], bpm: 132 },
+    { id: 4, name: 'Echo Chamber', diff: 'Normal', stars: 4, speed: 10.4, seed: 41, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'padJump', 'padPlatform', 'blockSpike', 'gapSpikes', 'hopBlocks'], palette: ['#ff8a1a', '#ff4a3a', '#b04800'], bpm: 136 },
+    { id: 5, name: 'Solar Flare', diff: 'Hard', stars: 5, speed: 10.6, seed: 53, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'orbField', 'orbSpikes', 'padJump', 'stairs', 'gapSpikes'], palette: ['#ff3b3b', '#ff8a1f', '#951414'], bpm: 140 },
+    { id: 6, name: 'Wave Cruiser', diff: 'Hard', stars: 6, speed: 10.6, seed: 67, count: 34, ships: 2, shipLen: 56, shipGap: 5, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'blockSpike', 'padJump', 'hopBlocks', 'gapSpikes'], palette: ['#18b0ff', '#2a6cff', '#0a58a8'], bpm: 138 },
+    { id: 7, name: 'Midnight Circuit', diff: 'Harder', stars: 7, speed: 11.0, seed: 79, count: 38, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padPlatform', 'stairs', 'hopBlocks', 'gapSpikes', 'orbSpikes'], palette: ['#8a3cff', '#ff3fae', '#4a1aa8'], bpm: 144 },
+    { id: 8, name: 'Voltage', diff: 'Harder', stars: 8, speed: 11.4, seed: 83, count: 42, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs'], palette: ['#d9bc12', '#ff8a1a', '#857000'], bpm: 148 },
+    { id: 9, name: 'Hyper Drift', diff: 'Insane', stars: 9, speed: 11.8, seed: 97, count: 46, ships: 3, shipLen: 64, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#ff2a6a', '#8a3cff', '#991040'], bpm: 154 },
+    { id: 10, name: 'Infinite Void', diff: 'Demon', stars: 10, speed: 12.2, seed: 101, count: 52, ships: 3, shipLen: 72, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#3a3a4c', '#1c1c28', '#121219'], bpm: 160 }
   ];
 
   var levels = specs.map(build);
