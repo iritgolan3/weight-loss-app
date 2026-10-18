@@ -1,15 +1,20 @@
 # Block Dash
 
-An original one-tap rhythm-platformer (cube + ship modes, jump pads, orbs, secret coins) drawn in a flat,
+An original one-tap rhythm-platformer drawn in a flat,
 classic arcade style: coloured tiled backgrounds that shift through each level, tiled ground with a white
 horizon line, black blocks and spikes with white outlines, chunky outlined text and round 3D buttons.
 Everything is unlocked from the start and there is a built-in **Cheats** menu.
+
+12 hand-built levels (Easy to Demon), each introducing something new: cube, ship, ball, UFO and wave modes,
+gravity portals, speed portals (slow / normal / fast / faster), yellow, pink and blue (gravity) orbs and pads,
+small spikes, half blocks and upside-down sections. Normal and practice progress are tracked separately.
 
 * `BlockDash.apk` - ready-to-install Android build (debug-signed, landscape, offline). Installs over the
   earlier Neon Dash build and keeps its progress.
 * `web/` - the game itself (HTML5 canvas). Open `web/index.html` in any browser to play.
 * `build.sh` - rebuilds the APK without the Android SDK (`apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23`)
-* `tools/validate.js` - proves every level is beatable with a search bot; `tools/startcheck.js` does the same for every "start position" cheat
+* `tools/validate.js` - proves every level is beatable with a search bot; `tools/startcheck.js` does the same for every "start position" cheat;
+  `tools/motifcheck.js` checks every level building block at every speed
 
 ## Cheats menu
 God mode (no-clip), infinite jump, auto-play, hitboxes, game speed 0.25-2x, start position 0-95%,

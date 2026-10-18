@@ -1,6 +1,40 @@
-/* Block Dash - level definitions. Levels are generated from hand-tuned patterns with a fixed seed. */
+/* Block Dash - hand-built levels.
+   Cube parts are drawn as small ASCII "motifs" (top row first, bottom row = ground level);
+   ship / ball / UFO / wave corridors come from seeded generators. Every level is checked by tools/validate.js.
+
+   Motif legend:  # block   = half block   ^ spike   v hanging spike   , small spike   ' small hanging spike
+                  o yellow orb   q pink orb   b blue (gravity) orb
+                  p yellow pad   k pink pad   u blue pad   (P K U = same pads stuck to a ceiling)   c coin
+   Script tokens: number = flat gap, 'name' = motif, 'm:name' = motif mirrored under the current ceiling,
+                  'P:mode[:ceil]' mode portal, 'G:up:ceil' / 'G:down' gravity portal, 'S:slow|normal|fast|faster' speed portal,
+                  'ship|ufo|wave:len:gap', 'ball:len', 'C:y' coin */
 (function (root) {
   'use strict';
+
+  var M = {
+    s1: ['^'],
+    s2: ['^^'],
+    s3: ['^^^'],
+    sm: [',,,'],
+    sm2: ['^,,^'],
+    step: ['###^^'],
+    step3: ['####^^^'],
+    stairs: ['....##', '..####', '######^^^'],
+    hop: ['#..^..#..^..#'],
+    plat: ['...#####', '^^^^^^^^^^^'],
+    slabs: ['=..^..=..^..='],
+    pillarsUp: ['......#', '...#..#', '#..#..#^^'],
+    gapjump: ['###^^^###'],
+    pad1: ['p..^^^^'],
+    pad2: ['p...^^^^^'],
+    padtower: ['.....###', '.....###', 'p..^^###^'],
+    orb1: ['...o...', '.......', '^^^^^^^'],
+    orb2: ['..o....o..', '..........', '^^^^^^^^^^^^'],
+    orbp: ['...q....', '^^^^^^^'],
+    bluepad: ['################', '......v......U..', '................', '................', 'u...............'],
+    blueorb: ['##############', '..........U...', '..............', '....b.........', '^^^^^^^^......']
+  };
+  var SPEEDS = { slow: 0.8, normal: 1, fast: 1.25, faster: 1.55 };
 
   function mulberry32(a) {
     return function () {
@@ -11,90 +45,199 @@
     };
   }
 
+  /* adds the objects of an ASCII motif at x0; returns its width */
+  function motif(rows, x0, out, mirrorCeil) {
+    var h = rows.length, w = 0, start = out.length;
+    rows.forEach(function (r) { w = Math.max(w, r.length); });
+    function at(cx, y) { var r = rows[h - 1 - y]; return (r && r[cx]) || '.'; }
+    var used = {};
+    for (var y = 0; y < h; y++) {
+      for (var cx = 0; cx < w; cx++) {
+        var ch = at(cx, y);
+        if (used[cx + ',' + y]) continue;
+        if (ch === '#' || ch === '=') {
+          var ww = 1; while (at(cx + ww, y) === ch && !used[(cx + ww) + ',' + y]) ww++;
+          var hh = 1;
+          if (ch === '#') {
+            grow: while (y + hh < h) { for (var q = 0; q < ww; q++) if (at(cx + q, y + hh) !== '#' || used[(cx + q) + ',' + (y + hh)]) break grow; hh++; }
+          }
+          for (var a = 0; a < ww; a++) for (var bb = 0; bb < hh; bb++) used[(cx + a) + ',' + (y + bb)] = true;
+          out.push({ t: 'b', x: x0 + cx, y: y, w: ww, h: ch === '=' ? 0.5 : hh });
+        } else if (ch === '^' || ch === 'v' || ch === ',' || ch === "'") {
+          out.push({ t: 's', x: x0 + cx, y: y, flip: ch === 'v' || ch === "'", sm: ch === ',' || ch === "'" });
+        } else if (ch === 'o' || ch === 'q' || ch === 'b') {
+          out.push({ t: 'o', x: x0 + cx, y: y, kind: ch === 'o' ? 'y' : ch === 'q' ? 'p' : 'b' });
+        } else if ('pkuPKU'.indexOf(ch) >= 0) {
+          var lc = ch.toLowerCase();
+          out.push({ t: 'p', x: x0 + cx, y: y, flip: ch !== lc, kind: lc === 'p' ? 'y' : lc === 'k' ? 'p' : 'b' });
+        } else if (ch === 'c') {
+          out.push({ t: 'c', x: x0 + cx, y: y });
+        }
+      }
+    }
+    if (mirrorCeil != null) {
+      for (var i = start; i < out.length; i++) {
+        var o = out[i];
+        if (o.t === 'b') o.y = mirrorCeil - o.y - o.h;
+        else { o.y = mirrorCeil - 1 - o.y; if (o.t === 's' || o.t === 'p') o.flip = !o.flip; }
+      }
+    }
+    return w;
+  }
+
   function build(spec) {
     var rng = mulberry32(spec.seed);
-    var objs = [];
-    var x = 16;
     function r(a, b) { return a + Math.floor(rng() * (b - a + 1)); }
-    function spike(px, py, flip) { objs.push({ t: 's', x: px, y: py || 0, flip: !!flip }); }
-    function block(px, py, w, h) { objs.push({ t: 'b', x: px, y: py, w: w, h: h }); }
-    function pad(px, py) { objs.push({ t: 'p', x: px, y: py || 0 }); }
-    function orb(px, py) { objs.push({ t: 'o', x: px, y: py }); }
-    function portal(px, mode) { objs.push({ t: 'g', x: px, mode: mode }); }
-    function coin(px, py) { objs.push({ t: 'c', x: px, y: py }); }
+    var objs = [], x = 0, mode = 'cube', grav = 1, ceil = null;
 
-    var P = {
-      spikes: function () { var n = r(1, spec.maxSpikes || 3); for (var i = 0; i < n; i++) spike(x + i); return n; },
-      single: function () { spike(x); return 1; },
-      gapSpikes: function () { var n = r(1, 2); for (var i = 0; i < n; i++) { spike(x + i); spike(x + n + 3 + i); } return n * 2 + 3; },
-      blockSpike: function () { var w = r(2, 4); block(x, 0, w, 1); var n = r(1, 2); for (var i = 0; i < n; i++) spike(x + w + i); return w + n; },
-      hopBlocks: function () { block(x, 0, 2, 1); block(x + 5, 0, 2, 1); spike(x + 2); spike(x + 3); spike(x + 4); spike(x + 7); spike(x + 8); return 9; },
-      stairs: function () { block(x, 0, 3, 1); block(x + 3, 0, 3, 2); block(x + 6, 0, 3, 1); spike(x + 9); return 10; },
-      padJump: function () { var n = r(3, 5); pad(x, 0); for (var i = 0; i < n; i++) spike(x + 3 + i); return 3 + n; },
-      padPlatform: function () { pad(x, 0); block(x + 5, 0, 4, 3); spike(x + 3); spike(x + 4); return 14; },
-      orbField: function () {
-        var w = 9; for (var i = 0; i < w; i++) spike(x + i);
-        orb(x + 2.5, 1.4); orb(x + 7.5, 1.4); return w;
-      },
-      orbSpikes: function () { spike(x + 2); spike(x + 3); spike(x + 4); spike(x + 5); orb(x + 3.5, 1.2); return 6; },
-      shipSection: function () {
-        var len = spec.shipLen || 60;
-        portal(x, 'ship');
-        var base = x + 12, fl = 1, ce = 1, gapMin = spec.shipGap || 5;
-        for (var px = base; px < x + len; px += 8) {
-          fl = Math.max(0, Math.min(4, fl + r(-2, 2)));
-          ce = Math.max(0, Math.min(4, ce + r(-2, 2)));
-          while (10 - fl - ce < gapMin) { if (rng() < 0.5) fl = Math.max(0, fl - 1); else ce = Math.max(0, ce - 1); }
-          if (fl > 0) block(px, 0, 3, fl);
-          if (ce > 0) block(px, 10 - ce, 3, ce);
+    function portalCy() {
+      if (mode === 'cube' && ceil == null) return 1.6;
+      if (mode === 'cube') return grav > 0 ? 1.6 : ceil - 1.6;
+      return (ceil || 10) / 2;
+    }
+    function pillars(len, gapMin, step, spikes) {
+      var fl = 0, ce = 0, top = ceil || 10;
+      for (var px = x + 10; px < x + len - 4; px += step) {
+        fl = Math.max(0, Math.min(5, fl + r(-2, 2)));
+        ce = Math.max(0, Math.min(5, ce + r(-2, 2)));
+        var need = gapMin + (spikes ? 0.6 : 0);
+        while (top - fl - ce < need) { if (rng() < 0.5 && fl > 0) fl--; else if (ce > 0) ce--; else fl--; }
+        if (fl > 0) { objs.push({ t: 'b', x: px, y: 0, w: 3, h: fl }); if (spikes && rng() < 0.5) objs.push({ t: 's', x: px + 1, y: fl }); }
+        if (ce > 0) { objs.push({ t: 'b', x: px, y: top - ce, w: 3, h: ce }); if (spikes && rng() < 0.5) objs.push({ t: 's', x: px + 1, y: top - ce - 1, flip: true }); }
+      }
+      x += len;
+    }
+    function ballSection(len) {
+      var top = ceil || 8, side = 0;
+      for (var px = x + 9; px < x + len - 6; px += r(10, 12)) {
+        var n = r(3, 5);
+        if (rng() < 0.65) {
+          for (var i = 0; i < n; i++) objs.push(side === 0 ? { t: 's', x: px + i, y: 0 } : { t: 's', x: px + i, y: top - 1, flip: true });
+        } else {
+          objs.push(side === 0 ? { t: 'b', x: px, y: 0, w: n, h: 2 } : { t: 'b', x: px, y: top - 2, w: n, h: 2 });
         }
-        portal(x + len + 4, 'cube');
-        return len + 8;
+        side = 1 - side;
       }
-    };
-
-    var gapMin = spec.gap[0], gapMax = spec.gap[1];
-    var pool = spec.patterns.slice();
-    var coinsAt = [0.22, 0.5, 0.78];
-    var coinIdx = 0;
-    var shipsLeft = spec.ships || 0;
-    var plan = [];
-    var count = spec.count;
-    for (var i = 0; i < count; i++) {
-      plan.push(pool[Math.floor(rng() * pool.length)]);
+      x += len;
     }
-    for (var s = 0; s < shipsLeft; s++) plan[Math.floor(count * (s + 1) / (shipsLeft + 1))] = 'shipSection';
-
-    for (i = 0; i < plan.length; i++) {
-      var w = P[plan[i]]();
-      var gapW = r(gapMin, gapMax);
-      if (coinIdx < 3 && i / plan.length >= coinsAt[coinIdx] && plan[i] !== 'shipSection') {
-        coin(x + w + Math.floor(gapW / 2), plan[i] === 'orbField' ? 1.2 : 1.8);
-        coinIdx++;
+    function waveSection(len, gap) {
+      var top = ceil || 10, c = top / 2;
+      for (var px = x + 10; px < x + len - 4; px += 6) {
+        c = Math.max(gap / 2 + 0.5, Math.min(top - gap / 2 - 0.5, c + (rng() * 4 - 2)));
+        var fl = Math.floor(c - gap / 2), ce = Math.floor(top - (c + gap / 2));
+        if (fl > 0) objs.push({ t: 'b', x: px, y: 0, w: 2, h: fl });
+        if (ce > 0) objs.push({ t: 'b', x: px, y: top - ce, w: 2, h: ce });
       }
-      x += w + gapW;
+      x += len;
     }
-    if (coinIdx < 3) coin(x - 6, 1.8);
+
+    spec.script.forEach(function (tok) {
+      if (typeof tok === 'number') { x += tok; return; }
+      var a = tok.split(':');
+      switch (a[0]) {
+        case 'P': {
+          var cy = portalCy();
+          mode = a[1];
+          ceil = a[2] !== undefined ? +a[2] : (mode === 'cube' ? null : 10);
+          var pg = { t: 'g', x: x, mode: mode, ceil: ceil, cy: cy, kind: mode };
+          if (mode === 'cube') { grav = 1; pg.grav = 1; }
+          objs.push(pg);
+          x += 2; break;
+        }
+        case 'G': {
+          var gy = portalCy();
+          grav = a[1] === 'up' ? -1 : 1;
+          ceil = grav < 0 ? +(a[2] || 8) : (mode === 'cube' ? null : ceil);
+          objs.push({ t: 'g', x: x, grav: grav, ceil: ceil, cy: gy, kind: grav < 0 ? 'gup' : 'gdown' });
+          x += 2; break;
+        }
+        case 'S':
+          objs.push({ t: 'g', x: x, spd: SPEEDS[a[1]], cy: portalCy(), kind: 'spd-' + a[1] });
+          x += 2; break;
+        case 'C':
+          objs.push({ t: 'c', x: x, y: +a[1] }); break;
+        case 'ship': pillars(+a[1], +a[2], 8, a[3] === 'sp'); break;
+        case 'ufo': pillars(+a[1], +a[2], 9, false); break;
+        case 'ball': ballSection(+a[1]); break;
+        case 'wave': waveSection(+a[1], +a[2]); break;
+        case 'm': x += motif(M[a[1]], x, objs, ceil); break;
+        default:
+          if (!M[tok]) throw new Error('unknown token ' + tok);
+          x += motif(M[tok], x, objs, null);
+      }
+    });
     return {
-      id: spec.id, name: spec.name, diff: spec.diff, stars: spec.stars, speed: spec.speed,
-      len: x + 8, palette: spec.palette, bpm: spec.bpm, objects: objs
+      id: spec.id, name: spec.name, diff: spec.diff, stars: spec.stars, speed: spec.speed || 10.4,
+      len: x + 10, palette: spec.palette, bpm: spec.bpm, objects: objs
     };
   }
 
-  var E = ['single', 'spikes', 'spikes', 'blockSpike'];
   var specs = [
-    { id: 1, name: 'Base Camp', diff: 'Easy', stars: 1, speed: 9.0, seed: 11, count: 26, gap: [8, 11], maxSpikes: 2, patterns: E, palette: ['#2a6cff', '#6a3cff', '#1446c8'], bpm: 120 },
-    { id: 2, name: 'Skyline Sprint', diff: 'Easy', stars: 2, speed: 9.6, seed: 23, count: 30, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs']), palette: ['#ff3fae', '#a83cff', '#9c1e78'], bpm: 126 },
-    { id: 3, name: 'Pixel Rain', diff: 'Normal', stars: 3, speed: 10.2, seed: 37, count: 34, gap: [7, 10], maxSpikes: 3, patterns: E.concat(['gapSpikes', 'stairs', 'padJump', 'hopBlocks']), palette: ['#20c25a', '#12a6a0', '#0f7a3a'], bpm: 132 },
-    { id: 4, name: 'Echo Chamber', diff: 'Normal', stars: 4, speed: 10.4, seed: 41, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'padJump', 'padPlatform', 'blockSpike', 'gapSpikes', 'hopBlocks'], palette: ['#ff8a1a', '#ff4a3a', '#b04800'], bpm: 136 },
-    { id: 5, name: 'Solar Flare', diff: 'Hard', stars: 5, speed: 10.6, seed: 53, count: 36, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'orbField', 'orbSpikes', 'padJump', 'stairs', 'gapSpikes'], palette: ['#ff3b3b', '#ff8a1f', '#951414'], bpm: 140 },
-    { id: 6, name: 'Wave Cruiser', diff: 'Hard', stars: 6, speed: 10.6, seed: 67, count: 34, ships: 2, shipLen: 56, shipGap: 5, gap: [6, 9], maxSpikes: 3, patterns: ['spikes', 'blockSpike', 'padJump', 'hopBlocks', 'gapSpikes'], palette: ['#18b0ff', '#2a6cff', '#0a58a8'], bpm: 138 },
-    { id: 7, name: 'Midnight Circuit', diff: 'Harder', stars: 7, speed: 11.0, seed: 79, count: 38, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padPlatform', 'stairs', 'hopBlocks', 'gapSpikes', 'orbSpikes'], palette: ['#8a3cff', '#ff3fae', '#4a1aa8'], bpm: 144 },
-    { id: 8, name: 'Voltage', diff: 'Harder', stars: 8, speed: 11.4, seed: 83, count: 42, ships: 2, shipLen: 64, shipGap: 4.5, gap: [5, 8], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs'], palette: ['#d9bc12', '#ff8a1a', '#857000'], bpm: 148 },
-    { id: 9, name: 'Hyper Drift', diff: 'Insane', stars: 9, speed: 11.8, seed: 97, count: 46, ships: 3, shipLen: 64, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#ff2a6a', '#8a3cff', '#991040'], bpm: 154 },
-    { id: 10, name: 'Infinite Void', diff: 'Demon', stars: 10, speed: 12.2, seed: 101, count: 52, ships: 3, shipLen: 72, shipGap: 4, gap: [5, 7], maxSpikes: 3, patterns: ['spikes', 'orbField', 'padJump', 'padPlatform', 'hopBlocks', 'gapSpikes', 'orbSpikes', 'stairs', 'blockSpike'], palette: ['#3a3a4c', '#1c1c28', '#121219'], bpm: 160 }
+    { id: 1, name: 'Base Camp', diff: 'Easy', stars: 1, seed: 11, bpm: 120, palette: ['#2a6cff', '#6a3cff', '#1446c8'],
+      script: [14, 's1', 9, 's1', 8, 's2', 9, 'step', 9, 's2', 8, 's1', 9, 'hop', 9, 'C:1.8', 8, 's3', 9, 'stairs', 10, 'step3', 9,
+        'P:ship', 'ship:72:5.5', 'P:cube', 14,
+        's2', 8, 'plat', 10, 'C:2', 8, 's1', 6, 's1', 8, 'pillarsUp', 10, 's3', 9, 'step', 9, 'C:1.8', 8, 's2', 12] },
+    { id: 2, name: 'Skyline Sprint', diff: 'Easy', stars: 2, seed: 23, bpm: 126, palette: ['#ff3fae', '#a83cff', '#9c1e78'],
+      script: [14, 's1', 8, 'pad1', 10, 's2', 8, 'step', 9, 'pad2', 10, 'C:1.8', 8, 'padtower', 11, 's3', 9, 'hop', 9,
+        'P:ship', 'ship:64:5.5', 'P:cube', 14,
+        'pad1', 9, 's2', 8, 'gapjump', 9, 'C:2', 8, 'padtower', 11, 'stairs', 10, 'pad2', 10, 'C:1.8', 8, 's3', 12] },
+    { id: 3, name: 'Pixel Rain', diff: 'Normal', stars: 3, seed: 37, bpm: 132, palette: ['#20c25a', '#12a6a0', '#0f7a3a'],
+      script: [14, 's2', 8, 'orb1', 10, 'step', 8, 'orb2', 10, 'C:1.8', 8, 'orbp', 9, 's3', 8, 'pad1', 10,
+        'P:ship', 'ship:72:5', 'P:cube', 14,
+        'orb2', 10, 'plat', 10, 'C:2', 8, 'hop', 9, 'orb1', 10, 'padtower', 11, 'C:1.8', 8, 'stairs', 10, 'sm', 8, 's3', 12] },
+    { id: 4, name: 'Flipside', diff: 'Normal', stars: 4, seed: 41, bpm: 136, palette: ['#ff8a1a', '#ff4a3a', '#b04800'],
+      script: [14, 's2', 8, 'step', 9, 'bluepad', 8, 's2', 8, 'blueorb', 12, 'C:1.8', 8,
+        'G:up:8', 12, 'm:s2', 8, 'm:s1', 8, 'm:step', 9, 'C:5.5', 8, 'm:s3', 9, 'G:down', 12, 's2', 8,
+        'P:ship', 'ship:64:5', 'P:cube', 14,
+        'bluepad', 8, 'hop', 9, 'C:2', 8, 'blueorb', 12, 'stairs', 10, 's3', 12] },
+    { id: 5, name: 'Overdrive', diff: 'Hard', stars: 5, seed: 53, bpm: 140, palette: ['#ff3b3b', '#ff8a1f', '#951414'],
+      script: [14, 'S:fast', 6, 's2', 10, 'step', 10, 'orb1', 11, 'pad1', 11, 'C:1.8', 10, 's3', 10, 'S:normal', 6, 'stairs', 10,
+        'P:ship', 'ship:72:5', 'P:cube', 14,
+        'S:faster', 8, 's1', 12, 's2', 12, 'C:2', 12, 'hop', 12, 'S:normal', 8, 'bluepad', 8, 'plat', 10, 'C:1.8', 8, 'padtower', 11, 'sm2', 8, 's3', 12] },
+    { id: 6, name: 'Rolling Thunder', diff: 'Hard', stars: 6, seed: 67, bpm: 138, palette: ['#18b0ff', '#2a6cff', '#0a58a8'],
+      script: [14, 's2', 8, 'step', 9, 'C:1.8', 8, 'pad1', 10,
+        'P:ball:8', 'ball:80', 'P:cube', 14,
+        's3', 8, 'orb1', 10, 'C:1.8', 8, 'slabs', 9, 'pad2', 10,
+        'P:ball:8', 'ball:70', 'P:cube', 14,
+        'stairs', 10, 'hop', 9, 'C:2', 8, 'blueorb', 12, 's3', 12] },
+    { id: 7, name: 'Saucer Run', diff: 'Harder', stars: 7, seed: 79, bpm: 144, palette: ['#8a3cff', '#ff3fae', '#4a1aa8'],
+      script: [14, 's2', 8, 'pad1', 10, 'C:1.8', 8, 'step3', 9,
+        'P:ufo', 'ufo:80:5', 'P:cube', 14,
+        'orb2', 10, 'C:1.8', 8, 'step3', 9, 'gapjump', 9,
+        'P:ship', 'ship:56:4.6', 'P:ufo', 'ufo:56:4.6', 'P:cube', 14,
+        'C:2', 8, 'stairs', 10, 'pillarsUp', 10, 's3', 12] },
+    { id: 8, name: 'Zigzag', diff: 'Harder', stars: 8, seed: 83, bpm: 148, palette: ['#d9bc12', '#ff8a1a', '#857000'],
+      script: [14, 's2', 8, 'step', 9, 'C:1.8', 8, 'orb1', 10,
+        'P:wave', 'wave:70:4', 'P:cube', 14,
+        'padtower', 11, 'C:1.8', 8, 'hop', 9, 'blueorb', 12,
+        'P:wave', 'wave:64:3.5', 'P:cube', 14,
+        'C:2', 8, 'orb2', 10, 'stairs', 10, 's3', 12] },
+    { id: 9, name: 'Hyper Drift', diff: 'Insane', stars: 9, seed: 97, bpm: 154, palette: ['#ff2a6a', '#8a3cff', '#991040'],
+      script: [14, 'S:fast', 6, 's3', 10, 'orb2', 11, 'C:1.8', 10, 'padtower', 12,
+        'P:ship', 'ship:64:4.6:sp', 'P:ball:8', 'ball:60', 'P:cube', 14,
+        'S:normal', 6, 'bluepad', 8, 'C:2', 8, 'G:up:8', 12, 'm:s3', 8, 'm:step3', 9, 'm:s2', 9, 'G:down', 12,
+        'P:wave', 'wave:56:3.5', 'P:cube', 14,
+        'S:fast', 6, 'pillarsUp', 11, 'C:1.8', 10, 'orb1', 11, 's3', 14] },
+    { id: 10, name: 'Gravity Storm', diff: 'Insane', stars: 10, seed: 101, bpm: 150, palette: ['#12b8a0', '#2a6cff', '#0a6a5a'],
+      script: [14, 'blueorb', 12, 'C:1.8', 8, 'bluepad', 8, 'G:up:8', 12, 'm:s2', 8, 'm:hop', 9, 'm:orb1', 10, 'G:down', 12,
+        'P:ufo', 'ufo:64:4.6', 'P:ball:8', 'ball:60', 'P:cube', 14,
+        'C:2', 8, 'blueorb', 12, 'stairs', 10, 'G:up:8', 12, 'm:step3', 9, 'C:6', 8, 'm:s3', 9, 'G:down', 12,
+        'P:ship', 'ship:64:4.4:sp', 'P:cube', 14, 'padtower', 11, 's3', 12] },
+    { id: 11, name: 'Clockwork', diff: 'Insane', stars: 11, seed: 113, bpm: 158, palette: ['#c46a2a', '#7a3cff', '#6a3008'],
+      script: [14, 'S:fast', 6, 'hop', 11, 'orb2', 11, 'C:1.8', 10,
+        'P:wave', 'wave:64:3.4', 'P:ship', 'ship:56:4.4:sp', 'P:cube', 14,
+        'pad2', 11, 'padtower', 12, 'C:2', 10, 'S:normal', 6,
+        'P:ufo', 'ufo:56:4.4', 'P:ball:8', 'ball:56', 'P:cube', 14,
+        'blueorb', 12, 'C:1.8', 8, 'stairs', 10, 'S:faster', 8, 's2', 13, 's3', 16] },
+    { id: 12, name: 'Infinite Void', diff: 'Demon', stars: 12, seed: 127, bpm: 164, palette: ['#3a3a4c', '#1c1c28', '#121219'],
+      script: [14, 'S:fast', 6, 's3', 10, 'orb2', 11, 'padtower', 12, 'C:1.8', 10,
+        'P:ship', 'ship:64:4.2:sp', 'P:wave', 'wave:64:3.2', 'P:cube', 14,
+        'S:normal', 6, 'bluepad', 8, 'blueorb', 12, 'G:up:8', 12, 'm:s3', 8, 'm:orb2', 10, 'C:6', 8, 'm:step3', 9, 'G:down', 12,
+        'P:ball:8', 'ball:64', 'P:ufo', 'ufo:64:4.2', 'P:cube', 14,
+        'S:faster', 8, 's2', 13, 'C:2', 12, 'hop', 13, 's3', 16] }
   ];
 
   var levels = specs.map(build);
+  levels.motifs = M; levels.build = build;
   if (typeof module !== 'undefined' && module.exports) module.exports = levels; else root.LEVELS = levels;
 })(typeof window !== 'undefined' ? window : this);

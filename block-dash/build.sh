@@ -9,7 +9,7 @@ rm -rf "$OUT"; mkdir -p "$OUT/classes" "$OUT/assets"
 cp -r web/. "$OUT/assets/"
 
 aapt package -f -M android/AndroidManifest.xml -S android/res -A "$OUT/assets" -I "$ANDROID_JAR" \
-  --min-sdk-version 21 --target-sdk-version 30 --version-code 2 --version-name 2.0 -F "$OUT/unsigned.apk"
+  --min-sdk-version 21 --target-sdk-version 30 --version-code 3 --version-name 3.0 -F "$OUT/unsigned.apk"
 
 javac -nowarn -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$OUT/classes" android/src/com/neondash/game/*.java 2>&1 | grep -v '^Note:\|warning:' || true
 dalvik-exchange --dex --output="$OUT/classes.dex" "$OUT/classes"

@@ -75,7 +75,7 @@
   .arrow { appearance:none; background:none; border:0; padding:0; width:min(11vh,64px); height:min(18vh,100px); cursor:pointer; flex:none; }
   .arrow:active { transform:scale(.92); }
   .arrow svg { width:100%; height:100%; }
-  .lvpanel { width:min(68vw,600px); height:min(52vh,270px); border-radius:24px; border:5px solid #000; position:relative; overflow:hidden; cursor:pointer; display:flex; flex-direction:column; justify-content:center; padding:0 22px;
+  .lvpanel { width:min(68vw,600px); height:min(60vh,300px); border-radius:24px; border:5px solid #000; position:relative; overflow:hidden; cursor:pointer; display:flex; flex-direction:column; justify-content:center; padding:0 22px;
     box-shadow:inset 0 0 0 4px rgba(255,255,255,.25), inset 0 -14px 0 rgba(0,0,0,.18), 0 7px 0 rgba(0,0,0,.4); transition:transform .08s; }
   .lvpanel:active { transform:scale(.98); }
   .lvhead { display:flex; align-items:center; gap:16px; }
@@ -86,10 +86,11 @@
   .lvcoins { position:absolute; right:18px; top:14px; display:flex; gap:4px; }
   .lvcoins svg { width:min(7vh,34px); height:min(7vh,34px); }
   .lvcoins .off { opacity:.3; filter:grayscale(1); }
-  .pbar { position:relative; height:min(6.5vh,30px); border-radius:16px; border:3px solid #000; background:rgba(0,0,0,.35); overflow:hidden; margin-top:6px; }
+  .pbar { position:relative; height:min(5.5vh,26px); border-radius:16px; border:3px solid #000; background:rgba(0,0,0,.35); overflow:hidden; margin-top:6px; }
   .pbar i { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(#b8ff5c,#4fc41c); box-shadow:inset 0 3px 0 rgba(255,255,255,.4); }
+  .pbar i.pr { background:linear-gradient(#8ad8ff,#2a8ae8); }
   .pbar span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:min(4.6vh,20px); }
-  .mode { font-size:min(4.4vh,19px); margin-top:min(3vh,14px); }
+  .mode { font-size:min(4vh,18px); margin-top:min(1.6vh,8px); }
   .dots { display:flex; gap:8px; margin-top:min(4vh,18px); }
   .dots i { width:12px; height:12px; border-radius:50%; background:rgba(0,0,0,.35); border:2px solid #000; }
   .dots i.on { background:#fff; }
@@ -99,7 +100,7 @@
   .gridpick canvas { width:100%; height:auto; aspect-ratio:1; border-radius:10px; border:3px solid transparent; cursor:pointer; }
   .gridpick canvas.sel, .gridpick .sw.sel { border-color:#fff; box-shadow:0 0 0 3px #000; }
   .gridpick .sw { aspect-ratio:1; border-radius:10px; border:3px solid #000; cursor:pointer; }
-  #preview { width:150px; height:75px; flex:none; }
+  #preview { display:block; width:min(100%,500px); height:auto; aspect-ratio:500/120; margin:4px auto 0; }
 
   /* hud */
   #hud { position:fixed; inset:0; pointer-events:none; display:none; }
@@ -153,9 +154,12 @@
 <div id="garage" class="screen">
   <div class="top"><button class="round sm brown" data-go="main" data-icon="back"></button><div></div></div>
   <div class="panel" style="margin-top:40px">
-    <div class="row" style="justify-content:center;gap:20px"><canvas id="preview" width="300" height="150"></canvas><div class="ol" style="font-size:22px">Icon Kit &mdash; all unlocked</div></div>
+    <div class="ol" style="font-size:22px;text-align:center">Icon Kit &mdash; all unlocked</div><canvas id="preview" width="500" height="120"></canvas>
     <h3>Cube</h3><div class="gridpick" id="pickCube"></div>
     <h3>Ship</h3><div class="gridpick" id="pickShip"></div>
+    <h3>Ball</h3><div class="gridpick" id="pickBall"></div>
+    <h3>UFO</h3><div class="gridpick" id="pickUfo"></div>
+    <h3>Wave</h3><div class="gridpick" id="pickWave"></div>
     <h3>Primary color</h3><div class="gridpick" id="pickC1"></div>
     <h3>Secondary color</h3><div class="gridpick" id="pickC2"></div>
   </div>

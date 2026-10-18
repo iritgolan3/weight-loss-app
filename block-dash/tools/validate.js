@@ -10,7 +10,7 @@ for (const L of levels) {
   const t0 = Date.now();
   const inputs = Engine.solve(L, {});
   const ms = Date.now() - t0;
-  if (!inputs) { bad++; console.log(`L${L.id} ${L.name}: FAILED (${ms} ms) stuck near x=${(Engine.solve.deepest*Engine.SUB*Engine.DT*L.speed).toFixed(1)}`); continue; }
+  if (!inputs) { bad++; console.log(`L${L.id} ${L.name}: FAILED (${ms} ms) stuck near x=${Engine.solve.deepestX.toFixed(1)}`); continue; }
   // replay to confirm
   const s = Engine.createState(L, { noEvents: true }, 0);
   for (let i = 0; i < inputs.length && !s.won && !s.dead; i++) for (let j = 0; j < Engine.SUB; j++) Engine.step(s, inputs[i]);
